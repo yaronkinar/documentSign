@@ -1,0 +1,24 @@
+{
+  "name": "@docflow/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./haknasot-pdf-layout": {
+      "types": "./dist/haknasot-pdf-layout.d.ts",
+      "default": "./dist/haknasot-pdf-layout.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');fs.copyFileSync('src/haknasot-pdf-lines.json','dist/haknasot-pdf-lines.json');fs.copyFileSync('src/haknasot-pdf-layout.json','dist/haknasot-pdf-layout.json')\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

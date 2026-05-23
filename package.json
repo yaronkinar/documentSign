@@ -1,0 +1,33 @@
+{
+  "name": "docflow",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npx concurrently -n api,web -c blue,green -k \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run start:dev -w api",
+    "dev:web": "npm run dev -w web",
+    "build:api": "npm run build -w api",
+    "build:web": "npm run build -w web",
+    "build:shared": "npm run build -w @docflow/shared",
+    "build:railway": "npm run build:shared && npm run build:api && npm run build:web",
+    "generate:haknasot-pdf": "node scripts/generate-haknasot-pdf.mjs",
+    "extract:haknasot-fields": "python scripts/extract-haknasot-fields.py",
+    "convert:haknasot-doc": "node scripts/convert-haknasot-doc.mjs",
+    "refresh:haknasot": "npm run convert:haknasot-doc && npm run generate:haknasot-pdf && npm run extract:haknasot-fields",
+    "smoketest:haknasot-fill": "node scripts/test-haknasot-fill.mjs"
+  },
+  "devDependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "concurrently": "^8.2.2",
+    "pdf-lib": "^1.17.1"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "packageManager": "npm@10"
+}

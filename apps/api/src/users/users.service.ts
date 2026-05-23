@@ -1,0 +1,233 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import type { SavedSignatureDto } from '@docflow/shared';
+
+import { User, UserDocument } from './user.schema';
+import { DocumentsService } from '../documents/documents.service';
+import { StorageService } from '../storage/storage.service';
+import {
+  ConfirmSavedSignatureDto,
+  GetSignatureUploadUrlDto,
+} from './users.dto';
+
+const MAX_SAVED_SIGNATURES = 10;
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly documentsService: DocumentsService,
+    private readonly storageService: StorageService,
+  ) {}
+
+  async upsertFromClerk(data: {
+    clerkId: string;
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+  }): Promise<UserDocument> {
+    const newEmail = data.email.toLowerCase();
+    const existing = await this.userModel
+      .findOne({ clerkId: data.clerkId })
+      .select('email')
+      .lean()
+      .exec();
+    const previousEmail = existing?.email ?? null;
+
+    const user = await this.userModel
+      .findOneAndUpdate(
+        { clerkId: data.clerkId },
+        {
+          $set: {
+            email: newEmail,
+            name: data.name,
+            avatarUrl: data.avatarUrl,
+          },
+          $setOnInsert: {
+            clerkId: data.clerkId,
+            role: 'member',
+            savedSignatures: [],
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      )
+      .exec();
+
+    if (previousEmail && previousEmail !== newEmail) {
+      await this.documentsService.propagateParticipantEmailChange(
+        data.clerkId,
+        previousEmail,
+        newEmail,
+      );
+    }
+
+    return user;
+  }
+
+  async anonymizeByClerkId(clerkId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { clerkId },
+        {
+          $set: {
+            email: `deleted+${clerkId}@docflow.local`,
+            name: null,
+            avatarUrl: null,
+          },
+        },
+      )
+      .exec();
+  }
+
+  async findByClerkId(clerkId: string): Promise<UserDocument> {
+    const user = await this.userModel.findOne({ clerkId }).exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async findEmailByClerkId(clerkId: string): Promise<string | null> {
+    const user = await this.userModel
+      .findOne({ clerkId })
+      .select('email')
+      .lean()
+      .exec();
+    return user?.email ?? null;
+  }
+
+  async findClerkIdByEmail(email: string): Promise<string | null> {
+    const user = await this.userModel
+      .findOne({ email: email.toLowerCase() })
+      .select('clerkId')
+      .lean()
+      .exec();
+    return user?.clerkId ?? null;
+  }
+
+  async getSignatureUploadUrl(
+    clerkId: string,
+    _dto: GetSignatureUploadUrlDto,
+  ): Promise<{ uploadUrl: string; imageKey: string }> {
+    const user = await this.findByClerkId(clerkId);
+    if (user.savedSignatures.length >= MAX_SAVED_SIGNATURES) {
+      throw new BadRequestException(
+        `Maximum of ${MAX_SAVED_SIGNATURES} saved signatures reached`,
+      );
+    }
+    const sigId = new Types.ObjectId();
+    const imageKey = `sigs/users/${user._id.toString()}/${sigId.toString()}.png`;
+    const uploadUrl = await this.storageService.getUploadUrl(imageKey, 'image/png');
+    return { uploadUrl, imageKey };
+  }
+
+  async confirmSavedSignature(
+    clerkId: string,
+    imageKey: string,
+    dto: ConfirmSavedSignatureDto,
+  ): Promise<UserDocument> {
+    const user = await this.findByClerkId(clerkId);
+    const expectedPrefix = `sigs/users/${user._id.toString()}/`;
+    if (!imageKey.startsWith(expectedPrefix)) {
+      throw new BadRequestException('Invalid imageKey');
+    }
+    if (user.savedSignatures.length >= MAX_SAVED_SIGNATURES) {
+      throw new BadRequestException('Maximum saved signatures reached');
+    }
+    const isFirst = user.savedSignatures.length === 0;
+    const shouldBeDefault = isFirst || dto.setDefault === true;
+    if (shouldBeDefault) {
+      user.savedSignatures.forEach((s) => {
+        s.isDefault = false;
+      });
+    }
+    user.savedSignatures.push({
+      label: dto.label,
+      imageKey,
+      type: dto.type,
+      isDefault: shouldBeDefault,
+      createdAt: new Date(),
+    } as never);
+    await user.save();
+    return user;
+  }
+
+  async listSavedSignatures(clerkId: string): Promise<SavedSignatureDto[]> {
+    const user = await this.userModel.findOne({ clerkId }).exec();
+    if (!user) return [];
+    return Promise.all(
+      user.savedSignatures.map(async (s) => ({
+        _id: s._id.toString(),
+        label: s.label,
+        imageUrl: await this.storageService.getDownloadUrl(s.imageKey),
+        type: s.type,
+        isDefault: s.isDefault,
+        createdAt: s.createdAt.toISOString(),
+      })),
+    );
+  }
+
+  async setDefaultSignature(
+    clerkId: string,
+    signatureId: string,
+  ): Promise<UserDocument> {
+    const user = await this.findByClerkId(clerkId);
+    const target = user.savedSignatures.id(signatureId);
+    if (!target) throw new NotFoundException('Signature not found');
+    user.savedSignatures.forEach((s) => {
+      s.isDefault = s._id.equals(target._id);
+    });
+    await user.save();
+    return user;
+  }
+
+  async updateSignatureLabel(
+    clerkId: string,
+    signatureId: string,
+    label: string,
+  ): Promise<UserDocument> {
+    const user = await this.findByClerkId(clerkId);
+    const target = user.savedSignatures.id(signatureId);
+    if (!target) throw new NotFoundException('Signature not found');
+    target.label = label;
+    await user.save();
+    return user;
+  }
+
+  async deleteSavedSignature(
+    clerkId: string,
+    signatureId: string,
+  ): Promise<void> {
+    const user = await this.findByClerkId(clerkId);
+    const target = user.savedSignatures.id(signatureId);
+    if (!target) throw new NotFoundException('Signature not found');
+    const wasDefault = target.isDefault;
+    const removedKey = target.imageKey;
+    target.deleteOne();
+    if (wasDefault && user.savedSignatures.length > 0) {
+      user.savedSignatures[0].isDefault = true;
+    }
+    await user.save();
+    // Non-blocking delete from storage
+    this.storageService.deleteObject(removedKey).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[users] storage delete failed', err);
+    });
+  }
+
+  /**
+   * Look up a saved signature by user + signatureId, returning its imageKey.
+   * Used by SignaturesService when a registered user picks from library.
+   */
+  async getSavedSignatureKey(
+    clerkId: string,
+    signatureId: string,
+  ): Promise<string | null> {
+    const user = await this.findByClerkId(clerkId);
+    const sig = user.savedSignatures.id(signatureId);
+    return sig ? sig.imageKey : null;
+  }
+}

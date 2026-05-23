@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(python3 -c \"import docx2txt; print\\(docx2txt.process\\(r'/c/Users/yaron/Downloads/haknasot \\(3\\).doc'\\)\\)\")",
+      "Bash(pdftotext \"/c/Users/yaron/Downloads/haknasot \\(3\\).pdf\" -)",
+      "Bash(python3.14 *)",
+      "Bash(powershell -NoProfile -Command '$w = New-Object -ComObject Word.Application; $w.Visible = $false; $d = $w.Documents.Open\\('\\\\''C:\\\\Users\\\\yaron\\\\Downloads\\\\haknasot \\(3\\).doc'\\\\''\\); $d.Content.Text | Out-String; $d.Close\\($false\\); $w.Quit\\(\\)')",
+      "Bash(iconv -f UTF-16LE -t UTF-8)",
+      "Bash(node -e \"const fields = require\\('./packages/shared/src/haknasot-form-fields.generated.json'\\); console.log\\('Field count:', fields.length\\); const byPage = fields.reduce\\(\\(acc, f\\) => { acc[f.pageNumber] = \\(acc[f.pageNumber] || 0\\) + 1; return acc; }, {}\\); console.log\\('Per page:', byPage\\); const bySection = fields.reduce\\(\\(acc, f\\) => { acc[f.section] = \\(acc[f.section] || 0\\) + 1; return acc; }, {}\\); console.log\\('Per section:', bySection\\); console.log\\('Any field outside [0..100]?', fields.filter\\(f => f.x < 0 || f.y < 0 || f.x + f.width > 100 || f.y + f.height > 100\\).map\\(f => f.id\\)\\);\")",
+      "Bash(npx tsc *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(node scripts/test-haknasot-fill.mjs)",
+      "Bash(node \"C:/Users/yaron/WebstormProjects/documentSign/scripts/test-haknasot-fill.mjs\")",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/test-hebrew-shaping.mjs)",
+      "Bash(python scripts/inspect-haknasot-positions.py)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 64580\")",
+      "Bash(tasklist //FI \"PID eq 64580\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:3001/health)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}

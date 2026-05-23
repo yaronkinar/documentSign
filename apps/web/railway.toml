@@ -1,0 +1,20 @@
+# DocFlow Web — Railway service config
+# In Railway: add a second service for "web" in the same project
+# Settings → Config-as-code → set path to: /apps/web/railway.toml
+# Root Directory: leave empty (repo root — required for npm workspaces)
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci && npm run build:shared && npm run build:web"
+watchPatterns = [
+  "/apps/web/**",
+  "/packages/shared/**",
+  "/package.json",
+  "/package-lock.json",
+]
+
+[deploy]
+startCommand = "npm run start -w web"
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"

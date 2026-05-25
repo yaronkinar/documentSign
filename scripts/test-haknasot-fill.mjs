@@ -22,6 +22,7 @@ const OUT_DIR = path.join(__dirname, '.out');
 const OUT_PATH = path.join(OUT_DIR, 'haknasot-filled-sample.pdf');
 
 const HEBREW_RE = /[֐-׿יִ-ﭏ]/;
+const SHOW_DEBUG_BOXES = false;
 
 // contract_type is rendered as a circle around one of three printed options
 // instead of as text in a box. The value names which option to circle.
@@ -47,6 +48,9 @@ const MOCK_SIGNERS = [
   { name: 'תמר חדד',      date: '20/05/2026' }, // 22. גזבר העירייה
   { name: 'איתן אוחנה',   date: '22/05/2026' }, // 23. מנכ"ל העירייה
 ];
+
+const APPROVAL_NAME_BOX = { x: 52.4, width: 8.7 };
+const APPROVAL_DATE_BOX = { x: 16.9, width: 8.5 };
 
 // Sample values keyed by field id. The contract-types section is filled with
 // real bullet descriptions (the "פרט..." dotted lines on the form).
@@ -90,7 +94,7 @@ async function main() {
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const { PDFDocument, rgb } = await import('pdf-lib');
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
   const fontkit = (await import('@pdf-lib/fontkit')).default;
 
   const pdfBytes = fs.readFileSync(PDF_PATH);
@@ -100,6 +104,8 @@ async function main() {
   const pdfDoc = await PDFDocument.load(pdfBytes);
   pdfDoc.registerFontkit(fontkit);
   const font = await pdfDoc.embedFont(fontBytes);
+  const latinFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const latinBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const pages = pdfDoc.getPages();
 
   let filled = 0;
@@ -129,8 +135,9 @@ async function main() {
     const boxHeight = (field.height / 100) * ph;
 
     const fontSize = Math.max(7, Math.min(10, boxHeight * 0.75));
+    const fieldFont = HEBREW_RE.test(raw) ? font : latinFont;
     // Let pdf-lib + fontkit handle Hebrew shaping/BiDi — pass the raw string.
-    const textWidth = font.widthOfTextAtSize(raw, fontSize);
+    const textWidth = fieldFont.widthOfTextAtSize(raw, fontSize);
 
     // RTL forms: right-align Hebrew/long fields, left-align numeric for clarity.
     const rightAlign = HEBREW_RE.test(raw);
@@ -139,23 +146,24 @@ async function main() {
       : boxLeft + 1;
     const y = ph - boxTopFromTop - fontSize * 0.85;
 
-    // Light highlight box so we can see where each field sits.
-    page.drawRectangle({
-      x: boxLeft,
-      y: ph - boxTopFromTop - boxHeight,
-      width: boxWidth,
-      height: boxHeight,
-      borderColor: rgb(0.9, 0.6, 0.6),
-      borderWidth: 0.3,
-      color: rgb(1, 0.97, 0.85),
-      opacity: 0.35,
-    });
+    if (SHOW_DEBUG_BOXES) {
+      page.drawRectangle({
+        x: boxLeft,
+        y: ph - boxTopFromTop - boxHeight,
+        width: boxWidth,
+        height: boxHeight,
+        borderColor: rgb(0.9, 0.6, 0.6),
+        borderWidth: 0.3,
+        color: rgb(1, 0.97, 0.85),
+        opacity: 0.35,
+      });
+    }
 
     page.drawText(raw, {
       x,
       y,
       size: fontSize,
-      font,
+      font: fieldFont,
       color: rgb(0, 0, 0.5),
     });
 
@@ -201,42 +209,75 @@ async function main() {
       const boxWidth = (row.width / 100) * pw;
       const boxHeight = (row.height / 100) * ph;
       const boxTopFromTop = (row.y / 100) * ph;
+      const nameLeft = (APPROVAL_NAME_BOX.x / 100) * pw;
+      const nameWidthPx = (APPROVAL_NAME_BOX.width / 100) * pw;
+      const dateLeft = (APPROVAL_DATE_BOX.x / 100) * pw;
+      const dateWidthPx = (APPROVAL_DATE_BOX.width / 100) * pw;
 
-      sigPage.drawRectangle({
-        x: boxLeft,
-        y: ph - boxTopFromTop - boxHeight,
-        width: boxWidth,
-        height: boxHeight,
-        borderColor: rgb(0.2, 0.4, 0.8),
-        borderWidth: 0.6,
-        color: rgb(0.85, 0.92, 1),
-        opacity: 0.4,
-      });
+      if (SHOW_DEBUG_BOXES) {
+        sigPage.drawRectangle({
+          x: boxLeft,
+          y: ph - boxTopFromTop - boxHeight,
+          width: boxWidth,
+          height: boxHeight,
+          borderColor: rgb(0.2, 0.4, 0.8),
+          borderWidth: 0.6,
+          color: rgb(0.85, 0.92, 1),
+          opacity: 0.4,
+        });
+      }
 
       const signer = MOCK_SIGNERS[idx];
       if (!signer) return;
 
       const nameSize = Math.min(8, boxHeight * 0.42);
-      const dateSize = Math.min(7, boxHeight * 0.34);
+      const dateSize = Math.min(8.5, boxHeight * 0.45);
       const boxBottom = ph - boxTopFromTop - boxHeight;
 
-      // Right-align Hebrew names; place name in the top half, date below.
+      // Place each value on its printed dotted area: שם, חתימה, תאריך.
+      const signatureText = 'חתימה';
+      const signatureSize = Math.min(8, boxHeight * 0.42);
+      const signatureWidth = font.widthOfTextAtSize(signatureText, signatureSize);
+      sigPage.drawText(signatureText, {
+        x: boxLeft + (boxWidth - signatureWidth) / 2,
+        y: boxBottom + boxHeight * 0.7,
+        size: signatureSize,
+        font,
+        color: rgb(0.1, 0.25, 0.75),
+      });
+      sigPage.drawLine({
+        start: { x: boxLeft + boxWidth * 0.18, y: boxBottom + boxHeight * 0.35 },
+        end: { x: boxLeft + boxWidth * 0.82, y: boxBottom + boxHeight * 0.55 },
+        thickness: 0.8,
+        color: rgb(0.1, 0.25, 0.75),
+      });
+
       const nameWidth = font.widthOfTextAtSize(signer.name, nameSize);
       sigPage.drawText(signer.name, {
-        x: boxLeft + boxWidth - nameWidth - 2,
+        x: nameLeft + nameWidthPx - nameWidth - 1,
         y: boxBottom + boxHeight * 0.72,
         size: nameSize,
         font,
         color: rgb(0.2, 0.4, 0.8),
       });
 
-      const dateWidth = font.widthOfTextAtSize(signer.date, dateSize);
+      const dateWidth = latinBoldFont.widthOfTextAtSize(signer.date, dateSize);
+      const dateX = dateLeft + (dateWidthPx - dateWidth) / 2;
+      const dateY = boxBottom + boxHeight * 0.66;
+      sigPage.drawRectangle({
+        x: dateX - 1,
+        y: dateY - 1,
+        width: dateWidth + 2,
+        height: dateSize + 2,
+        color: rgb(1, 1, 1),
+        opacity: 0.9,
+      });
       sigPage.drawText(signer.date, {
-        x: boxLeft + boxWidth - dateWidth - 2,
-        y: boxBottom + boxHeight * 0.32,
+        x: dateX,
+        y: dateY,
         size: dateSize,
-        font,
-        color: rgb(0.2, 0.4, 0.8),
+        font: latinBoldFont,
+        color: rgb(0, 0, 0),
       });
     });
   }

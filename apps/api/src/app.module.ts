@@ -16,6 +16,7 @@ import { SignaturesModule } from './signatures/signatures.module';
 import { CommentsModule } from './comments/comments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuthModule } from './auth/auth.module';
+import { TemplatesModule } from './templates/templates.module';
 import { HealthController } from './health/health.controller';
 
 function resolveEnvFilePath(): string | undefined {
@@ -62,6 +63,7 @@ function resolveEnvFilePath(): string | undefined {
     SignaturesModule,
     CommentsModule,
     NotificationsModule,
+    TemplatesModule,
   ],
   controllers: [HealthController],
 })

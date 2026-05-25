@@ -38,12 +38,17 @@ export class PlaceSignatureDto {
   @Max(100)
   height!: number;
 
+  @IsOptional()
   @IsString()
-  imageKey!: string;
+  imageKey?: string;
 
   @IsOptional()
   @IsString()
   savedSignatureId?: string;
+
+  @IsOptional()
+  @IsString()
+  signerProfileId?: string;
 
   @IsOptional()
   @IsString()

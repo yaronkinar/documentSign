@@ -6,6 +6,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  *
  * Key naming conventions (used throughout the app - do not deviate):
  *   - PDF uploads:                docs/{documentId}/{uuid}.pdf
+ *   - Template PDFs:              templates/{templateId}/{uuid}.pdf
  *   - User saved signatures:      sigs/users/{userId}/{sigId}.png
  *   - Signer profile signatures:  sigs/profiles/{profileId}.png
  *   - Document placed signatures: sigs/docs/{documentId}/{sigId}.png
@@ -72,6 +73,17 @@ export class StorageService {
       );
     }
     return Buffer.from(await data.arrayBuffer());
+  }
+
+  async uploadBuffer(key: string, data: Buffer, contentType: string): Promise<void> {
+    const { error } = await this.client.storage
+      .from(this.bucket)
+      .upload(key, data, { contentType, upsert: true });
+    if (error) {
+      throw new InternalServerErrorException(
+        `[storage] upload failed: ${error.message}`,
+      );
+    }
   }
 
   async deleteObject(key: string): Promise<void> {

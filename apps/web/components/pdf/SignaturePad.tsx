@@ -16,15 +16,17 @@ export interface SignaturePadProps {
   uploadBlob?: (blob: Blob) => Promise<string>;
   /** Available when mode === 'registered' */
   savedSignatures?: SavedSignatureDto[];
+  /** Which tab to open first; defaults to 'draw' (or 'library' when savedSignatures exist) */
+  defaultTab?: Tab;
   onComplete: (imageKey: string, savedSignatureId?: string) => void;
   onClose: () => void;
 }
 
-type Tab = 'draw' | 'type' | 'upload' | 'library';
+export type Tab = 'draw' | 'type' | 'upload' | 'library';
 
 export function SignaturePad(props: SignaturePadProps) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('draw');
+  const [tab, setTab] = useState<Tab>(props.defaultTab ?? 'draw');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

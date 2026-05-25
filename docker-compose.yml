@@ -1,0 +1,66 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      PORT: "3001"
+      REDIS_URL: redis://redis:6379
+      CHOKIDAR_USEPOLLING: "1"
+    depends_on:
+      - redis
+    develop:
+      watch:
+        - path: apps/api/src
+          action: sync
+          target: /app/apps/api/src
+        - path: packages/shared/src
+          action: rebuild
+        - path: apps/api/package.json
+          action: rebuild
+        - path: package.json
+          action: rebuild
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      API_URL: http://api:3001
+      PORT: "3000"
+      WATCHPACK_POLLING: "true"
+    depends_on:
+      - api
+    develop:
+      watch:
+        - path: apps/web/app
+          action: sync
+          target: /app/apps/web/app
+        - path: apps/web/components
+          action: sync
+          target: /app/apps/web/components
+        - path: apps/web/lib
+          action: sync
+          target: /app/apps/web/lib
+        - path: packages/shared/src
+          action: rebuild
+        - path: apps/web/package.json
+          action: rebuild
+        - path: package.json
+          action: rebuild
+
+volumes:
+  redis_data:

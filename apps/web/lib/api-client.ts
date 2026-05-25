@@ -14,7 +14,16 @@ export class ApiError extends Error {
 }
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+  typeof window === 'undefined'
+    ? (process.env.API_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      'http://localhost:3001')
+    : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001');
+
+const SERVER_BYPASS_TOKEN =
+  process.env.BYPASS_AUTH === 'true'
+    ? (process.env.BYPASS_TOKEN ?? null)
+    : null;
 
 interface RequestOptions {
   token?: string | null;
@@ -44,7 +53,8 @@ async function request<T>(
   }
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`;
+  const token = SERVER_BYPASS_TOKEN ?? opts.token;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   let res: Response;
   try {
@@ -100,12 +110,17 @@ export const apiClient = {
 import { useAuth } from '@clerk/nextjs';
 import { useCallback, useMemo } from 'react';
 
+const CLIENT_BYPASS_TOKEN =
+  process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+    ? (process.env.NEXT_PUBLIC_BYPASS_TOKEN ?? null)
+    : null;
+
 export function useApiClient() {
   const { getToken } = useAuth();
 
   const withToken = useCallback(
     async <T,>(fn: (token: string) => Promise<T>): Promise<T> => {
-      const token = await getToken();
+      const token = CLIENT_BYPASS_TOKEN ?? (await getToken());
       if (!token) throw new ApiError(401, 'Not authenticated');
       return fn(token);
     },

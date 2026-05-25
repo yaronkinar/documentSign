@@ -13,6 +13,7 @@ import { Document, DocumentDocument } from '../documents/document.schema';
 import { StorageService } from '../storage/storage.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { UsersService } from '../users/users.service';
+import { SignerProfilesService } from '../signer-profiles/signer-profiles.service';
 import { PlaceSignatureDto } from './signatures.dto';
 import { SignatureFieldsService } from '../documents/signature-fields.service';
 
@@ -36,8 +37,27 @@ export class SignaturesService {
     private readonly storageService: StorageService,
     private readonly workflowService: WorkflowService,
     private readonly usersService: UsersService,
+    private readonly signerProfilesService: SignerProfilesService,
     private readonly signatureFieldsService: SignatureFieldsService,
   ) {}
+
+  /** Returns the signer-profile signature for the current user on this document, if one exists. */
+  async getProfileSignature(
+    documentId: string,
+    signerEmail: string,
+  ): Promise<{ signerProfileId: string; signatureImageUrl: string } | null> {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) return null;
+    const found = await this.signerProfilesService.findProfileForSigner(
+      doc.ownerId,
+      signerEmail,
+    );
+    if (!found) return null;
+    return {
+      signerProfileId: found._id,
+      signatureImageUrl: await this.storageService.getDownloadUrl(found.imageKey),
+    };
+  }
 
   async getGuestUploadUrl(
     documentId: string,
@@ -84,8 +104,25 @@ export class SignaturesService {
     if (step.status !== 'in_progress') {
       throw new BadRequestException('Step is not active');
     }
-    const signer = step.signers.find((s) => s.email === ctx.signerEmail);
+    const requestedField = dto.signatureFieldId
+      ? doc.signatureFields?.id(dto.signatureFieldId)
+      : null;
+    if (dto.signatureFieldId && !requestedField) {
+      throw new NotFoundException('Signature field not found');
+    }
+
+    const signer = requestedField
+      ? step.signers.id(String(requestedField.signerId)) ??
+        step.signers.find((s) => String(s._id) === String(requestedField.signerId))
+      : step.signers.find(
+          (s) =>
+            s.status === 'pending' &&
+            (s.email === ctx.signerEmail || s.clerkId === ctx.signerId),
+        );
     if (!signer) throw new ForbiddenException('Not a signer on this step');
+    if (signer.email !== ctx.signerEmail && signer.clerkId !== ctx.signerId) {
+      throw new ForbiddenException('This signer does not match your account');
+    }
     if (signer.status !== 'pending') {
       throw new BadRequestException('Already responded');
     }
@@ -109,7 +146,7 @@ export class SignaturesService {
           'Sign in one of your assigned signature fields',
         );
       }
-      const field = doc.signatureFields?.id(dto.signatureFieldId);
+      const field = requestedField ?? doc.signatureFields?.id(dto.signatureFieldId);
       if (!field) throw new NotFoundException('Signature field not found');
       if (String(field.signerId) !== String(signer._id)) {
         throw new ForbiddenException('This field is not assigned to you');
@@ -133,8 +170,9 @@ export class SignaturesService {
       throw new BadRequestException('No assigned fields for this signer');
     }
 
-    let imageKey = dto.imageKey;
-    // Registered user picking from library
+    let imageKey = dto.imageKey ?? '';
+
+    // Registered user picking from saved-signature library
     if (dto.savedSignatureId && ctx.signerId) {
       const libraryKey = await this.usersService.getSavedSignatureKey(
         ctx.signerId,
@@ -146,10 +184,27 @@ export class SignaturesService {
       imageKey = libraryKey;
     }
 
-    // Validate the imageKey belongs to a sensible namespace
+    // Pre-uploaded signature from the document owner's signer profile
+    if (dto.signerProfileId) {
+      const profileKey = await this.signerProfilesService.getImageKey(
+        doc.ownerId,
+        dto.signerProfileId,
+      );
+      if (!profileKey) {
+        throw new BadRequestException('Signer profile signature not found');
+      }
+      imageKey = profileKey;
+    }
+
+    if (!imageKey) {
+      throw new BadRequestException('No signature image provided');
+    }
+
+    // Validate the imageKey belongs to a recognised namespace
     const validNamespace =
       imageKey.startsWith(`sigs/docs/${dto.documentId}/`) ||
-      imageKey.startsWith('sigs/users/');
+      imageKey.startsWith('sigs/users/') ||
+      imageKey.startsWith('sigs/profiles/');
     if (!validNamespace) {
       throw new BadRequestException('Invalid imageKey');
     }
@@ -185,9 +240,10 @@ export class SignaturesService {
       await this.workflowService.recordSignature(
         String(doc._id),
         String(step._id),
-        ctx.signerEmail,
+        signer.email,
         ctx.signerId,
         ctx.actorName,
+        String(signer._id),
       );
     }
 

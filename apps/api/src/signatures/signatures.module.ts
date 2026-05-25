@@ -8,6 +8,7 @@ import { SignaturesController } from './signatures.controller';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { UsersModule } from '../users/users.module';
 import { DocumentsModule } from '../documents/documents.module';
+import { SignerProfilesModule } from '../signer-profiles/signer-profiles.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DocumentsModule } from '../documents/documents.module';
     WorkflowModule,
     UsersModule,
     DocumentsModule,
+    SignerProfilesModule,
   ],
   providers: [SignaturesService],
   controllers: [SignaturesController],

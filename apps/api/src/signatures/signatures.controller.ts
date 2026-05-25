@@ -108,6 +108,17 @@ export class SignaturesController {
     return { ok: true };
   }
 
+  /** Returns the pre-uploaded profile signature for the calling user on this document, or null. */
+  @Get('documents/:id/my-signer-profile')
+  @UseGuards(ClerkAuthGuard)
+  async getMySignerProfile(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    if (!user.email) return null;
+    return this.signaturesService.getProfileSignature(id, user.email);
+  }
+
   @Get('documents/:id/signatures')
   @UseGuards(ClerkAuthGuard)
   list(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {

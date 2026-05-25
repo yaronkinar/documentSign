@@ -4,10 +4,12 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 
@@ -98,6 +100,38 @@ export class DocumentsController {
     return this.documentsService.getDocument(id, user.clerkId, user.email);
   }
 
+  @Get(':id/rendered.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Cache-Control', 'no-store')
+  async renderHaknasot(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    if (!user.email) throw new BadRequestException('No email on token');
+    const bytes = await this.documentsService.renderHaknasotDocument(
+      id,
+      user.clerkId,
+      user.email,
+    );
+    return new StreamableFile(bytes);
+  }
+
+  @Get(':id/download.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Cache-Control', 'no-store')
+  async downloadPdf(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    if (!user.email) throw new BadRequestException('No email on token');
+    const bytes = await this.documentsService.downloadDocumentPdf(
+      id,
+      user.clerkId,
+      user.email,
+    );
+    return new StreamableFile(bytes);
+  }
+
   @Delete(':id')
   async remove(
     @CurrentUser() user: CurrentUserPayload,
@@ -116,6 +150,15 @@ export class DocumentsController {
     if (!user.email) throw new BadRequestException('No email on token');
     const doc = await this.workflowService.submitDocument(id, user.clerkId, user.email);
     return toDocumentDto(doc);
+  }
+
+  @Post(':id/dev/sign-all')
+  devSignAll(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() body: { imageKeys?: Record<string, string> },
+  ) {
+    return this.documentsService.devSignAll(id, user.clerkId, body?.imageKeys);
   }
 
   @Post(':id/steps')

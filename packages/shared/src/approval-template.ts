@@ -19,24 +19,24 @@ export const MUNICIPAL_APPROVAL_SIGNER_TITLES = [
 
 /** Signature box positions aligned with page 2 of the haknasot form. */
 export const MUNICIPAL_APPROVAL_SIGNATURE_ROWS = [
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[0], pageNumber: 2, x: 38, y: 29, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[1], pageNumber: 2, x: 38, y: 32.5, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[2], pageNumber: 2, x: 38, y: 36, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[3], pageNumber: 2, x: 38, y: 39.5, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[4], pageNumber: 2, x: 38, y: 44.5, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[5], pageNumber: 2, x: 38, y: 48, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[6], pageNumber: 2, x: 38, y: 51.5, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[7], pageNumber: 2, x: 38, y: 55, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[8], pageNumber: 2, x: 38, y: 60, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[9], pageNumber: 2, x: 38, y: 63.5, width: 20, height: 3.5 },
-  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[10], pageNumber: 2, x: 38, y: 67, width: 20, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[0], pageNumber: 2, x: 29, y: 30.31, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[1], pageNumber: 2, x: 29, y: 34.76, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[2], pageNumber: 2, x: 29, y: 38.96, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[3], pageNumber: 2, x: 29, y: 43.17, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[4], pageNumber: 2, x: 29, y: 47.37, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[5], pageNumber: 2, x: 29, y: 51.59, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[6], pageNumber: 2, x: 29, y: 56.02, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[7], pageNumber: 2, x: 29, y: 60.24, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[8], pageNumber: 2, x: 29, y: 64.44, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[9], pageNumber: 2, x: 29, y: 68.65, width: 10, height: 3.5 },
+  { label: MUNICIPAL_APPROVAL_SIGNER_TITLES[10], pageNumber: 2, x: 29, y: 73.10, width: 10, height: 3.5 },
 ] as const;
 
 /** @deprecated Use MUNICIPAL_APPROVAL_SIGNATURE_ROWS */
 export const MUNICIPAL_APPROVAL_FIELD_LAYOUT = {
   pageNumber: 2,
-  x: 38,
-  width: 20,
+  x: 29,
+  width: 10,
   height: 3.5,
   startY: 29,
   rowGap: 3.5,

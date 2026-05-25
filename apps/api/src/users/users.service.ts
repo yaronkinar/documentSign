@@ -108,6 +108,22 @@ export class UsersService {
     return user?.clerkId ?? null;
   }
 
+  async searchUsers(
+    query: string,
+    limit = 10,
+  ): Promise<Array<{ email: string; name?: string }>> {
+    if (!query || query.trim().length < 2) return [];
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+    const users = await this.userModel
+      .find({ $or: [{ email: regex }, { name: regex }] })
+      .select('email name')
+      .limit(limit)
+      .lean()
+      .exec();
+    return users.map((u) => ({ email: u.email, name: u.name ?? undefined }));
+  }
+
   async getSignatureUploadUrl(
     clerkId: string,
     _dto: GetSignatureUploadUrlDto,

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   CommentDto,
   DocumentDto,
+  SavedSignatureDto,
   SignatureDto,
   SignatureFieldDto,
   SignerDto,
@@ -13,10 +14,12 @@ import { resolveFormTemplateFields } from '@docflow/shared';
 
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
+import { SignaturePad } from '@/components/pdf/SignaturePad';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { useDocumentSocket } from '@/lib/socket';
+import { useRenderedPdfUrl } from '@/lib/use-rendered-pdf-url';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 import {
   createMissingTemplateFields,
@@ -33,13 +36,24 @@ interface Props {
   myEmail: string;
 }
 
-interface PendingPlacement {
+interface SigTarget {
   page: number;
   x: number;
   y: number;
-  signatureFieldId?: string;
-  width?: number;
-  height?: number;
+  w?: number;
+  h?: number;
+  fieldId?: string;
+}
+
+const HAKNASOT_RENDER_VERSION = 'signature-row-v2';
+
+function safePdfFileName(title: string): string {
+  const cleaned = title
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  return cleaned || 'document';
 }
 
 export function DocumentViewerClient({
@@ -64,7 +78,10 @@ export function DocumentViewerClient({
   const [fieldPlacementMode, setFieldPlacementMode] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [selectedSignerKey, setSelectedSignerKey] = useState('');
-  const [pendingPlacement, setPendingPlacement] = useState<PendingPlacement | null>(null);
+  const [showSigPad, setShowSigPad] = useState(false);
+  const [pendingSigTargets, setPendingSigTargets] = useState<SigTarget[] | null>(null);
+  const [savedSignatures, setSavedSignatures] = useState<SavedSignatureDto[]>([]);
+  const [profileSignatureId, setProfileSignatureId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resendBusy, setResendBusy] = useState<string | null>(null);
   const [submitBusy, setSubmitBusy] = useState(false);
@@ -72,14 +89,31 @@ export function DocumentViewerClient({
   const [autoMapBusy, setAutoMapBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [formSaveBusy, setFormSaveBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
   const autoMapOnLoadRef = useRef(false);
 
   const formFields = resolveFormTemplateFields(doc.formTemplateId);
   const hasForm = formFields.length > 0;
   const isTemplateDoc = !!doc.formTemplateId;
+  const isHaknasot = doc.formTemplateId === 'haknasot';
+  // During draft the owner is filling the form: use the static template PDF
+  // with form-field overlays so both pages stay visible and the view doesn't
+  // reload on every save. After submission use the server-rendered PDF (values
+  // + signatures baked in) so signers see the final output.
+  const showRenderedPdf = isHaknasot && doc.status !== 'draft';
+  const renderedCacheKey = showRenderedPdf
+    ? `${HAKNASOT_RENDER_VERSION}:${doc.updatedAt}:${signatures.length}:${Object.keys(doc.formValues ?? {}).length}`
+    : '';
+  const { pdfUrl: renderedPdfUrl, loading: renderedPdfLoading } =
+    useRenderedPdfUrl(showRenderedPdf ? doc._id : null, renderedCacheKey);
   const { pdfUrl: templatePdfUrl, loading: templatePdfLoading } =
-    useTemplatePdfUrl(doc.formTemplateId && !doc.fileUrl ? doc.formTemplateId : null);
-  const viewerPdfUrl = doc.fileUrl ?? templatePdfUrl;
+    useTemplatePdfUrl(
+      !showRenderedPdf && doc.formTemplateId && !doc.fileUrl ? doc.formTemplateId : null,
+    );
+  const viewerPdfUrl = showRenderedPdf
+    ? renderedPdfUrl
+    : doc.fileUrl ?? templatePdfUrl;
+  const viewerLoading = showRenderedPdf ? renderedPdfLoading : templatePdfLoading;
 
   const signatureSigners = listSignatureSigners(doc);
   const unmappedSigners = signersMissingFields(doc, signatureFields);
@@ -251,6 +285,15 @@ export function DocumentViewerClient({
   }
 
   useEffect(() => {
+    api.get<SavedSignatureDto[]>('/users/me/signatures')
+      .then(setSavedSignatures)
+      .catch(() => {});
+    api.get<{ signerProfileId: string } | null>(`/documents/${doc._id}/my-signer-profile`)
+      .then((r) => { if (r) setProfileSignatureId(r.signerProfileId); })
+      .catch(() => {});
+  }, [doc._id]);
+
+  useEffect(() => {
     if (autoMapOnLoadRef.current || isTemplateDoc) return;
     if (!isOwner || !isDraft) return;
     if (signersMissingFields(doc, signatureFields).length === 0) return;
@@ -289,6 +332,33 @@ export function DocumentViewerClient({
     }
   }
 
+  async function downloadCurrentPdf() {
+    const sourceUrl = showRenderedPdf ? renderedPdfUrl : viewerPdfUrl;
+    if (!sourceUrl) return;
+
+    setDownloadBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(sourceUrl);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      if (blob.size === 0) throw new Error('Downloaded PDF is empty');
+
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `${safePdfFileName(doc.title)}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.downloadFailed'));
+    } finally {
+      setDownloadBusy(false);
+    }
+  }
+
   async function submitDocument() {
     if (!isTemplateDoc && unmappedSigners.length > 0) {
       const names = unmappedSigners
@@ -310,43 +380,30 @@ export function DocumentViewerClient({
     }
   }
 
-  /** Renders the signer's name + current date onto a canvas and returns a PNG blob. */
-  function buildAutoSignatureBlob(name: string): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const W = 400;
-      const H = 120;
-      const canvas = document.createElement('canvas');
-      canvas.width = W;
-      canvas.height = H;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#111';
-      ctx.font = 'italic 46px "Dancing Script", Georgia, cursive';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(name, 14, H * 0.44);
-      ctx.font = '13px system-ui, sans-serif';
-      ctx.fillStyle = '#555';
-      const dateStr = new Date().toLocaleDateString();
-      ctx.fillText(dateStr, 14, H * 0.82);
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas toBlob failed'))), 'image/png');
-    });
+  /** Open the signature pad for the given placement targets (or assigned fields if omitted). */
+  function startSign(fields?: SigTarget[]) {
+    if (!activeStep || !mySignerInActiveStep) return;
+    // Priority 1: pre-uploaded signer-profile signature
+    if (profileSignatureId) {
+      void signWithImage('', undefined, fields, profileSignatureId);
+      return;
+    }
+    // Priority 2: user's own default saved signature
+    const defaultSig = savedSignatures.find((s) => s.isDefault) ?? null;
+    if (defaultSig) {
+      void signWithImage('', defaultSig._id, fields);
+      return;
+    }
+    setPendingSigTargets(fields ?? null);
+    setShowSigPad(true);
   }
 
-  /**
-   * One-click sign: generates a name+date image and places it on every
-   * assigned field for this signer (or at the given free-placement spot).
-   */
-  async function autoSign(
-    fields?: Array<{ page: number; x: number; y: number; w?: number; h?: number; fieldId?: string }>,
-  ) {
+  /** Called after the user picks/draws their signature in the pad. */
+  async function signWithImage(imageKey: string, savedSignatureId?: string, overrideTargets?: SigTarget[], signerProfileId?: string) {
     if (!activeStep || !mySignerInActiveStep) return;
-    const signerName = mySignerInActiveStep.name ?? myEmail;
     setError(null);
     try {
-      const blob = await buildAutoSignatureBlob(signerName);
-      const imageKey = await uploadSignatureBlob(blob);
-      const targets = fields ?? myAssignedFields.map((f) => ({
+      const targets = overrideTargets ?? pendingSigTargets ?? myAssignedFields.map((f) => ({
         page: f.pageNumber,
         x: f.x,
         y: f.y,
@@ -354,22 +411,24 @@ export function DocumentViewerClient({
         h: f.height,
         fieldId: f._id,
       }));
-      for (const t of targets) {
+      for (const tgt of targets) {
         const newSig = await api.post<SignatureDto>(`/documents/${doc._id}/sign`, {
           documentId: doc._id,
           stepId: activeStep._id,
-          pageNumber: t.page,
-          x: t.x,
-          y: t.y,
-          width: t.w ?? 15,
-          height: t.h ?? 6,
-          imageKey,
-          signatureFieldId: t.fieldId,
+          pageNumber: tgt.page,
+          x: tgt.x,
+          y: tgt.y,
+          width: tgt.w ?? 15,
+          height: tgt.h ?? 6,
+          ...(imageKey && { imageKey }),
+          signatureFieldId: tgt.fieldId,
+          ...(savedSignatureId && { savedSignatureId }),
+          ...(signerProfileId && { signerProfileId }),
         });
         setSignatures((prev) => [...prev, newSig]);
       }
       setPlacementMode(false);
-      setPendingPlacement(null);
+      setPendingSigTargets(null);
       await refreshDoc();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('document.recordSignatureFailed'));
@@ -378,15 +437,14 @@ export function DocumentViewerClient({
 
   function onPlace(page: number, x: number, y: number) {
     if (!placementMode) return;
-    // Auto-sign immediately at the clicked location — no pad needed
-    void autoSign([{ page, x, y }]);
     setPlacementMode(false);
+    startSign([{ page, x, y }]);
   }
 
   function onFieldClick(field: SignatureFieldDto) {
     if (!canSign || !mySignerInActiveStep) return;
     if (field.signerId !== mySignerInActiveStep._id) return;
-    void autoSign([{
+    startSign([{
       page: field.pageNumber,
       x: field.x,
       y: field.y,
@@ -425,7 +483,15 @@ export function DocumentViewerClient({
             )}
           </div>
         </div>
-        {isOwner && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={downloadCurrentPdf}
+            disabled={!viewerPdfUrl || viewerLoading || downloadBusy}
+            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {downloadBusy ? t('common.downloading') : t('common.downloadPdf')}
+          </button>
           <button
             type="button"
             onClick={deleteDocument}
@@ -434,7 +500,7 @@ export function DocumentViewerClient({
           >
             {deleteBusy ? t('common.deleting') : t('document.deleteDocument')}
           </button>
-        )}
+        </div>
       </header>
 
       {error && (
@@ -478,7 +544,7 @@ export function DocumentViewerClient({
 
       <div className="flex flex-1 overflow-hidden">
         <section className="flex-1 overflow-auto bg-gray-50 p-4">
-          {templatePdfLoading && !viewerPdfUrl && (
+          {viewerLoading && !viewerPdfUrl && (
             <p className="py-16 text-center text-sm text-gray-500">
               {t('pdf.loading')}
             </p>
@@ -486,11 +552,11 @@ export function DocumentViewerClient({
           {viewerPdfUrl && (
             <PDFViewer
               pdfUrl={viewerPdfUrl}
-              signatures={signatures}
-              signatureFields={signatureFields}
+              signatures={showRenderedPdf ? [] : signatures}
+              signatureFields={showRenderedPdf ? signatureFields.filter((f) => !f.signed) : signatureFields}
               comments={comments}
-              formFields={formFields}
-              formValues={doc.formValues}
+              formFields={showRenderedPdf ? [] : formFields}
+              formValues={showRenderedPdf ? undefined : doc.formValues}
               placementMode={placementMode}
               fieldPlacementMode={fieldPlacementMode}
               commentMode={commentMode}
@@ -624,7 +690,7 @@ export function DocumentViewerClient({
             )}
             {canSign && usesAssignedFields && (
               <button
-                onClick={() => void autoSign()}
+                onClick={() => startSign()}
                 className="rounded bg-black px-6 py-2 text-sm font-medium text-white shadow hover:bg-gray-800"
               >
                 ✍ {t('document.signDocument')}
@@ -649,6 +715,13 @@ export function DocumentViewerClient({
                 </button>
               </div>
             )}
+            <button
+              onClick={downloadCurrentPdf}
+              disabled={!viewerPdfUrl || viewerLoading || downloadBusy}
+              className="rounded border bg-white px-5 py-2 text-sm shadow disabled:opacity-50"
+            >
+              {downloadBusy ? t('common.downloading') : t('common.downloadPdf')}
+            </button>
             <button
               onClick={() => {
                 setCommentMode((v) => !v);
@@ -745,6 +818,22 @@ export function DocumentViewerClient({
         </aside>
       </div>
 
+      {showSigPad && (
+        <SignaturePad
+          mode="registered"
+          savedSignatures={savedSignatures}
+          defaultTab={savedSignatures.length > 0 ? 'library' : 'draw'}
+          uploadBlob={uploadSignatureBlob}
+          onClose={() => {
+            setShowSigPad(false);
+            setPendingSigTargets(null);
+          }}
+          onComplete={(imageKey, savedSignatureId) => {
+            setShowSigPad(false);
+            void signWithImage(imageKey, savedSignatureId);
+          }}
+        />
+      )}
     </main>
   );
 }

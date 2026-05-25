@@ -60,7 +60,21 @@ async function ensureFont() {
 
 function resolveSourcePdf() {
   for (const candidate of sourceCandidates) {
-    if (candidate && fs.existsSync(candidate)) return candidate;
+    if (!candidate || !fs.existsSync(candidate)) continue;
+
+    const stat = fs.statSync(candidate);
+    if (stat.size === 0) {
+      console.warn(`Ignoring empty haknasot source PDF: ${candidate}`);
+      continue;
+    }
+
+    const header = fs.readFileSync(candidate, { encoding: 'utf8', flag: 'r' }).slice(0, 4);
+    if (header !== '%PDF') {
+      console.warn(`Ignoring invalid haknasot source PDF: ${candidate}`);
+      continue;
+    }
+
+    return candidate;
   }
   return null;
 }

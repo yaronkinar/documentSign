@@ -67,7 +67,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
   }, []);
 
-  const dir = locale === 'he' ? 'rtl' : 'ltr';
+  const dir: 'ltr' | 'rtl' = locale === 'he' ? 'rtl' : 'ltr';
 
   useEffect(() => {
     if (!ready) return;

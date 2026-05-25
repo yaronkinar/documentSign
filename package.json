@@ -18,12 +18,18 @@
     "extract:haknasot-fields": "python scripts/extract-haknasot-fields.py",
     "convert:haknasot-doc": "node scripts/convert-haknasot-doc.mjs",
     "refresh:haknasot": "npm run convert:haknasot-doc && npm run generate:haknasot-pdf && npm run extract:haknasot-fields",
-    "smoketest:haknasot-fill": "node scripts/test-haknasot-fill.mjs"
+    "smoketest:haknasot-fill": "node scripts/test-haknasot-fill.mjs",
+    "create:document": "node scripts/create-document.mjs",
+    "create:approved-haknasot": "node scripts/create-approved-haknasot.mjs"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
+    "@playwright/test": "^1.60.0",
+    "better-sqlite3": "^12.10.0",
     "concurrently": "^8.2.2",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "engines": {
     "node": ">=20",

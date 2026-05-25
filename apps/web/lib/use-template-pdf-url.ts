@@ -38,6 +38,9 @@ export function useTemplatePdfUrl(formTemplateId: string | null | undefined) {
           throw new Error(`Template PDF not found (${res.status})`);
         }
         const blob = await res.blob();
+        if (blob.size === 0) {
+          throw new Error('Template PDF is empty. Regenerate the sample PDF.');
+        }
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         setPdfUrl(objectUrl);

@@ -13,17 +13,17 @@ export const HAKNASOT_PAGE_SIZE = { width: 595.32, height: 842.04 };
 // Measured directly from haknasot.pdf (items 13–23 on page 2). The previous
 // y-values drifted up to 6% off the actual rows.
 export const MUNICIPAL_APPROVAL_SIGNATURE_ROWS = [
-  { pageNumber: 2, x: 38, y: 30.31, width: 20, height: 3.5 }, // 13. אישור מנהל האגף
-  { pageNumber: 2, x: 38, y: 34.76, width: 20, height: 3.5 }, // 14. אישור ראש המנהל
-  { pageNumber: 2, x: 38, y: 38.96, width: 20, height: 3.5 }, // 15. אישור יועץ משפטי
-  { pageNumber: 2, x: 38, y: 43.17, width: 20, height: 3.5 }, // 16. אישור מנהל אגף נכסים
-  { pageNumber: 2, x: 38, y: 47.37, width: 20, height: 3.5 }, // 17. אישור חשב האגף
-  { pageNumber: 2, x: 38, y: 51.59, width: 20, height: 3.5 }, // 18. אישור מהנדס העירייה
-  { pageNumber: 2, x: 38, y: 56.02, width: 20, height: 3.5 }, // 19. אישור מ.אגף מכרזים
-  { pageNumber: 2, x: 38, y: 60.24, width: 20, height: 3.5 }, // 20. אישור מנהל אגף תכנון ופיתוח כלכלי
-  { pageNumber: 2, x: 38, y: 64.44, width: 20, height: 3.5 }, // 21. אישור מ.אגף גזברות
-  { pageNumber: 2, x: 38, y: 68.65, width: 20, height: 3.5 }, // 22. אישור גזבר העירייה
-  { pageNumber: 2, x: 38, y: 73.10, width: 20, height: 3.5 }, // 23. אישור מנכ"ל העירייה
+  { pageNumber: 2, x: 29, y: 30.31, width: 10, height: 3.5 }, // 13. אישור מנהל האגף
+  { pageNumber: 2, x: 29, y: 34.76, width: 10, height: 3.5 }, // 14. אישור ראש המנהל
+  { pageNumber: 2, x: 29, y: 38.96, width: 10, height: 3.5 }, // 15. אישור יועץ משפטי
+  { pageNumber: 2, x: 29, y: 43.17, width: 10, height: 3.5 }, // 16. אישור מנהל אגף נכסים
+  { pageNumber: 2, x: 29, y: 47.37, width: 10, height: 3.5 }, // 17. אישור חשב האגף
+  { pageNumber: 2, x: 29, y: 51.59, width: 10, height: 3.5 }, // 18. אישור מהנדס העירייה
+  { pageNumber: 2, x: 29, y: 56.02, width: 10, height: 3.5 }, // 19. אישור מ.אגף מכרזים
+  { pageNumber: 2, x: 29, y: 60.24, width: 10, height: 3.5 }, // 20. אישור מנהל אגף תכנון ופיתוח כלכלי
+  { pageNumber: 2, x: 29, y: 64.44, width: 10, height: 3.5 }, // 21. אישור מ.אגף גזברות
+  { pageNumber: 2, x: 29, y: 68.65, width: 10, height: 3.5 }, // 22. אישור גזבר העירייה
+  { pageNumber: 2, x: 29, y: 73.10, width: 10, height: 3.5 }, // 23. אישור מנכ"ל העירייה
 ];
 
 const HEBREW_RE = /[\u0590-\u05FF\uFB1D-\uFB4F]/;
@@ -129,8 +129,8 @@ export async function buildHaknasotPdfBytes(fontBytes, lines = loadHaknasotLines
 /** @deprecated */
 export const MUNICIPAL_APPROVAL_FIELD_LAYOUT = {
   pageNumber: 2,
-  x: 38,
-  width: 20,
+  x: 29,
+  width: 10,
   height: 3.5,
   startY: 29,
   rowGap: 3.5,

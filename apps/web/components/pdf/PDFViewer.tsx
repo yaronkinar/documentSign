@@ -6,6 +6,16 @@ import type { CommentDto, PdfFormFieldTemplate, SignatureDto, SignatureFieldDto 
 
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
+export interface TemplateEditField {
+  id: string;
+  label: string;
+  pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface PDFViewerProps {
   pdfUrl: string;
   signatures?: SignatureDto[];
@@ -23,6 +33,14 @@ export interface PDFViewerProps {
   formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   activeFormFieldId?: string | null;
+  // Template editing
+  templateEditMode?: boolean;
+  templateEditFields?: TemplateEditField[];
+  selectedTemplateFieldId?: string | null;
+  onTemplateFieldSelect?: (id: string | null) => void;
+  onTemplateFieldAdd?: (page: number, xPct: number, yPct: number) => void;
+  onTemplateFieldMove?: (id: string, x: number, y: number) => void;
+  onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }
 
 let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
@@ -38,8 +56,8 @@ function loadPdfJs() {
 }
 
 function computeScale(containerWidth: number, pageWidth: number) {
-  const available = Math.max(containerWidth - 32, 320);
-  return Math.min(1.5, Math.max(0.75, available / pageWidth));
+  const available = Math.max(containerWidth - 32, 100);
+  return Math.min(1.5, Math.max(0.4, available / pageWidth));
 }
 
 /**
@@ -60,7 +78,7 @@ export function PDFViewer(props: PDFViewerProps) {
 
   useEffect(() => {
     let cancelled = false;
-    let loadingTask: { destroy: () => void } | null = null;
+    let loadingTask: { promise: Promise<any>; destroy: () => void } | null = null;
 
     setLoading(true);
     setError(null);
@@ -104,7 +122,12 @@ export function PDFViewer(props: PDFViewerProps) {
   }, [props.pdfUrl, t]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div
+      ref={containerRef}
+      className="relative"
+      dir="ltr"
+      style={{ direction: 'ltr', unicodeBidi: 'isolate' }}
+    >
       {loading && (
         <div className="py-16 text-center text-sm text-gray-500">
           {t('pdf.loading')}
@@ -151,6 +174,15 @@ export function PDFViewer(props: PDFViewerProps) {
               )}
               formValues={props.formValues}
               activeFormFieldId={props.activeFormFieldId}
+              templateEditMode={!!props.templateEditMode}
+              templateEditFields={(props.templateEditFields ?? []).filter(
+                (f) => f.pageNumber === pageNumber,
+              )}
+              selectedTemplateFieldId={props.selectedTemplateFieldId}
+              onTemplateFieldSelect={props.onTemplateFieldSelect}
+              onTemplateFieldAdd={props.onTemplateFieldAdd}
+              onTemplateFieldMove={props.onTemplateFieldMove}
+              onTemplateFieldResize={props.onTemplateFieldResize}
             />
           );
         })}
@@ -178,6 +210,13 @@ function LazyPDFPage({
   formFields,
   formValues,
   activeFormFieldId,
+  templateEditMode,
+  templateEditFields,
+  selectedTemplateFieldId,
+  onTemplateFieldSelect,
+  onTemplateFieldAdd,
+  onTemplateFieldMove,
+  onTemplateFieldResize,
 }: {
   pdf: PDFDocumentProxy;
   pageNumber: number;
@@ -198,10 +237,19 @@ function LazyPDFPage({
   formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   activeFormFieldId?: string | null;
+  templateEditMode: boolean;
+  templateEditFields: TemplateEditField[];
+  selectedTemplateFieldId?: string | null;
+  onTemplateFieldSelect?: (id: string | null) => void;
+  onTemplateFieldAdd?: (page: number, xPct: number, yPct: number) => void;
+  onTemplateFieldMove?: (id: string, x: number, y: number) => void;
+  onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
+  const justDraggedRef = useRef(false);
   const [dimensions, setDimensions] = useState<{
     width: number;
     height: number;
@@ -235,13 +283,17 @@ function LazyPDFPage({
       try {
         renderTaskRef.current?.cancel();
         const page = await pdf.getPage(pageNumber);
-        const viewport = page.getViewport({ scale });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        const cssViewport = page.getViewport({ scale });
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = cssViewport.width * dpr;
+        canvas.height = cssViewport.height * dpr;
+        canvas.style.width = `${cssViewport.width}px`;
+        canvas.style.height = `${cssViewport.height}px`;
         const ctx = canvas.getContext('2d');
         if (!ctx || cancelled) return;
 
-        const task = page.render({ canvasContext: ctx, viewport });
+        const hiResViewport = page.getViewport({ scale: scale * dpr });
+        const task = page.render({ canvasContext: ctx, viewport: hiResViewport });
         renderTaskRef.current = task;
         await task.promise;
         if (!cancelled) setRendered(true);
@@ -282,6 +334,18 @@ function LazyPDFPage({
   }, [pdf, pageNumber, scale, dimensions, eager, prefetch]);
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (templateEditMode) {
+      if (justDraggedRef.current) {
+        justDraggedRef.current = false;
+        return;
+      }
+      const rect = e.currentTarget.getBoundingClientRect();
+      const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+      const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+      onTemplateFieldSelect?.(null);
+      onTemplateFieldAdd?.(pageNumber, xPct, yPct);
+      return;
+    }
     if (!placementMode && !fieldPlacementMode && !commentMode) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const xPct = ((e.clientX - rect.left) / rect.width) * 100;
@@ -305,7 +369,78 @@ function LazyPDFPage({
     onFieldClick?.(field);
   }
 
+  function startTemplateDrag(
+    e: React.MouseEvent,
+    field: TemplateEditField,
+    mode: 'move' | 'resize',
+  ) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const fieldEl = (e.currentTarget as HTMLElement).closest('[data-tfield]') as HTMLElement;
+    if (!fieldEl) return;
+
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startFieldX = field.x;
+    const startFieldY = field.y;
+    const startWidth = field.width;
+    const startHeight = field.height;
+
+    onTemplateFieldSelect?.(field.id);
+
+    function onMouseMove(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const rect = overlay.getBoundingClientRect();
+      const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+      const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+
+      if (mode === 'move') {
+        const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
+        const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
+        fieldEl.style.left = `${newX}%`;
+        fieldEl.style.top = `${newY}%`;
+      } else {
+        const newW = Math.max(5, startWidth + dx);
+        const newH = Math.max(2, startHeight + dy);
+        fieldEl.style.width = `${newW}%`;
+        fieldEl.style.height = `${newH}%`;
+      }
+    }
+
+    function onMouseUp(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (overlay) {
+        const rect = overlay.getBoundingClientRect();
+        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+        const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
+
+        if (moved) {
+          justDraggedRef.current = true;
+          if (mode === 'move') {
+            const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
+            const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
+            onTemplateFieldMove?.(field.id, newX, newY);
+          } else {
+            const newW = Math.max(5, startWidth + dx);
+            const newH = Math.max(2, startHeight + dy);
+            onTemplateFieldResize?.(field.id, newW, newH);
+          }
+          setTimeout(() => { justDraggedRef.current = false; }, 50);
+        }
+      }
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
   const overlayInteractive =
+    templateEditMode ||
     placementMode ||
     fieldPlacementMode ||
     commentMode ||
@@ -319,10 +454,13 @@ function LazyPDFPage({
     <div
       ref={wrapperRef}
       data-page-number={pageNumber}
+      dir="ltr"
       className="relative mx-auto mb-4 border border-gray-200 bg-white shadow-sm"
       style={{
         width: dimensions?.width,
         minHeight: dimensions?.height,
+        direction: 'ltr',
+        unicodeBidi: 'isolate',
       }}
     >
       {!rendered && dimensions && (
@@ -335,19 +473,26 @@ function LazyPDFPage({
       )}
       <canvas
         ref={canvasRef}
-        className="block max-w-full"
-        style={{ display: rendered ? 'block' : 'none' }}
+        className="block"
+        dir="ltr"
+        style={{
+          display: rendered ? 'block' : 'none',
+          direction: 'ltr',
+          unicodeBidi: 'isolate',
+        }}
       />
       {renderError && (
         <div className="p-3 text-xs text-red-600">{renderError}</div>
       )}
       {rendered && (
         <div
+          ref={overlayRef}
           onClick={handleClick}
           className="absolute inset-0"
           style={{
-            cursor:
-              placementMode || fieldPlacementMode || commentMode
+            cursor: templateEditMode
+              ? (onTemplateFieldAdd ? 'crosshair' : 'default')
+              : placementMode || fieldPlacementMode || commentMode
                 ? 'crosshair'
                 : 'default',
             pointerEvents: overlayInteractive ? 'auto' : 'none',
@@ -371,9 +516,7 @@ function LazyPDFPage({
                     : value
                       ? '1px solid transparent'
                       : '1px dashed rgba(37, 99, 235, 0.35)',
-                  background: value
-                    ? 'rgba(255, 255, 255, 0.82)'
-                    : 'rgba(37, 99, 235, 0.04)',
+                  background: value ? '#fff' : 'rgba(37, 99, 235, 0.04)',
                   borderRadius: 2,
                   pointerEvents: 'none',
                   overflow: 'hidden',
@@ -495,6 +638,69 @@ function LazyPDFPage({
               }}
             />
           ))}
+          {/* Template edit fields */}
+          {templateEditMode && templateEditFields.map((field) => {
+            const isSelected = selectedTemplateFieldId === field.id;
+            return (
+              <div
+                key={field.id}
+                data-tfield={field.id}
+                onMouseDown={(e) => startTemplateDrag(e, field, 'move')}
+                onClick={(e) => { e.stopPropagation(); onTemplateFieldSelect?.(field.id); }}
+                style={{
+                  position: 'absolute',
+                  left: `${field.x}%`,
+                  top: `${field.y}%`,
+                  width: `${field.width}%`,
+                  height: `${field.height}%`,
+                  border: isSelected ? '2px solid #2563eb' : '2px dashed #6366f1',
+                  background: isSelected
+                    ? 'rgba(37, 99, 235, 0.12)'
+                    : 'rgba(99, 102, 241, 0.08)',
+                  borderRadius: 4,
+                  cursor: 'move',
+                  boxSizing: 'border-box',
+                  userSelect: 'none',
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -18,
+                    left: 0,
+                    fontSize: 10,
+                    lineHeight: 1,
+                    color: isSelected ? '#1d4ed8' : '#4f46e5',
+                    whiteSpace: 'nowrap',
+                    pointerEvents: 'none',
+                    background: 'rgba(255,255,255,0.85)',
+                    padding: '1px 3px',
+                    borderRadius: 2,
+                  }}
+                >
+                  {field.label || `Field`}
+                </span>
+                {/* Resize handle */}
+                <div
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    startTemplateDrag(e, field, 'resize');
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: 10,
+                    height: 10,
+                    background: isSelected ? '#2563eb' : '#6366f1',
+                    cursor: 'se-resize',
+                    borderRadius: '2px 0 2px 0',
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

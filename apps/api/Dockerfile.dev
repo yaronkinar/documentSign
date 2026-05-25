@@ -1,0 +1,21 @@
+FROM node:22-alpine
+WORKDIR /app
+
+RUN apk add --no-cache python3 make g++
+
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+RUN npm ci
+
+COPY packages/shared/ ./packages/shared/
+RUN npm run build -w @docflow/shared
+
+COPY scripts/ ./scripts/
+COPY apps/web/public/ ./apps/web/public/
+RUN npm run generate:haknasot-pdf
+
+COPY apps/api/ ./apps/api/
+
+EXPOSE 3001
+CMD ["npm", "run", "start:dev", "-w", "api"]

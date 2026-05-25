@@ -10,6 +10,10 @@ import { WorkflowModule } from '../workflow/workflow.module';
 import { InvitesModule } from '../invites/invites.module';
 import { AiModule } from '../ai/ai.module';
 import { SignatureFieldsService } from './signature-fields.service';
+import {
+  SignerProfile,
+  SignerProfileSchema,
+} from '../signer-profiles/signer-profile.schema';
 
 @Module({
   imports: [
@@ -17,6 +21,7 @@ import { SignatureFieldsService } from './signature-fields.service';
       { name: Document.name, schema: DocumentSchema },
       { name: Signature.name, schema: SignatureSchema },
       { name: Comment.name, schema: CommentSchema },
+      { name: SignerProfile.name, schema: SignerProfileSchema },
     ]),
     WorkflowModule,
     InvitesModule,

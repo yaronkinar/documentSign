@@ -243,6 +243,28 @@ export interface CommentDto {
   updatedAt: string;
 }
 
+export interface TemplateFieldDto {
+  _id: string;
+  label: string;
+  pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PdfTemplateDto {
+  _id: string;
+  name: string;
+  fileUrl: string | null;
+  fileSize: number | null;
+  pageCount: number | null;
+  isDefault: boolean;
+  fields: TemplateFieldDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuditEventDto {
   _id: string;
   documentId: string;

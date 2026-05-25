@@ -10,14 +10,47 @@ interface PageProps {
   params: { id: string };
 }
 
-export default async function DocumentViewerPage({ params }: PageProps) {
-  const { userId, getToken } = auth();
-  if (!userId) redirect('/sign-in');
+const BYPASS = process.env.BYPASS_AUTH === 'true';
+const BYPASS_CLERK_ID = 'bypass-dev-user';
+const BYPASS_EMAIL = process.env.BYPASS_AUTH_EMAIL ?? 'test@example.com';
+const BYPASS_TOKEN = process.env.BYPASS_TOKEN ?? 'dev-bypass-token-local';
 
-  const token = await getToken();
-  const user = await currentUser();
-  const myEmail =
-    user?.primaryEmailAddress?.emailAddress?.toLowerCase() ?? '';
+function emailFromSessionClaims(claims: unknown): string {
+  if (!claims || typeof claims !== 'object') return '';
+  const record = claims as Record<string, unknown>;
+  const email =
+    record.email ??
+    record.email_address ??
+    record.primary_email_address ??
+    record.primaryEmailAddress;
+  return typeof email === 'string' ? email.toLowerCase() : '';
+}
+
+export default async function DocumentViewerPage({ params }: PageProps) {
+  let userId: string;
+  let token: string | null;
+  let myEmail: string;
+
+  if (BYPASS) {
+    userId = BYPASS_CLERK_ID;
+    token = BYPASS_TOKEN;
+    myEmail = BYPASS_EMAIL;
+  } else {
+    const clerkAuth = auth();
+    if (!clerkAuth.userId) redirect('/sign-in');
+    userId = clerkAuth.userId;
+    token = await clerkAuth.getToken();
+    myEmail = emailFromSessionClaims(clerkAuth.sessionClaims);
+    try {
+      const user = await currentUser();
+      myEmail =
+        user?.primaryEmailAddress?.emailAddress?.toLowerCase() ?? myEmail;
+    } catch (err) {
+      // The document can still render with a Clerk id if user lookup fails.
+      // eslint-disable-next-line no-console
+      console.error('[document] failed to load current user', err);
+    }
+  }
 
   let doc: DocumentDto;
   try {

@@ -20,12 +20,17 @@ import {
   UpdateSavedSignatureLabelDto,
 } from './users.dto';
 
-@Controller('users/me')
+@Controller('users')
 @UseGuards(ClerkAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Get()
+  @Get('search')
+  async search(@Query('q') q: string) {
+    return this.usersService.searchUsers(q ?? '');
+  }
+
+  @Get('me')
   async me(@CurrentUser() user: CurrentUserPayload) {
     const u = await this.usersService.findByClerkId(user.clerkId);
     return {
@@ -38,14 +43,14 @@ export class UsersController {
     };
   }
 
-  @Get('signatures')
+  @Get('me/signatures')
   listSignatures(
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<SavedSignatureDto[]> {
     return this.usersService.listSavedSignatures(user.clerkId);
   }
 
-  @Post('signatures/upload-url')
+  @Post('me/signatures/upload-url')
   uploadUrl(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: GetSignatureUploadUrlDto,
@@ -53,7 +58,7 @@ export class UsersController {
     return this.usersService.getSignatureUploadUrl(user.clerkId, dto);
   }
 
-  @Post('signatures/confirm')
+  @Post('me/signatures/confirm')
   async confirm(
     @CurrentUser() user: CurrentUserPayload,
     @Body() body: ConfirmSavedSignatureDto & { imageKey: string },
@@ -62,7 +67,7 @@ export class UsersController {
     return this.usersService.listSavedSignatures(user.clerkId);
   }
 
-  @Patch('signatures/:id/default')
+  @Patch('me/signatures/:id/default')
   async setDefault(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
@@ -71,7 +76,7 @@ export class UsersController {
     return { ok: true };
   }
 
-  @Patch('signatures/:id')
+  @Patch('me/signatures/:id')
   async updateLabel(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
@@ -81,7 +86,7 @@ export class UsersController {
     return { ok: true };
   }
 
-  @Delete('signatures/:id')
+  @Delete('me/signatures/:id')
   async remove(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,

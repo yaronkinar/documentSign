@@ -40,6 +40,14 @@ export class ClerkAuthGuard implements CanActivate {
       throw new UnauthorizedException('Empty bearer token');
     }
 
+    const bypassToken = process.env.BYPASS_TOKEN;
+    if (process.env.BYPASS_AUTH === 'true' && bypassToken && token === bypassToken) {
+      req.clerkUserId = 'bypass-dev-user';
+      req.actorEmail = process.env.BYPASS_AUTH_EMAIL ?? 'test@example.com';
+      req.actorName = 'Dev User';
+      return true;
+    }
+
     try {
       const payload = await verifyToken(token, { secretKey: this.secretKey });
       req.clerkUserId = payload.sub;

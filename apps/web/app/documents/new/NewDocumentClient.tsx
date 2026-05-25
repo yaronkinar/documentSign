@@ -13,6 +13,7 @@ import {
 
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
+import { useUser } from '@clerk/nextjs';
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { downloadHaknasotPdf } from '@/lib/generate-haknasot-pdf';
@@ -35,6 +36,7 @@ export function NewDocumentClient() {
   const router = useRouter();
   const api = useApiClient();
   const { t } = useTranslation();
+  const { user: clerkUser } = useUser();
   const [step, setStep] = useState<Step>('start');
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [title, setTitle] = useState(HEBREW_SAMPLE_DEFAULT_TITLE);
@@ -46,6 +48,41 @@ export function NewDocumentClient() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [formFields, setFormFields] = useState<ReturnType<typeof resolveFormTemplateFields>>([]);
+  const [currentUserEmail, setCurrentUserEmail] = useState(
+    () => clerkUser?.primaryEmailAddress?.emailAddress ?? '',
+  );
+  const [currentUserName, setCurrentUserName] = useState(
+    () => clerkUser?.fullName ?? '',
+  );
+
+  useEffect(() => {
+    const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress;
+    if (clerkEmail && !currentUserEmail) setCurrentUserEmail(clerkEmail);
+    const clerkName = clerkUser?.fullName;
+    if (clerkName && !currentUserName) setCurrentUserName(clerkName);
+  }, [clerkUser]);
+
+  useEffect(() => {
+    api.get<{ email: string; name: string | null }>('/users/me').then((me) => {
+      if (me.email) setCurrentUserEmail(me.email);
+      if (me.name) setCurrentUserName(me.name);
+    }).catch(() => {});
+  }, []);
+
+  async function resolveCurrentUserEmail(): Promise<string> {
+    if (currentUserEmail) return currentUserEmail;
+    try {
+      const me = await api.get<{ email: string; name: string | null }>('/users/me');
+      if (me.email) {
+        setCurrentUserEmail(me.email);
+        setCurrentUserName(me.name ?? '');
+        return me.email;
+      }
+    } catch {
+      // fall through to Clerk
+    }
+    return clerkUser?.primaryEmailAddress?.emailAddress ?? '';
+  }
 
   async function requestSummarize(id: string) {
     setSummarizing(true);
@@ -176,26 +213,27 @@ export function NewDocumentClient() {
     if (!documentId) return;
     setBusy(true);
     setError(null);
+    const userEmail = await resolveCurrentUserEmail();
     try {
-      // Persist each step (which also persists its signers atomically)
       for (const s of steps) {
         if (s.signers.length === 0) {
           throw new Error(t('newDocument.stepNoSigners', { label: s.label }));
         }
-        const missing = s.signers.filter((sg) => !sg.email);
-        if (missing.length > 0) {
-          throw new Error(
-            t('newDocument.stepMissingEmail', {
-              label: s.label,
-              names: missing.map((sg) => sg.name ?? '?').join(', '),
-            }),
-          );
+        const anyMissingEmail = s.signers.some((sg) => !sg.email);
+        if (anyMissingEmail && !userEmail) {
+          throw new Error(t('newDocument.stepMissingEmail', {
+            label: s.label,
+            names: s.signers.filter((sg) => !sg.email).map((sg) => sg.name ?? '?').join(', '),
+          }));
         }
+        const resolvedSigners = s.signers.map((sg) =>
+          sg.email ? sg : { ...sg, email: userEmail },
+        );
         await api.post<DocumentDto>(`/documents/${documentId}/steps`, {
           label: s.label,
           stepType: s.stepType,
           executionMode: 'parallel',
-          signers: s.signers,
+          signers: resolvedSigners,
         });
       }
       router.push(`/documents/${documentId}`);
@@ -248,6 +286,8 @@ export function NewDocumentClient() {
       {step === 'workflow' && (
         <WorkflowStepEditor
           steps={steps}
+          currentUserEmail={currentUserEmail}
+          currentUserName={currentUserName}
           onAddStep={addStep}
           onUpdateStep={updateStep}
           onRemoveStep={removeStep}
@@ -519,6 +559,8 @@ function DetailsStep({
 
 function WorkflowStepEditor({
   steps,
+  currentUserEmail,
+  currentUserName,
   onAddStep,
   onUpdateStep,
   onRemoveStep,
@@ -528,6 +570,8 @@ function WorkflowStepEditor({
   onBack,
 }: {
   steps: WorkflowStepInput[];
+  currentUserEmail: string;
+  currentUserName: string;
   onAddStep: () => void;
   onUpdateStep: (i: number, patch: Partial<WorkflowStepInput>) => void;
   onRemoveStep: (i: number) => void;
@@ -549,6 +593,8 @@ function WorkflowStepEditor({
           key={i}
           step={s}
           index={i}
+          currentUserEmail={currentUserEmail}
+          currentUserName={currentUserName}
           onUpdate={(patch) => onUpdateStep(i, patch)}
           onRemove={() => onRemoveStep(i)}
           onAddSigner={(signer) => onAddSigner(i, signer)}
@@ -579,6 +625,8 @@ function WorkflowStepEditor({
 
 function StepCard({
   step,
+  currentUserEmail,
+  currentUserName,
   onUpdate,
   onRemove,
   onAddSigner,
@@ -586,13 +634,14 @@ function StepCard({
 }: {
   step: WorkflowStepInput;
   index: number;
+  currentUserEmail: string;
+  currentUserName: string;
   onUpdate: (patch: Partial<WorkflowStepInput>) => void;
   onRemove: () => void;
   onAddSigner: (s: SignerInput) => void;
   onRemoveSigner: (j: number) => void;
 }) {
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
   const [selectedTitle, setSelectedTitle] = useState('');
   const [customName, setCustomName] = useState('');
 
@@ -605,9 +654,8 @@ function StepCard({
       : selectedTitle;
 
   function addSigner() {
-    if (!resolvedName && !email) return;
-    onAddSigner({ email, name: resolvedName || undefined });
-    setEmail('');
+    if (!resolvedName && !currentUserEmail) return;
+    onAddSigner({ email: currentUserEmail, name: resolvedName || undefined });
     setSelectedTitle('');
     setCustomName('');
   }
@@ -615,7 +663,7 @@ function StepCard({
   function addAllApprovalRoles() {
     const toAdd = MUNICIPAL_APPROVAL_SIGNER_TITLES.filter(
       (title) => !usedTitles.has(title),
-    ).map((name) => ({ email: '', name }));
+    ).map((name) => ({ email: currentUserEmail, name }));
     if (toAdd.length === 0) return;
     onUpdate({ signers: [...step.signers, ...toAdd] });
   }
@@ -712,18 +760,6 @@ function StepCard({
                       }}
                     />
                   )}
-                  <input
-                    type="email"
-                    placeholder={t('newDocument.emailPlaceholder')}
-                    className="flex-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-sm"
-                    value={s.email}
-                    onChange={(e) => {
-                      const updated = step.signers.map((sig, idx) =>
-                        idx === j ? { ...sig, email: e.target.value } : sig,
-                      );
-                      onUpdate({ signers: updated });
-                    }}
-                  />
                   <button
                     onClick={() => onRemoveSigner(j)}
                     className="text-xs text-gray-400 hover:text-red-600"
@@ -773,16 +809,9 @@ function StepCard({
               onChange={(e) => setCustomName(e.target.value)}
             />
           )}
-          <input
-            type="email"
-            placeholder={t('newDocument.emailPlaceholder')}
-            className="min-w-48 flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
           <button
             onClick={addSigner}
-            disabled={!resolvedName && !email}
+            disabled={!resolvedName && !currentUserEmail}
             className="rounded bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200 disabled:opacity-50"
           >
             {t('common.add')}

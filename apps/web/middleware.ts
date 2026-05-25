@@ -9,6 +9,7 @@ const isPublic = createRouteMatcher([
 ]);
 
 export default clerkMiddleware((auth, req) => {
+  if (process.env.BYPASS_AUTH === 'true') return;
   if (!isPublic(req)) {
     auth().protect();
   }

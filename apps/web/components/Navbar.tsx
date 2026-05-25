@@ -41,9 +41,14 @@ export function Navbar() {
         match: (path: string) => path === '/signatures',
       },
       {
-        href: '/users',
+        href: '/templates',
+        label: t('nav.templates'),
+        match: (path: string) => path.startsWith('/templates'),
+      },
+      {
+        href: '/signer-profiles',
         label: t('nav.users'),
-        match: (path: string) => path === '/users',
+        match: (path: string) => path === '/signer-profiles' || path === '/users',
       },
     ],
     [t],

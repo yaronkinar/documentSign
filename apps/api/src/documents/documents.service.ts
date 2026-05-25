@@ -7,7 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { AuditEventType, HEBREW_SAMPLE_DEFAULT_TITLE, HAKNASOT_FORM_TEMPLATE_ID, MUNICIPAL_APPROVAL_SIGNER_TITLES, type DocumentDto } from '@docflow/shared';
+import { AuditEventType, HAKNASOT_FORM_TEMPLATE_ID, MUNICIPAL_APPROVAL_SIGNER_TITLES, type DocumentDto } from '@docflow/shared';
 
 import { Document, DocumentDocument } from './document.schema';
 import { Signature, SignatureDocument } from '../signatures/signature.schema';
@@ -22,6 +22,12 @@ import { AuditService } from '../audit/audit.service';
 import { AiService } from '../ai/ai.service';
 import { ConfirmUploadDto, CreateDocumentDto, UpdateDocumentDto, UpdateFormValuesDto } from './documents.dto';
 import { toDocumentDto } from './documents.mapper';
+import { WorkflowService } from '../workflow/workflow.service';
+import { renderHaknasotPdf, type SignedRowInput } from './haknasot-renderer';
+import {
+  SignerProfile,
+  type SignerProfileDocument,
+} from '../signer-profiles/signer-profile.schema';
 
 @Injectable()
 export class DocumentsService {
@@ -32,10 +38,13 @@ export class DocumentsService {
     private readonly signatureModel: Model<SignatureDocument>,
     @InjectModel(Comment.name)
     private readonly commentModel: Model<CommentDocument>,
+    @InjectModel(SignerProfile.name)
+    private readonly signerProfileModel: Model<SignerProfileDocument>,
     private readonly invitesService: InvitesService,
     private readonly storageService: StorageService,
     private readonly auditService: AuditService,
     private readonly aiService: AiService,
+    private readonly workflowService: WorkflowService,
   ) {}
 
   async createFromTemplate(
@@ -122,9 +131,6 @@ export class DocumentsService {
     const doc = await this.findOwnedDocument(documentId, clerkId);
     doc.fileSize = dto.fileSize;
     doc.pageCount = dto.pageCount;
-    if (this.shouldUseHaknasotTemplate(doc.title)) {
-      doc.formTemplateId = HAKNASOT_FORM_TEMPLATE_ID;
-    }
     await doc.save();
 
     this.auditService.log({
@@ -146,17 +152,35 @@ export class DocumentsService {
     if (doc.description?.trim()) {
       return { summary: doc.description };
     }
-    if (!doc.fileKey) {
-      if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
-        return {
-          summary: 'טופס הכנסות – אישור והרחבת חוזה עירוני',
-        };
-      }
-      throw new BadRequestException('Document has no PDF to summarize');
+
+    let text = '';
+    if (doc.fileKey) {
+      const pdfBuffer = await this.storageService.downloadObject(doc.fileKey);
+      text = await this.aiService.extractPdfText(pdfBuffer);
     }
-    const pdfBuffer = await this.storageService.downloadObject(doc.fileKey);
-    const text = await this.aiService.extractPdfText(pdfBuffer);
-    const summary = await this.aiService.summarizeDocumentText(text, doc.title);
+
+    const hasFormValues =
+      doc.formValues &&
+      Object.values(doc.formValues).some(
+        (v) => typeof v === 'string' && v.trim().length > 0,
+      );
+    if (!text && !hasFormValues) {
+      throw new BadRequestException('Document has no content to summarize');
+    }
+
+    const signers = doc.workflowSteps.flatMap((step) =>
+      step.signers.map((s) => ({
+        name: s.name,
+        email: s.email,
+        status: s.status,
+        stepLabel: step.label,
+      })),
+    );
+    const summary = await this.aiService.summarizeDocumentText(text, {
+      title: doc.title,
+      formValues: doc.formValues,
+      signers,
+    });
     doc.description = summary;
     await doc.save();
     return { summary };
@@ -187,9 +211,6 @@ export class DocumentsService {
     const doc = await this.findOwnedDocument(documentId, clerkId);
     if (dto.title !== undefined) {
       doc.title = dto.title;
-      if (this.shouldUseHaknasotTemplate(dto.title) && !doc.formTemplateId) {
-        doc.formTemplateId = HAKNASOT_FORM_TEMPLATE_ID;
-      }
     }
     if (dto.description !== undefined) doc.description = dto.description;
     await doc.save();
@@ -268,12 +289,269 @@ export class DocumentsService {
     return toDocumentDto(doc, fileUrl ? { fileUrl } : undefined);
   }
 
+  async renderHaknasotDocument(
+    documentId: string,
+    clerkId: string,
+    email: string,
+  ): Promise<Buffer> {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    const isParticipant =
+      doc.ownerId === clerkId ||
+      doc.participantClerkIds.includes(clerkId) ||
+      doc.participantEmails.includes(email.toLowerCase());
+    if (!isParticipant) throw new ForbiddenException();
+    if (doc.formTemplateId !== HAKNASOT_FORM_TEMPLATE_ID) {
+      throw new BadRequestException('Document does not use the haknasot template');
+    }
+
+    const signatureDocs = await this.signatureModel
+      .find({ documentId: doc._id })
+      .exec();
+    const signerProfiles = await this.signerProfileModel
+      .find({ ownerId: doc.ownerId })
+      .select('title name email')
+      .lean()
+      .exec();
+    const profileNameByTitle = new Map<string, string>();
+    const profilesByEmail = new Map<string, typeof signerProfiles>();
+    const usableProfileName = (name?: string | null): string | null => {
+      const trimmed = name?.trim();
+      return trimmed && trimmed !== '—' ? trimmed : null;
+    };
+    for (const profile of signerProfiles) {
+      const profileName = usableProfileName(profile.name);
+      if (profileName) {
+        profileNameByTitle.set(profile.title.trim(), profileName);
+      }
+      if (profile.email) {
+        const email = profile.email.toLowerCase();
+        profilesByEmail.set(email, [...(profilesByEmail.get(email) ?? []), profile]);
+      }
+    }
+    const resolveSignerDisplayName = (signer: {
+      email: string;
+      name: string | null;
+    }): string | null => {
+      if (signer.name) {
+        const profileName = profileNameByTitle.get(signer.name.trim());
+        if (profileName) return profileName;
+      }
+      const emailProfiles = profilesByEmail.get(signer.email.toLowerCase()) ?? [];
+      if (signer.name) {
+        const profileByTitle = emailProfiles.find(
+          (profile) => profile.title.trim() === signer.name?.trim(),
+        );
+        const profileName = usableProfileName(profileByTitle?.name);
+        if (profileName) return profileName;
+      }
+      if (emailProfiles.length === 1) {
+        const profileName = usableProfileName(emailProfiles[0]?.name);
+        if (profileName) return profileName;
+      }
+      return signer.name;
+    };
+
+    // Map signers to their row index by walking workflowSteps in order.
+    // Prefer signatureFieldId because the same person can approve multiple rows.
+    // Global clerk/email fallbacks are only used when they are unique.
+    const rowByFieldId = new Map<string, number>();
+    const rowByStepAndClerkId = new Map<string, number>();
+    const rowByStepAndEmail = new Map<string, number>();
+    const rowByClerkId = new Map<string, number | null>();
+    const rowByEmail = new Map<string, number | null>();
+    interface SignerRow { clerkId: string | null; email: string; name: string | null; rowIndex: number }
+    const allSigners: SignerRow[] = [];
+    let rowCursor = 0;
+    const setUnique = (map: Map<string, number | null>, key: string, value: number) => {
+      map.set(key, map.has(key) ? null : value);
+    };
+    for (const step of doc.workflowSteps) {
+      if (step.stepType !== 'signature' && step.stepType !== 'approval') continue;
+      for (const signer of step.signers) {
+        const stepId = String(step._id);
+        const email = signer.email.toLowerCase();
+        if (signer.clerkId) {
+          rowByStepAndClerkId.set(`${stepId}:${signer.clerkId}`, rowCursor);
+          setUnique(rowByClerkId, signer.clerkId, rowCursor);
+        }
+        rowByStepAndEmail.set(`${stepId}:${email}`, rowCursor);
+        setUnique(rowByEmail, email, rowCursor);
+
+        const field = doc.signatureFields?.find(
+          (f) =>
+            String(f.stepId) === stepId &&
+            String(f.signerId) === String(signer._id),
+        );
+        if (field) rowByFieldId.set(String(field._id), rowCursor);
+
+        allSigners.push({
+          clerkId: signer.clerkId,
+          email: signer.email,
+          name: resolveSignerDisplayName(signer),
+          rowIndex: rowCursor,
+        });
+        rowCursor += 1;
+      }
+    }
+
+    const signedRows: SignedRowInput[] = [];
+    for (const sig of signatureDocs) {
+      const stepId = String(sig.stepId);
+      const email = sig.signerEmail.toLowerCase();
+      const rowIndex =
+        (sig.signatureFieldId
+          ? rowByFieldId.get(String(sig.signatureFieldId))
+          : undefined) ??
+        (sig.signerId
+          ? rowByStepAndClerkId.get(`${stepId}:${sig.signerId}`)
+          : undefined) ??
+        rowByStepAndEmail.get(`${stepId}:${email}`) ??
+        (sig.signerId ? rowByClerkId.get(sig.signerId) : undefined) ??
+        rowByEmail.get(email);
+      if (rowIndex == null) continue;
+
+      let imageBytes: Buffer | null = null;
+      try {
+        imageBytes = await this.storageService.downloadObject(sig.imageKey);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[documents] failed to load signature image', sig.imageKey, err);
+      }
+
+      const signer = allSigners.find((s) => s.rowIndex === rowIndex);
+
+      signedRows.push({
+        rowIndex,
+        name: signer?.name ?? null,
+        email: sig.signerEmail,
+        signedAt: sig.signedAt ?? null,
+        imageBytes,
+      });
+    }
+
+    return renderHaknasotPdf({
+      formValues: doc.formValues ?? {},
+      signedRows,
+      contractTypeSelection: (doc.formValues ?? {})['contract_type'] ?? null,
+    });
+  }
+
+  async downloadDocumentPdf(
+    documentId: string,
+    clerkId: string,
+    email: string,
+  ): Promise<Buffer> {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    const isParticipant =
+      doc.ownerId === clerkId ||
+      doc.participantClerkIds.includes(clerkId) ||
+      doc.participantEmails.includes(email.toLowerCase());
+    if (!isParticipant) throw new ForbiddenException();
+
+    if (doc.completedFileKey) {
+      return this.storageService.downloadObject(doc.completedFileKey);
+    }
+
+    if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
+      return this.renderHaknasotDocument(documentId, clerkId, email);
+    }
+
+    if (doc.fileKey) {
+      return this.storageService.downloadObject(doc.fileKey);
+    }
+
+    throw new BadRequestException('Document has no downloadable PDF');
+  }
+
+  /**
+   * Dev-only: programmatically signs every pending signer in the active step
+   * by uploading a stub PNG and recording a real Signature + workflow event.
+   * Only available when BYPASS_AUTH=true.
+   */
+  async devSignAll(
+    documentId: string,
+    clerkId: string,
+    imageKeys?: Record<string, string>,
+  ): Promise<DocumentDto> {
+    if (process.env.BYPASS_AUTH !== 'true') {
+      throw new ForbiddenException('devSignAll only available in bypass-auth mode');
+    }
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+
+    // Minimal 1×1 transparent PNG — renderer falls back to drawing name+date text.
+    const STUB_PNG = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+
+    for (const step of doc.workflowSteps) {
+      if (step.status !== 'in_progress') continue;
+      for (const signer of step.signers) {
+        if (signer.status !== 'pending') continue;
+
+        let imageKey: string;
+        if (imageKeys?.[signer.email]) {
+          // Use the pre-uploaded real signature image
+          imageKey = imageKeys[signer.email];
+        } else {
+          const sigId = new Types.ObjectId();
+          imageKey = `sigs/docs/${documentId}/${sigId.toString()}.png`;
+          await this.storageService.uploadBuffer(imageKey, STUB_PNG, 'image/png');
+        }
+
+        const assignedField = (doc.signatureFields ?? []).find(
+          (f) =>
+            String(f.signerId) === String(signer._id) &&
+            String(f.stepId) === String(step._id),
+        );
+
+        await this.signatureModel.create({
+          documentId: doc._id,
+          stepId: step._id,
+          signerId: null,
+          signerEmail: signer.email,
+          signatureFieldId: assignedField?._id ?? null,
+          pageNumber: assignedField?.pageNumber ?? 2,
+          x: assignedField?.x ?? 38,
+          y: assignedField?.y ?? 30,
+          width: assignedField?.width ?? 20,
+          height: assignedField?.height ?? 3.5,
+          imageKey,
+          ipAddress: null,
+          userAgent: null,
+          signedAt: new Date(),
+        });
+
+        await this.workflowService.recordSignature(
+          documentId,
+          String(step._id),
+          signer.email,
+          null,
+          signer.name,
+          String(signer._id),
+        );
+      }
+    }
+
+    const fresh = await this.documentModel.findById(documentId).exec();
+    if (!fresh) throw new NotFoundException('Document not found');
+    return toDocumentDto(fresh);
+  }
+
   async deleteDocument(
     documentId: string,
     clerkId: string,
     actorEmail: string,
   ): Promise<void> {
-    const doc = await this.findOwnedDocument(documentId, clerkId);
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    const isParticipant =
+      doc.ownerId === clerkId ||
+      doc.participantClerkIds.includes(clerkId) ||
+      doc.participantEmails.includes(actorEmail.toLowerCase());
+    if (!isParticipant) throw new ForbiddenException('Not a participant');
     const id = doc._id;
     const fileKey = doc.fileKey;
     const completedFileKey = doc.completedFileKey;
@@ -384,15 +662,6 @@ export class DocumentsService {
       .exec();
 
     await this.invitesService.refreshInvitesAfterEmailChange(clerkId, neu);
-  }
-
-  private shouldUseHaknasotTemplate(title: string): boolean {
-    const normalized = title.trim().toLowerCase();
-    return (
-      title.trim() === HEBREW_SAMPLE_DEFAULT_TITLE ||
-      normalized.includes('haknasot') ||
-      normalized.includes('הכנסות')
-    );
   }
 
   private async findOwnedDocument(

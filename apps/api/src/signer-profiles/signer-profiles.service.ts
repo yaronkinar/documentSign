@@ -126,6 +126,28 @@ export class SignerProfilesService {
     return this.toDto(profile);
   }
 
+  /** Returns the raw imageKey for a profile owned by `ownerId`, or null if missing/no signature. */
+  async getImageKey(ownerId: string, profileId: string): Promise<string | null> {
+    const profile = await this.profileModel.findOne({ _id: profileId, ownerId }).exec();
+    return profile?.signatureImageKey ?? null;
+  }
+
+  /** Finds the first profile owned by `ownerId` whose email matches the signer and has a signature. */
+  async findProfileForSigner(
+    ownerId: string,
+    email: string,
+  ): Promise<{ _id: string; imageKey: string } | null> {
+    const profile = await this.profileModel
+      .findOne({
+        ownerId,
+        email: email.toLowerCase(),
+        signatureImageKey: { $ne: null },
+      })
+      .exec();
+    if (!profile || !profile.signatureImageKey) return null;
+    return { _id: profile._id.toString(), imageKey: profile.signatureImageKey };
+  }
+
   private async findOwned(
     ownerId: string,
     profileId: string,

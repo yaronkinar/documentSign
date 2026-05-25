@@ -92,6 +92,7 @@ export class WorkflowService {
     signerEmail: string,
     actorId: string | null,
     actorName: string | null,
+    signerDocumentId?: string,
   ): Promise<void> {
     const doc = await this.documentModel.findById(documentId).exec();
     if (!doc) throw new NotFoundException('Document not found');
@@ -100,7 +101,11 @@ export class WorkflowService {
     if (step.status !== 'in_progress') {
       throw new BadRequestException('Step is not active');
     }
-    const signer = step.signers.find((s) => s.email === signerEmail);
+    const signer = signerDocumentId
+      ? findSignerOnStep(step, signerDocumentId, signerEmail)
+      : step.signers.find(
+          (s) => s.email === signerEmail && s.status === 'pending',
+        );
     if (!signer) throw new NotFoundException('Signer not found');
     if (signer.status !== 'pending') {
       throw new BadRequestException('Signer is not pending');

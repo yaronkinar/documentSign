@@ -25,6 +25,14 @@ import {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  private ensureUser(user: CurrentUserPayload) {
+    return this.usersService.findOrCreateFromAuth({
+      clerkId: user.clerkId,
+      email: user.email,
+      name: user.name,
+    });
+  }
+
   @Get('search')
   async search(@Query('q') q: string) {
     return this.usersService.searchUsers(q ?? '');
@@ -32,7 +40,7 @@ export class UsersController {
 
   @Get('me')
   async me(@CurrentUser() user: CurrentUserPayload) {
-    const u = await this.usersService.findByClerkId(user.clerkId);
+    const u = await this.ensureUser(user);
     return {
       _id: u._id.toString(),
       clerkId: u.clerkId,
@@ -44,17 +52,19 @@ export class UsersController {
   }
 
   @Get('me/signatures')
-  listSignatures(
+  async listSignatures(
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<SavedSignatureDto[]> {
+    await this.ensureUser(user);
     return this.usersService.listSavedSignatures(user.clerkId);
   }
 
   @Post('me/signatures/upload-url')
-  uploadUrl(
+  async uploadUrl(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: GetSignatureUploadUrlDto,
   ) {
+    await this.ensureUser(user);
     return this.usersService.getSignatureUploadUrl(user.clerkId, dto);
   }
 
@@ -63,6 +73,7 @@ export class UsersController {
     @CurrentUser() user: CurrentUserPayload,
     @Body() body: ConfirmSavedSignatureDto & { imageKey: string },
   ): Promise<SavedSignatureDto[]> {
+    await this.ensureUser(user);
     await this.usersService.confirmSavedSignature(user.clerkId, body.imageKey, body);
     return this.usersService.listSavedSignatures(user.clerkId);
   }
@@ -72,6 +83,7 @@ export class UsersController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
   ) {
+    await this.ensureUser(user);
     await this.usersService.setDefaultSignature(user.clerkId, id);
     return { ok: true };
   }
@@ -82,6 +94,7 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: UpdateSavedSignatureLabelDto,
   ) {
+    await this.ensureUser(user);
     await this.usersService.updateSignatureLabel(user.clerkId, id, dto.label);
     return { ok: true };
   }
@@ -91,6 +104,7 @@ export class UsersController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
   ) {
+    await this.ensureUser(user);
     await this.usersService.deleteSavedSignature(user.clerkId, id);
     return { ok: true };
   }

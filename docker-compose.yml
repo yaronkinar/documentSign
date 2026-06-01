@@ -55,6 +55,9 @@ services:
         - path: apps/web/lib
           action: sync
           target: /app/apps/web/lib
+        - path: apps/web/public
+          action: sync
+          target: /app/apps/web/public
         - path: packages/shared/src
           action: rebuild
         - path: apps/web/package.json

@@ -30,6 +30,7 @@ export interface PDFViewerProps {
   onFieldPlace?: (page: number, xPct: number, yPct: number) => void;
   onFieldClick?: (field: SignatureFieldDto) => void;
   onCommentPin?: (page: number, xPct: number, yPct: number) => void;
+  onCommentSelect?: (commentId: string) => void;
   formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   activeFormFieldId?: string | null;
@@ -169,6 +170,7 @@ export function PDFViewer(props: PDFViewerProps) {
               onFieldPlace={props.onFieldPlace}
               onFieldClick={props.onFieldClick}
               onCommentPin={props.onCommentPin}
+              onCommentSelect={props.onCommentSelect}
               formFields={(props.formFields ?? []).filter(
                 (f) => f.pageNumber === pageNumber,
               )}
@@ -207,6 +209,7 @@ function LazyPDFPage({
   onFieldPlace,
   onFieldClick,
   onCommentPin,
+  onCommentSelect,
   formFields,
   formValues,
   activeFormFieldId,
@@ -234,6 +237,7 @@ function LazyPDFPage({
   onFieldPlace?: (page: number, xPct: number, yPct: number) => void;
   onFieldClick?: (field: SignatureFieldDto) => void;
   onCommentPin?: (page: number, xPct: number, yPct: number) => void;
+  onCommentSelect?: (commentId: string) => void;
   formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   activeFormFieldId?: string | null;
@@ -544,6 +548,46 @@ function LazyPDFPage({
               </div>
             );
           })}
+          {comments
+            .filter(
+              (comment) =>
+                comment.pageNumber === pageNumber &&
+                comment.x !== null &&
+                comment.y !== null,
+            )
+            .map((comment, index) => (
+              <button
+                key={comment._id}
+                type="button"
+                aria-label={`Comment: ${comment.content}`}
+                title={comment.content}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCommentSelect?.(comment._id);
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${comment.x}%`,
+                  top: `${comment.y}%`,
+                  width: 22,
+                  height: 22,
+                  zIndex: 30,
+                  transform: 'translate(-50%, -50%)',
+                  borderRadius: 9999,
+                  border: '2px solid #f59e0b',
+                  background: comment.resolved ? '#fef3c7' : '#fbbf24',
+                  color: '#111827',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  lineHeight: '18px',
+                  textAlign: 'center',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                  pointerEvents: 'auto',
+                }}
+              >
+                {index + 1}
+              </button>
+            ))}
           {signatureFields.map((field) => {
             const isMine =
               !activeSignerId || field.signerId === activeSignerId;

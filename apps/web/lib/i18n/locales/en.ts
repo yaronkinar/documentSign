@@ -30,10 +30,21 @@ export const en = {
     newDocument: 'New Document',
     mySignatures: 'My Signatures',
     templates: 'Templates',
+    demo: 'Demo',
     users: 'Users',
   },
   home: {
     tagline: 'Upload, route, and sign documents with a full audit trail.',
+    watchDemo: 'Watch demo',
+  },
+  demo: {
+    title: 'See DocFlow in action',
+    subtitle:
+      'Watch a short walkthrough of creating a document, assigning signers, and completing the signing workflow.',
+    videoLabel: 'DocFlow product demo video',
+    fallback:
+      'Your browser does not support video playback. Add the demo video at /videos/product-demo.mp4.',
+    backHome: 'Back to home',
   },
   meta: {
     description: 'Document signing and workflow platform',
@@ -159,6 +170,7 @@ export const en = {
     addComment: 'Add Comment',
     cancelComment: 'Cancel comment',
     commentPrompt: 'Comment:',
+    commentOnPage: 'Comment on page {{n}}',
     workflow: 'Workflow',
     formTab: 'Fill form',
     comments: 'Comments',
@@ -221,7 +233,8 @@ export const en = {
     addNew: 'Add a new signature',
     draw: 'Draw',
     upload: 'Upload image',
-    labelPlaceholder: 'Label (e.g. "Full signature")',
+    labelPlaceholder: 'Label (optional)',
+    autoLabel: 'Signature {{n}}',
     labelRequired: 'Please enter a label',
     saveSignature: 'Save signature',
     saveFailed: 'Failed to save signature',
@@ -229,6 +242,8 @@ export const en = {
     dateSaved: 'Date: {{date}}',
     none: 'No saved signatures yet.',
     default: 'Default',
+    useAsDefault: 'Use as default',
+    switchFailed: 'Failed to switch signature',
     deleteConfirm: 'Delete this signature? This cannot be undone.',
     deleteFailed: 'Failed to delete signature',
     clickToUpload: 'Click to upload signature image',

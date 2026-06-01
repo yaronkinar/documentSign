@@ -10,6 +10,7 @@ import type { SavedSignatureDto } from '@docflow/shared';
 import { User, UserDocument } from './user.schema';
 import { DocumentsService } from '../documents/documents.service';
 import { StorageService } from '../storage/storage.service';
+import { SignerProfilesService } from '../signer-profiles/signer-profiles.service';
 import {
   ConfirmSavedSignatureDto,
   GetSignatureUploadUrlDto,
@@ -23,6 +24,7 @@ export class UsersService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly documentsService: DocumentsService,
     private readonly storageService: StorageService,
+    private readonly signerProfilesService: SignerProfilesService,
   ) {}
 
   async upsertFromClerk(data: {
@@ -33,23 +35,24 @@ export class UsersService {
   }): Promise<UserDocument> {
     const newEmail = data.email.toLowerCase();
     const existing = await this.userModel
-      .findOne({ clerkId: data.clerkId })
-      .select('email')
+      .findOne({ $or: [{ clerkId: data.clerkId }, { email: newEmail }] })
+      .select('email clerkId')
       .lean()
       .exec();
     const previousEmail = existing?.email ?? null;
+    const filter = existing ? { _id: existing._id } : { clerkId: data.clerkId };
 
     const user = await this.userModel
       .findOneAndUpdate(
-        { clerkId: data.clerkId },
+        filter,
         {
           $set: {
+            clerkId: data.clerkId,
             email: newEmail,
             name: data.name,
             avatarUrl: data.avatarUrl,
           },
           $setOnInsert: {
-            clerkId: data.clerkId,
             role: 'member',
             savedSignatures: [],
           },
@@ -88,6 +91,22 @@ export class UsersService {
     const user = await this.userModel.findOne({ clerkId }).exec();
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async findOrCreateFromAuth(data: {
+    clerkId: string;
+    email: string | null;
+    name?: string | null;
+  }): Promise<UserDocument> {
+    const user = await this.userModel.findOne({ clerkId: data.clerkId }).exec();
+    if (user) return user;
+    if (!data.email) throw new NotFoundException('User not found');
+
+    return this.upsertFromClerk({
+      clerkId: data.clerkId,
+      email: data.email,
+      name: data.name ?? data.email,
+    });
   }
 
   async findEmailByClerkId(clerkId: string): Promise<string | null> {
@@ -168,6 +187,11 @@ export class UsersService {
       createdAt: new Date(),
     } as never);
     await user.save();
+    await this.signerProfilesService.syncSignatureForEmail(
+      clerkId,
+      user.email,
+      imageKey,
+    );
     return user;
   }
 
@@ -197,6 +221,11 @@ export class UsersService {
       s.isDefault = s._id.equals(target._id);
     });
     await user.save();
+    await this.signerProfilesService.syncSignatureForEmail(
+      clerkId,
+      user.email,
+      target.imageKey,
+    );
     return user;
   }
 

@@ -101,6 +101,10 @@ export function NewDocumentClient() {
     }
   }
 
+  function hasFilledFormValues(values: Record<string, string>) {
+    return Object.values(values).some((value) => value.trim().length > 0);
+  }
+
   async function startHaknasotDocument() {
     setError(null);
     setBusy(true);
@@ -126,7 +130,6 @@ export function NewDocumentClient() {
       setFormFields(fields);
       setFormValues(doc.formValues ?? {});
       setStep('form');
-      void requestSummarize(doc._id);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newDocument.startFormFailed'));
     } finally {
@@ -154,6 +157,9 @@ export function NewDocumentClient() {
   async function handleFormNext(values: Record<string, string>) {
     await handleFormSave(values);
     setStep('details');
+    if (documentId && hasFilledFormValues(values)) {
+      void requestSummarize(documentId);
+    }
   }
 
   async function handleDetailsNext() {
@@ -350,29 +356,48 @@ function StartStep({
   busy: boolean;
 }) {
   const { t } = useTranslation();
+  const { pdfUrl, loading: pdfLoading, error: pdfError } =
+    useTemplatePdfUrl(HAKNASOT_FORM_TEMPLATE_ID);
+
   return (
-    <div className="rounded border border-blue-200 bg-blue-50 p-6 text-sm">
-      <p className="mb-2 text-lg font-medium text-blue-900">
-        {t('newDocument.hebrewSampleTitle')}
-      </p>
-      <p className="mb-4 text-blue-800">{t('newDocument.hebrewSampleBody')}</p>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={busy}
-          className="rounded bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800 disabled:opacity-50"
-        >
-          {busy ? t('common.saving') : t('newDocument.startForm')}
-        </button>
-        <button
-          type="button"
-          onClick={() => void downloadHaknasotPdf('haknasot.pdf')}
-          className="rounded border border-blue-300 bg-white px-4 py-2 text-sm text-blue-800 hover:bg-blue-100"
-        >
-          {t('common.downloadPdf')}
-        </button>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <div className="rounded border border-blue-200 bg-blue-50 p-6 text-sm">
+        <p className="mb-2 text-lg font-medium text-blue-900">
+          {t('newDocument.hebrewSampleTitle')}
+        </p>
+        <p className="mb-4 text-blue-800">{t('newDocument.hebrewSampleBody')}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={busy}
+            className="rounded bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800 disabled:opacity-50"
+          >
+            {busy ? t('common.saving') : t('newDocument.startForm')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void downloadHaknasotPdf('haknasot.pdf')}
+            className="rounded border border-blue-300 bg-white px-4 py-2 text-sm text-blue-800 hover:bg-blue-100"
+          >
+            {t('common.downloadPdf')}
+          </button>
+        </div>
       </div>
+
+      <section className="h-[680px] overflow-auto rounded border bg-gray-50 p-3">
+        {pdfError && (
+          <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+            {pdfError}
+          </div>
+        )}
+        {pdfLoading && (
+          <p className="py-16 text-center text-sm text-gray-500">
+            {t('pdf.loading')}
+          </p>
+        )}
+        {pdfUrl && <PDFViewer pdfUrl={pdfUrl} />}
+      </section>
     </div>
   );
 }

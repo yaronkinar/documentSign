@@ -231,6 +231,7 @@ export interface CommentDto {
   documentId: string;
   authorId: string | null;
   authorEmail: string;
+  authorName: string | null;
   content: string;
   pageNumber: number | null;
   x: number | null;

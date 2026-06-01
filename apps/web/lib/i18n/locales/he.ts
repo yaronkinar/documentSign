@@ -32,10 +32,21 @@ export const he: TranslationDict = {
     newDocument: 'מסמך חדש',
     mySignatures: 'החתימות שלי',
     templates: 'תבניות',
+    demo: 'דמו',
     users: 'משתמשים',
   },
   home: {
     tagline: 'העלאה, ניתוב וחתימה על מסמכים עם מעקב מלא.',
+    watchDemo: 'צפה בדמו',
+  },
+  demo: {
+    title: 'כך DocFlow עובד בפועל',
+    subtitle:
+      'צפו בסקירה קצרה של יצירת מסמך, שיוך חותמים והשלמת תהליך החתימה.',
+    videoLabel: 'סרטון הדגמה של DocFlow',
+    fallback:
+      'הדפדפן שלך לא תומך בהפעלת וידאו. הוסף את סרטון הדמו בנתיב /videos/product-demo.mp4.',
+    backHome: 'חזרה לדף הבית',
   },
   meta: {
     description: 'פלטפורמת חתימה וניהול תהליכי מסמכים',
@@ -161,6 +172,7 @@ export const he: TranslationDict = {
     addComment: 'הוסף הערה',
     cancelComment: 'ביטול הערה',
     commentPrompt: 'הערה:',
+    commentOnPage: 'הערה בעמוד {{n}}',
     workflow: 'תהליך',
     formTab: 'מילוי טופס',
     comments: 'הערות',
@@ -223,7 +235,8 @@ export const he: TranslationDict = {
     addNew: 'הוסף חתימה חדשה',
     draw: 'ציור',
     upload: 'העלאת תמונה',
-    labelPlaceholder: 'תווית (למשל "חתימה מלאה")',
+    labelPlaceholder: 'תווית (אופציונלי)',
+    autoLabel: 'חתימה {{n}}',
     labelRequired: 'יש להזין תווית',
     saveSignature: 'שמור חתימה',
     saveFailed: 'שמירת החתימה נכשלה',
@@ -231,6 +244,8 @@ export const he: TranslationDict = {
     dateSaved: 'תאריך: {{date}}',
     none: 'אין חתימות שמורות עדיין.',
     default: 'ברירת מחדל',
+    useAsDefault: 'השתמש כברירת מחדל',
+    switchFailed: 'החלפת החתימה נכשלה',
     deleteConfirm: 'למחוק חתימה זו? לא ניתן לבטל פעולה זו.',
     deleteFailed: 'מחיקת החתימה נכשלה',
     clickToUpload: 'לחץ להעלאת תמונת חתימה',

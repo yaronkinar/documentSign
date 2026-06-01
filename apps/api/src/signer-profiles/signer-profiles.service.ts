@@ -109,6 +109,38 @@ export class SignerProfilesService {
     return this.toDto(profile);
   }
 
+  async syncSignatureForEmail(
+    ownerId: string,
+    email: string,
+    sourceImageKey: string,
+  ): Promise<number> {
+    const profiles = await this.profileModel
+      .find({ ownerId, email: email.toLowerCase().trim() })
+      .exec();
+    if (profiles.length === 0) return 0;
+
+    const image = await this.storageService.downloadObject(sourceImageKey);
+    await Promise.all(
+      profiles.map(async (profile) => {
+        const targetImageKey = `sigs/profiles/${profile._id.toString()}.png`;
+        const previousKey = profile.signatureImageKey;
+
+        await this.storageService.uploadBuffer(targetImageKey, image, 'image/png');
+        profile.signatureImageKey = targetImageKey;
+        await profile.save();
+
+        if (previousKey && previousKey !== targetImageKey) {
+          this.storageService.deleteObject(previousKey).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.error('[signer-profiles] storage delete failed', err);
+          });
+        }
+      }),
+    );
+
+    return profiles.length;
+  }
+
   async removeSignature(
     ownerId: string,
     profileId: string,

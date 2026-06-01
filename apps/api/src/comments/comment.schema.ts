@@ -13,6 +13,9 @@ export class Comment {
   @Prop({ required: true, lowercase: true })
   authorEmail!: string;
 
+  @Prop({ type: String, default: null })
+  authorName!: string | null;
+
   @Prop({ required: true })
   content!: string;
 

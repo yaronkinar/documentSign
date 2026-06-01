@@ -10,6 +10,7 @@
     "dev": "npx concurrently -n api,web -c blue,green -k \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run start:dev -w api",
     "dev:web": "npm run dev -w web",
+    "test:e2e": "playwright test",
     "build:api": "npm run build -w api",
     "build:web": "npm run build -w web",
     "build:shared": "npm run build -w @docflow/shared",

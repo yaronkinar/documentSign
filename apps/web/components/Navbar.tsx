@@ -46,6 +46,11 @@ export function Navbar() {
         match: (path: string) => path.startsWith('/templates'),
       },
       {
+        href: '/demo',
+        label: t('nav.demo'),
+        match: (path: string) => path === '/demo',
+      },
+      {
         href: '/signer-profiles',
         label: t('nav.users'),
         match: (path: string) => path === '/signer-profiles' || path === '/users',
@@ -65,7 +70,7 @@ export function Navbar() {
   return (
     <SignedIn>
       <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-8">
             <Link
               href="/dashboard"

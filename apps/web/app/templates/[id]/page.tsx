@@ -1,8 +1,8 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect, notFound } from 'next/navigation';
 import type { PdfTemplateDto } from '@docflow/shared';
 
 import { apiClient } from '@/lib/api-client';
+import { getServerAuth } from '@/lib/server-auth';
 import { TemplateEditorClient } from './TemplateEditorClient';
 
 interface Props {
@@ -10,10 +10,9 @@ interface Props {
 }
 
 export default async function TemplateEditorPage({ params }: Props) {
-  const { userId, getToken } = auth();
+  const { userId, token } = await getServerAuth();
   if (!userId) redirect('/sign-in');
 
-  const token = await getToken();
   let template: PdfTemplateDto | null = null;
   try {
     template = await apiClient.get<PdfTemplateDto>(`/templates/${params.id}`, { token });

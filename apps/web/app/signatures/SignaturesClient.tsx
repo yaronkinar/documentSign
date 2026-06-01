@@ -32,7 +32,9 @@ export function SignaturesClient() {
   useEffect(() => { void refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function uploadAndSave(blob: Blob, type: 'drawn' | 'uploaded') {
-    if (!label.trim()) { setError(t('signatures.labelRequired')); return; }
+    const resolvedLabel =
+      label.trim() ||
+      t('signatures.autoLabel', { n: signatures.length + 1 });
     setBusy(true);
     setError(null);
     try {
@@ -48,7 +50,7 @@ export function SignaturesClient() {
       if (!res.ok) throw new Error(`Storage upload failed (${res.status})`);
       await api.post('/users/me/signatures/confirm', {
         imageKey,
-        label: label.trim(),
+        label: resolvedLabel,
         type,
         setDefault: signatures.length === 0,
       });
@@ -73,8 +75,24 @@ export function SignaturesClient() {
     }
   }
 
+  async function setDefaultSignature(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch(`/users/me/signatures/${id}/default`);
+      setSignatures((prev) =>
+        prev.map((s) => ({ ...s, isDefault: s._id === id })),
+      );
+      await refresh();
+    } catch {
+      setError(t('signatures.switchFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8 p-6">
+    <div className="mx-auto w-full max-w-6xl space-y-8 p-6">
       <h1 className="text-2xl font-semibold">{t('signatures.title')}</h1>
 
       {/* ── New signature card ── */}
@@ -151,6 +169,16 @@ export function SignaturesClient() {
                 <p className="text-[11px] text-gray-400">
                   {new Date(s.createdAt).toLocaleDateString()}
                 </p>
+                {signatures.length > 1 && !s.isDefault && (
+                  <button
+                    type="button"
+                    onClick={() => setDefaultSignature(s._id)}
+                    disabled={busy}
+                    className="mt-2 w-full rounded border border-gray-200 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {t('signatures.useAsDefault')}
+                  </button>
+                )}
                 <button
                   onClick={() => deleteSignature(s._id)}
                   className="mt-2 w-full rounded border border-red-200 py-1 text-xs text-red-600 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50"

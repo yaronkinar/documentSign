@@ -17,6 +17,12 @@ export function HomePageContent() {
       <p className="max-w-md text-lg text-gray-600">{t('home.tagline')}</p>
       <div className="flex gap-3">
         <Link
+          href="/demo"
+          className="rounded border border-gray-300 px-5 py-2 hover:bg-gray-100"
+        >
+          {t('home.watchDemo')}
+        </Link>
+        <Link
           href="/sign-in"
           className="rounded bg-black px-5 py-2 text-white hover:bg-gray-800"
         >

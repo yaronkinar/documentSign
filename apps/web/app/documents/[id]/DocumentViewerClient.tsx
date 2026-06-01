@@ -45,6 +45,12 @@ interface SigTarget {
   fieldId?: string;
 }
 
+interface CommentTarget {
+  page: number;
+  x: number;
+  y: number;
+}
+
 const HAKNASOT_RENDER_VERSION = 'signature-row-v2';
 
 function safePdfFileName(title: string): string {
@@ -77,6 +83,9 @@ export function DocumentViewerClient({
   const [placementMode, setPlacementMode] = useState(false);
   const [fieldPlacementMode, setFieldPlacementMode] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
+  const [pendingCommentTarget, setPendingCommentTarget] =
+    useState<CommentTarget | null>(null);
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [selectedSignerKey, setSelectedSignerKey] = useState('');
   const [showSigPad, setShowSigPad] = useState(false);
   const [pendingSigTargets, setPendingSigTargets] = useState<SigTarget[] | null>(null);
@@ -564,10 +573,14 @@ export function DocumentViewerClient({
               onSignaturePlace={onPlace}
               onFieldPlace={onFieldPlace}
               onFieldClick={onFieldClick}
-              onCommentPin={async (page, x, y) => {
-                const content = window.prompt(t('document.commentPrompt'));
-                if (content) await onAddComment(content, page, x, y);
+              onCommentPin={(page, x, y) => {
+                setPendingCommentTarget({ page, x, y });
+                setSidebarTab('comments');
                 setCommentMode(false);
+              }}
+              onCommentSelect={(commentId) => {
+                setSidebarTab('comments');
+                setSelectedCommentId(commentId);
               }}
             />
           )}
@@ -725,6 +738,8 @@ export function DocumentViewerClient({
             <button
               onClick={() => {
                 setCommentMode((v) => !v);
+                setSidebarTab('comments');
+                setPendingCommentTarget(null);
                 setPlacementMode(false);
                 setFieldPlacementMode(false);
               }}
@@ -808,7 +823,13 @@ export function DocumentViewerClient({
           {sidebarTab === 'comments' && (
             <CommentsSidebar
               comments={comments}
-              onAdd={(content) => onAddComment(content)}
+              pendingTarget={pendingCommentTarget}
+              selectedCommentId={selectedCommentId}
+              onAdd={async (content, target) => {
+                await onAddComment(content, target?.page, target?.x, target?.y);
+                setPendingCommentTarget(null);
+              }}
+              onCancelTarget={() => setPendingCommentTarget(null)}
               onResolve={async (id) => {
                 await api.patch(`/comments/${id}/resolve`);
                 await refreshComments();
@@ -959,11 +980,17 @@ function SignerRow({
 
 function CommentsSidebar({
   comments,
+  pendingTarget,
+  selectedCommentId,
   onAdd,
+  onCancelTarget,
   onResolve,
 }: {
   comments: CommentDto[];
-  onAdd: (content: string) => void;
+  pendingTarget: CommentTarget | null;
+  selectedCommentId: string | null;
+  onAdd: (content: string, target?: CommentTarget | null) => void | Promise<void>;
+  onCancelTarget: () => void;
   onResolve: (id: string) => void;
 }) {
   const { t } = useTranslation();
@@ -975,10 +1002,27 @@ function CommentsSidebar({
     <div className="flex h-full flex-col">
       <ul className="flex-1 space-y-3 overflow-auto p-4 text-sm">
         {tree.map((c) => (
-          <CommentNode key={c._id} comment={c} onResolve={onResolve} />
+          <CommentNode
+            key={c._id}
+            comment={c}
+            selectedCommentId={selectedCommentId}
+            onResolve={onResolve}
+          />
         ))}
       </ul>
       <div className="border-t p-3">
+        {pendingTarget && (
+          <div className="mb-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+            {t('document.commentOnPage', { n: String(pendingTarget.page) })}
+            <button
+              type="button"
+              onClick={onCancelTarget}
+              className="ms-2 text-amber-900 underline"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        )}
         <textarea
           rows={2}
           placeholder={t('document.addCommentPlaceholder')}
@@ -987,9 +1031,9 @@ function CommentsSidebar({
           onChange={(e) => setDraft(e.target.value)}
         />
         <button
-          onClick={() => {
+          onClick={async () => {
             if (draft.trim()) {
-              onAdd(draft.trim());
+              await onAdd(draft.trim(), pendingTarget);
               setDraft('');
             }
           }}
@@ -1022,16 +1066,39 @@ function buildCommentTree(flat: CommentDto[]): CommentNode[] {
 
 function CommentNode({
   comment,
+  selectedCommentId,
   onResolve,
 }: {
   comment: CommentNode;
+  selectedCommentId: string | null;
   onResolve: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  const itemRef = useRef<HTMLLIElement>(null);
+  const selected = comment._id === selectedCommentId;
+
+  useEffect(() => {
+    if (!selected) return;
+    itemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [selected]);
+
+  const authorLabel =
+    comment.authorName?.trim() ||
+    comment.authorEmail.split('@')[0] ||
+    comment.authorEmail;
+
   return (
-    <li className="rounded border border-gray-200 p-2">
+    <li
+      ref={itemRef}
+      className={`rounded border p-2 ${
+        selected ? 'border-amber-400 bg-amber-50' : 'border-gray-200'
+      }`}
+    >
       <div className="text-xs text-gray-500">
-        {comment.authorEmail}
+        <span className="font-medium text-gray-700">{authorLabel}</span>
+        {comment.authorName?.trim() && (
+          <span className="ms-1 text-gray-400">{comment.authorEmail}</span>
+        )}
         {comment.resolved && (
           <span className="ms-2 text-green-600">{t('document.resolved')}</span>
         )}
@@ -1048,7 +1115,12 @@ function CommentNode({
       {comment.children.length > 0 && (
         <ul className="ms-3 mt-2 space-y-2 border-s ps-3">
           {comment.children.map((child) => (
-            <CommentNode key={child._id} comment={child} onResolve={onResolve} />
+            <CommentNode
+              key={child._id}
+              comment={child}
+              selectedCommentId={selectedCommentId}
+              onResolve={onResolve}
+            />
           ))}
         </ul>
       )}

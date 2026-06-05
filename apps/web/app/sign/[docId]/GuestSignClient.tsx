@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { GuestSigningDataDto, SignatureDto } from '@docflow/shared';
-import { resolveFormTemplateFields } from '@docflow/shared';
+import { resolveDocumentFormFields } from '@docflow/shared';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
@@ -43,7 +43,10 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
     !data.presignedPdfUrl ? data.formTemplateId : null,
   );
   const viewerPdfUrl = data.presignedPdfUrl ?? templatePdfUrl;
-  const formFields = resolveFormTemplateFields(data.formTemplateId);
+  const formFields = resolveDocumentFormFields({
+    formTemplateId: data.formTemplateId,
+    formFields: data.formFields,
+  });
 
   const usesAssignedFields = signatureFields.length > 0;
   const pendingFields = useMemo(

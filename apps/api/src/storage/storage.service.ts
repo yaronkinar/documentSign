@@ -1,8 +1,9 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Injectable } from '@nestjs/common';
+import { LocalStorageBackend } from './local-storage.backend';
+import { SupabaseStorageBackend } from './supabase-storage.backend';
 
 /**
- * Supabase Storage wrapper (service-role client on the API).
+ * Storage facade — Supabase (production) or local filesystem (dev).
  *
  * Key naming conventions (used throughout the app - do not deviate):
  *   - PDF uploads:                docs/{documentId}/{uuid}.pdf
@@ -11,87 +12,38 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  *   - Signer profile signatures:  sigs/profiles/{profileId}.png
  *   - Document placed signatures: sigs/docs/{documentId}/{sigId}.png
  *   - Completed merged PDFs:      completed/{documentId}/final.pdf
- *
- * Raw keys must NEVER be returned to clients - always swap for a signed URL.
  */
 @Injectable()
 export class StorageService {
-  private readonly client: SupabaseClient;
-  private readonly bucket: string;
+  private readonly backend: LocalStorageBackend | SupabaseStorageBackend;
 
   constructor() {
-    const url = process.env.SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? 'docflow-files';
-
-    if (!url || !serviceRoleKey) {
-      throw new Error(
-        '[storage] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in apps/api/.env',
-      );
-    }
-    this.client = createClient(url, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    this.bucket = bucket;
-  }
-
-  /** Signed PUT URL. Default TTL 15min. Client uploads body directly. */
-  async getUploadUrl(key: string, _contentType: string): Promise<string> {
-    const { data, error } = await this.client.storage
-      .from(this.bucket)
-      .createSignedUploadUrl(key);
-
-    if (error || !data?.signedUrl) {
-      throw new InternalServerErrorException(
-        `[storage] failed to create upload URL: ${error?.message ?? 'unknown error'}`,
-      );
-    }
-
-    return data.signedUrl;
-  }
-
-  /** Signed GET URL. Default TTL 15min. */
-  async getDownloadUrl(key: string, expiresIn = 15 * 60): Promise<string> {
-    const { data, error } = await this.client.storage
-      .from(this.bucket)
-      .createSignedUrl(key, expiresIn);
-
-    if (error || !data?.signedUrl) {
-      throw new InternalServerErrorException(
-        `[storage] failed to create download URL: ${error?.message ?? 'unknown error'}`,
-      );
-    }
-
-    return data.signedUrl;
-  }
-
-  async downloadObject(key: string): Promise<Buffer> {
-    const { data, error } = await this.client.storage.from(this.bucket).download(key);
-    if (error || !data) {
-      throw new InternalServerErrorException(
-        `[storage] failed to download object: ${error?.message ?? 'unknown error'}`,
-      );
-    }
-    return Buffer.from(await data.arrayBuffer());
-  }
-
-  async uploadBuffer(key: string, data: Buffer, contentType: string): Promise<void> {
-    const { error } = await this.client.storage
-      .from(this.bucket)
-      .upload(key, data, { contentType, upsert: true });
-    if (error) {
-      throw new InternalServerErrorException(
-        `[storage] upload failed: ${error.message}`,
-      );
+    const driver = (process.env.STORAGE_DRIVER ?? 'supabase').toLowerCase();
+    this.backend =
+      driver === 'local' ? new LocalStorageBackend() : new SupabaseStorageBackend();
+    if (driver === 'local') {
+      // eslint-disable-next-line no-console
+      console.log('[storage] using local filesystem driver');
     }
   }
 
-  async deleteObject(key: string): Promise<void> {
-    const { error } = await this.client.storage.from(this.bucket).remove([key]);
-    if (error) {
-      throw new InternalServerErrorException(
-        `[storage] failed to delete object: ${error.message}`,
-      );
-    }
+  getUploadUrl(key: string, contentType: string): Promise<string> {
+    return this.backend.getUploadUrl(key, contentType);
+  }
+
+  getDownloadUrl(key: string, expiresIn?: number): Promise<string> {
+    return this.backend.getDownloadUrl(key, expiresIn);
+  }
+
+  downloadObject(key: string): Promise<Buffer> {
+    return this.backend.downloadObject(key);
+  }
+
+  uploadBuffer(key: string, data: Buffer, contentType: string): Promise<void> {
+    return this.backend.uploadBuffer(key, data, contentType);
+  }
+
+  deleteObject(key: string): Promise<void> {
+    return this.backend.deleteObject(key);
   }
 }

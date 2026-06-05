@@ -15,6 +15,11 @@ export class CreateTemplateDto {
   name!: string;
 }
 
+export class CreateTemplateFromDocumentDto {
+  @IsString()
+  name!: string;
+}
+
 export class ConfirmTemplateUploadDto {
   @IsNumber()
   fileSize!: number;

@@ -8,14 +8,16 @@ import { PDFParse } from 'pdf-parse';
 const MAX_TEXT_CHARS = 12_000;
 const MAX_TEMPLATE_FIELD_PAGES = 8;
 
-export interface ExtractedTemplateField {
-  label: string;
-  pageNumber: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+export type { ExtractedTemplateField } from './extracted-template-field';
+import type { ExtractedTemplateField } from './extracted-template-field';
+import {
+  anchorFieldsToPdfText,
+  deriveSignatureFieldsFromPdfLines,
+  loadPdfTextLines,
+  normalizeExtractedFieldCoords,
+  remapExtractedPageNumbers,
+  type PdfTextLine,
+} from './pdf-field-anchors';
 
 export interface TemplateSignerHint {
   label: string;
@@ -38,7 +40,9 @@ export interface SummarizeContext {
 function clampPercent(value: unknown, min: number, max: number): number | null {
   const num = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(num)) return null;
-  return Math.min(max, Math.max(min, num));
+  let scaled = num;
+  if (scaled > 0 && scaled <= 1) scaled *= 100;
+  return Math.min(max, Math.max(min, scaled));
 }
 
 function normalizeExtractedTemplateFields(
@@ -65,14 +69,14 @@ function normalizeExtractedTemplateFields(
       if (pageCount > 0 && pageNumber > pageCount) return null;
       if (x == null || y == null || width == null || height == null) return null;
 
-      return {
+      return normalizeExtractedFieldCoords({
         label,
         pageNumber,
         x: Number(x.toFixed(2)),
         y: Number(y.toFixed(2)),
-        width: Number(Math.min(width, 100 - x).toFixed(2)),
-        height: Number(Math.min(height, 100 - y).toFixed(2)),
-      };
+        width: Number(width.toFixed(2)),
+        height: Number(height.toFixed(2)),
+      });
     })
     .filter((field): field is ExtractedTemplateField => field !== null);
 }
@@ -93,7 +97,12 @@ function buildTemplatePagesToInspect(pageCount?: number | null): number[] {
   return [...pages].sort((a, b) => a - b);
 }
 
-function buildTemplateSignerHintsText(signerHints: TemplateSignerHint[]): string {
+export type PdfFieldExtractionContext = 'saved_template' | 'uploaded_document';
+
+function buildTemplateSignerHintsText(
+  signerHints: TemplateSignerHint[],
+  context: PdfFieldExtractionContext,
+): string {
   const lines = signerHints
     .map((signer) => {
       const label = signer.label.trim();
@@ -104,12 +113,43 @@ function buildTemplateSignerHintsText(signerHints: TemplateSignerHint[]): string
 
   if (lines.length === 0) return '';
 
+  if (context === 'uploaded_document') {
+    return [
+      'Roles that may appear in this document (use a label ONLY if the same wording is visible on the page images):',
+      ...lines,
+    ].join('\n');
+  }
+
   return [
-    'Known signers/users for this template:',
+    'Roles that may appear in this document (use a label ONLY if the same wording is visible on the page images):',
     ...lines,
-    '',
-    'When a detected signature or approval field belongs to one of these users/roles, use the exact listed label as the field label. If the document has unlabeled signature lines that appear in the same order as this list, assign the labels in this order. Do not use these labels for non-signature form fields.',
   ].join('\n');
+}
+
+function fieldExtractionSystemPrompt(context: PdfFieldExtractionContext): string {
+  const base =
+    'Return ONLY a JSON object with key "fields". Each field must have: ' +
+    'label, pageNumber, x, y, width, height. Coordinates are percentages 0–100 ' +
+    '(not 0–1) from the top-left corner of that PDF page. Put the box over the blank ' +
+    'line or dash area where the user signs, not over the printed label text. ' +
+    'Typical signature box: width 15–40, height 4–8. Use the exact pageNumber given for each image. ' +
+    'Keep labels in the document language. Remove duplicates.';
+
+  if (context === 'uploaded_document') {
+    return (
+      'You detect fillable or signable fields in uploaded PDF page images. ' +
+      base +
+      ' Include ONLY fields you can see on these pages. Each label must be taken from text printed on the document (e.g. next to a blank line). ' +
+      'Never invent fields or reuse role names from outside this document. Do not add municipal approval rows unless they appear on these pages.'
+    );
+  }
+
+  return (
+    'You detect fillable or signable fields in PDF template page images. ' +
+    base +
+    ' Include ONLY fields visible on these pages. Each label must come from text printed on the document. ' +
+    'Never invent fields or reuse names from outside this PDF.'
+  );
 }
 
 function buildSummarizeUserMessage(
@@ -298,6 +338,7 @@ export class AiService {
     buffer: Buffer,
     pageCount?: number | null,
     signerHints: TemplateSignerHint[] = [],
+    context: PdfFieldExtractionContext = 'saved_template',
   ): Promise<ExtractedTemplateField[]> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -307,6 +348,13 @@ export class AiService {
     }
 
     const pagesToInspect = buildTemplatePagesToInspect(pageCount);
+    let textLines: PdfTextLine[] = [];
+    try {
+      textLines = await loadPdfTextLines(buffer);
+    } catch {
+      textLines = [];
+    }
+
     const parser = new PDFParse({ data: buffer });
     let screenshots: Awaited<ReturnType<PDFParse['getScreenshot']>>['pages'];
     try {
@@ -331,7 +379,27 @@ export class AiService {
       process.env.OPENAI_VISION_MODEL ??
       process.env.OPENAI_MODEL ??
       'gpt-4o-mini';
-    const signerHintsText = buildTemplateSignerHintsText(signerHints);
+    const signerHintsText = buildTemplateSignerHintsText(signerHints, context);
+    const totalPages = pageCount ?? screenshots.at(-1)?.pageNumber ?? screenshots.length;
+    const userIntro =
+      context === 'uploaded_document'
+        ? 'Extract every visible signature, date, initials, or fill-in blank from these uploaded document pages.'
+        : 'Extract every visible signature, approval, date, initials, or fill-in field from these PDF template pages.';
+    const pageBlocks = screenshots.flatMap((page) => {
+      const n = page.pageNumber;
+      return [
+        {
+          type: 'text' as const,
+          text:
+            `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
+            'x,y,width,height are percents (0–100) of this page, origin top-left, box on the blank/sign line.',
+        },
+        {
+          type: 'image_url' as const,
+          image_url: { url: page.dataUrl, detail: 'high' as const },
+        },
+      ];
+    });
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -345,33 +413,16 @@ export class AiService {
         messages: [
           {
             role: 'system',
-            content:
-              'You detect fillable or signable fields in PDF template page images. ' +
-              'Return ONLY a JSON object with key "fields". Each field must have: ' +
-              'label, pageNumber, x, y, width, height. Coordinates are percentages ' +
-              'from the top-left corner of the page image. Put the box over the blank ' +
-              'area where the user should type or sign, not over the label text. ' +
-              'Keep labels in the document language. For signature and approval fields, prefer the exact known signer/user label when the field can be matched. Do not invent fields. Remove duplicates.',
+            content: fieldExtractionSystemPrompt(context),
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: [
-                  'Extract every visible signature, approval, date, initials, or fill-in field from these PDF template pages.',
-                  signerHintsText,
-                ]
-                  .filter(Boolean)
-                  .join('\n\n'),
+                text: [userIntro, signerHintsText].filter(Boolean).join('\n\n'),
               },
-              ...screenshots.map((page) => ({
-                type: 'image_url',
-                image_url: {
-                  url: page.dataUrl,
-                  detail: 'high',
-                },
-              })),
+              ...pageBlocks,
             ],
           },
         ],
@@ -389,14 +440,30 @@ export class AiService {
       choices?: Array<{ message?: { content?: string } }>;
     };
     const raw = data.choices?.[0]?.message?.content?.trim();
-    if (!raw) return [];
+    const maxPage = pageCount ?? pagesToInspect.at(-1) ?? MAX_TEMPLATE_FIELD_PAGES;
 
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { fields?: unknown };
+        let fields = normalizeExtractedTemplateFields(parsed.fields, maxPage);
+        fields = remapExtractedPageNumbers(fields, pagesToInspect);
+        if (textLines.length > 0) {
+          fields = anchorFieldsToPdfText(fields, textLines);
+        }
+        if (fields.length > 0) return fields;
+      } catch {
+        // Vision JSON invalid — fall through to text-based detection
+      }
+    }
+
+    return deriveSignatureFieldsFromPdfLines(textLines);
+  }
+
+  /** Text-only field detection (no vision). Used as fallback for template extract. */
+  async deriveTemplateFieldsFromPdf(buffer: Buffer): Promise<ExtractedTemplateField[]> {
     try {
-      const parsed = JSON.parse(raw) as { fields?: unknown };
-      return normalizeExtractedTemplateFields(
-        parsed.fields,
-        pageCount ?? pagesToInspect.at(-1) ?? MAX_TEMPLATE_FIELD_PAGES,
-      );
+      const lines = await loadPdfTextLines(buffer);
+      return deriveSignatureFieldsFromPdfLines(lines);
     } catch {
       return [];
     }

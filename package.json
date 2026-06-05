@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npx concurrently -n api,web -c blue,green -k \"npm run dev:api\" \"npm run dev:web\"",
+    "dev": "npm run copy-pdf-worker -w web && npx concurrently -n api,web -c blue,green -k \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run start:dev -w api",
     "dev:web": "npm run dev -w web",
     "test:e2e": "playwright test",
@@ -21,7 +21,10 @@
     "refresh:haknasot": "npm run convert:haknasot-doc && npm run generate:haknasot-pdf && npm run extract:haknasot-fields",
     "smoketest:haknasot-fill": "node scripts/test-haknasot-fill.mjs",
     "create:document": "node scripts/create-document.mjs",
-    "create:approved-haknasot": "node scripts/create-approved-haknasot.mjs"
+    "create:approved-haknasot": "node scripts/create-approved-haknasot.mjs",
+    "generate:mock-signers-pdf": "node scripts/generate-mock-signers-pdf.mjs",
+    "generate:mock-lease-pdf": "node scripts/generate-mock-signers-pdf.mjs --doc lease",
+    "test:extract-signers": "node scripts/test-extract-signers.mjs"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

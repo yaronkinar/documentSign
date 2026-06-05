@@ -1,6 +1,8 @@
 import type { DocumentDto, SignatureFieldDto } from '@docflow/shared';
 import {
+  HAKNASOT_FORM_TEMPLATE_ID,
   HEBREW_MULTI_SIGNER_FIELD_TEMPLATE,
+  buildGenericUploadSignatureTemplate,
   buildTemplateFieldMappings,
   listTemplateSignatureSigners,
   missingTemplateFieldMappings,
@@ -31,13 +33,23 @@ export function signersMissingFields(
 
 export { buildTemplateFieldMappings };
 
+function resolveAutoMapTemplate(doc: DocumentDto): SignatureFieldTemplate[] {
+  if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
+    return HEBREW_MULTI_SIGNER_FIELD_TEMPLATE;
+  }
+  const signerCount = listSignatureSigners(doc).length;
+  const pageNumber = Math.max(1, doc.pageCount ?? 1);
+  return buildGenericUploadSignatureTemplate(signerCount, pageNumber);
+}
+
 export async function createMissingTemplateFields(
   doc: DocumentDto,
   existingFields: { stepId: string; signerId: string }[],
   createField: (mapping: FieldMappingInput) => Promise<SignatureFieldDto>,
-  template: SignatureFieldTemplate[] = HEBREW_MULTI_SIGNER_FIELD_TEMPLATE,
+  template?: SignatureFieldTemplate[],
 ): Promise<SignatureFieldDto[]> {
-  const mappings = buildTemplateFieldMappings(doc.workflowSteps, template).filter(
+  const resolvedTemplate = template ?? resolveAutoMapTemplate(doc);
+  const mappings = buildTemplateFieldMappings(doc.workflowSteps, resolvedTemplate).filter(
     (mapping) =>
       !existingFields.some(
         (field) =>

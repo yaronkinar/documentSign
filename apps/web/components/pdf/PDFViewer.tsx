@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { CommentDto, PdfFormFieldTemplate, SignatureDto, SignatureFieldDto } from '@docflow/shared';
 
@@ -23,11 +23,20 @@ export interface PDFViewerProps {
   comments?: CommentDto[];
   placementMode?: boolean;
   fieldPlacementMode?: boolean;
+  /** Draft owner: drag unsigned signature fields to reposition. */
+  fieldEditMode?: boolean;
   commentMode?: boolean;
   /** When set, only this signer's unsigned fields are clickable. */
   activeSignerId?: string | null;
   onSignaturePlace?: (page: number, xPct: number, yPct: number) => void;
   onFieldPlace?: (page: number, xPct: number, yPct: number) => void;
+  onFieldMove?: (
+    fieldId: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => void;
+  onFieldResize?: (fieldId: string, width: number, height: number) => void;
   onFieldClick?: (field: SignatureFieldDto) => void;
   onCommentPin?: (page: number, xPct: number, yPct: number) => void;
   onCommentSelect?: (commentId: string) => void;
@@ -164,10 +173,13 @@ export function PDFViewer(props: PDFViewerProps) {
               )}
               placementMode={!!props.placementMode}
               fieldPlacementMode={!!props.fieldPlacementMode}
+              fieldEditMode={!!props.fieldEditMode}
               commentMode={!!props.commentMode}
               activeSignerId={props.activeSignerId}
               onSignaturePlace={props.onSignaturePlace}
               onFieldPlace={props.onFieldPlace}
+              onFieldMove={props.onFieldMove}
+              onFieldResize={props.onFieldResize}
               onFieldClick={props.onFieldClick}
               onCommentPin={props.onCommentPin}
               onCommentSelect={props.onCommentSelect}
@@ -203,10 +215,13 @@ function LazyPDFPage({
   comments,
   placementMode,
   fieldPlacementMode,
+  fieldEditMode,
   commentMode,
   activeSignerId,
   onSignaturePlace,
   onFieldPlace,
+  onFieldMove,
+  onFieldResize,
   onFieldClick,
   onCommentPin,
   onCommentSelect,
@@ -231,10 +246,18 @@ function LazyPDFPage({
   comments: CommentDto[];
   placementMode: boolean;
   fieldPlacementMode: boolean;
+  fieldEditMode: boolean;
   commentMode: boolean;
   activeSignerId?: string | null;
   onSignaturePlace?: (page: number, xPct: number, yPct: number) => void;
   onFieldPlace?: (page: number, xPct: number, yPct: number) => void;
+  onFieldMove?: (
+    fieldId: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => void;
+  onFieldResize?: (fieldId: string, width: number, height: number) => void;
   onFieldClick?: (field: SignatureFieldDto) => void;
   onCommentPin?: (page: number, xPct: number, yPct: number) => void;
   onCommentSelect?: (commentId: string) => void;
@@ -338,11 +361,13 @@ function LazyPDFPage({
   }, [pdf, pageNumber, scale, dimensions, eager, prefetch]);
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (templateEditMode) {
+    if (templateEditMode || fieldPlacementMode) {
       if (justDraggedRef.current) {
         justDraggedRef.current = false;
         return;
       }
+    }
+    if (templateEditMode) {
       const rect = e.currentTarget.getBoundingClientRect();
       const xPct = ((e.clientX - rect.left) / rect.width) * 100;
       const yPct = ((e.clientY - rect.top) / rect.height) * 100;
@@ -433,6 +458,78 @@ function LazyPDFPage({
             onTemplateFieldResize?.(field.id, newW, newH);
           }
           setTimeout(() => { justDraggedRef.current = false; }, 50);
+        }
+      }
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  function startSignatureFieldDrag(
+    e: React.MouseEvent,
+    field: SignatureFieldDto,
+    mode: 'move' | 'resize',
+  ) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const fieldEl = (e.currentTarget as HTMLElement).closest(
+      '[data-sfield]',
+    ) as HTMLElement;
+    if (!fieldEl) return;
+
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startFieldX = field.x;
+    const startFieldY = field.y;
+    const startWidth = field.width;
+    const startHeight = field.height;
+
+    function onMouseMove(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const rect = overlay.getBoundingClientRect();
+      const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+      const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+
+      if (mode === 'move') {
+        const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
+        const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
+        fieldEl.style.left = `${newX}%`;
+        fieldEl.style.top = `${newY}%`;
+      } else {
+        const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+        const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+        fieldEl.style.width = `${newW}%`;
+        fieldEl.style.height = `${newH}%`;
+      }
+    }
+
+    function onMouseUp(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (overlay) {
+        const rect = overlay.getBoundingClientRect();
+        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+        const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
+
+        if (moved) {
+          justDraggedRef.current = true;
+          if (mode === 'move') {
+            const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
+            const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
+            onFieldMove?.(field._id, pageNumber, newX, newY);
+          } else {
+            const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+            const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+            onFieldResize?.(field._id, newW, newH);
+          }
+          setTimeout(() => {
+            justDraggedRef.current = false;
+          }, 50);
         }
       }
       window.removeEventListener('mousemove', onMouseMove);
@@ -592,10 +689,91 @@ function LazyPDFPage({
             const isMine =
               !activeSignerId || field.signerId === activeSignerId;
             const clickable = !field.signed && isMine && !!onFieldClick;
+            const draggable =
+              fieldEditMode &&
+              !field.signed &&
+              !!(onFieldMove || onFieldResize);
             const label =
               field.label ||
               field.signerName ||
               field.signerEmail.split('@')[0];
+            const boxStyle: CSSProperties = {
+              position: 'absolute',
+              left: `${field.x}%`,
+              top: `${field.y}%`,
+              width: `${field.width}%`,
+              height: `${field.height}%`,
+              border: field.signed
+                ? '2px solid #10b981'
+                : isMine
+                  ? '2px dashed #2563eb'
+                  : '2px dashed #9ca3af',
+              background: field.signed
+                ? 'rgba(16, 185, 129, 0.12)'
+                : isMine
+                  ? 'rgba(37, 99, 235, 0.08)'
+                  : 'rgba(156, 163, 175, 0.08)',
+              borderRadius: 4,
+              boxSizing: 'border-box',
+              userSelect: 'none',
+            };
+            const labelEl = !field.signed && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -18,
+                  left: 0,
+                  fontSize: 10,
+                  lineHeight: 1,
+                  color: isMine ? '#1d4ed8' : '#6b7280',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                  background: 'rgba(255,255,255,0.85)',
+                  padding: '1px 3px',
+                  borderRadius: 2,
+                }}
+              >
+                {label}
+              </span>
+            );
+
+            if (draggable) {
+              return (
+                <div
+                  key={field._id}
+                  data-sfield={field._id}
+                  title={`${label} – ${field.signerEmail}`}
+                  onMouseDown={(e) => startSignatureFieldDrag(e, field, 'move')}
+                  style={{
+                    ...boxStyle,
+                    cursor: 'move',
+                    pointerEvents: 'auto',
+                  }}
+                >
+                  {labelEl}
+                  {onFieldResize && (
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        startSignatureFieldDrag(e, field, 'resize');
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: 10,
+                        height: 10,
+                        background: '#2563eb',
+                        cursor: 'se-resize',
+                        borderRadius: '2px 0 2px 0',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            }
+
             return (
               <button
                 key={field._id}
@@ -608,43 +786,13 @@ function LazyPDFPage({
                     : `${label} – ${field.signerEmail}`
                 }
                 style={{
-                  position: 'absolute',
-                  left: `${field.x}%`,
-                  top: `${field.y}%`,
-                  width: `${field.width}%`,
-                  height: `${field.height}%`,
-                  border: field.signed
-                    ? '2px solid #10b981'
-                    : isMine
-                      ? '2px dashed #2563eb'
-                      : '2px dashed #9ca3af',
-                  background: field.signed
-                    ? 'rgba(16, 185, 129, 0.12)'
-                    : isMine
-                      ? 'rgba(37, 99, 235, 0.08)'
-                      : 'rgba(156, 163, 175, 0.08)',
-                  borderRadius: 4,
+                  ...boxStyle,
                   cursor: clickable ? 'pointer' : 'default',
                   pointerEvents: clickable || fieldPlacementMode ? 'auto' : 'none',
                   padding: 0,
                 }}
               >
-                {!field.signed && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: -18,
-                      left: 0,
-                      fontSize: 10,
-                      lineHeight: 1,
-                      color: isMine ? '#1d4ed8' : '#6b7280',
-                      whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {label}
-                  </span>
-                )}
+                {labelEl}
               </button>
             );
           })}

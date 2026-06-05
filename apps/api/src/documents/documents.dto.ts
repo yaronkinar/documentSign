@@ -22,6 +22,12 @@ export class CreateDocumentDto {
   @IsString()
   @MaxLength(64)
   formTemplateId?: string;
+
+  /** When set, copy PDF + layout from a saved PDF template (Mongo id). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  pdfTemplateId?: string;
 }
 
 export class ConfirmUploadDto {

@@ -5,13 +5,16 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   CommentDto,
   DocumentDto,
+  PdfTemplateDto,
   SavedSignatureDto,
   SignatureDto,
   SignatureFieldDto,
   SignerDto,
+  SignatureFieldTemplate,
 } from '@docflow/shared';
-import { resolveFormTemplateFields } from '@docflow/shared';
+import { resolveDocumentFormFields } from '@docflow/shared';
 
+import { DraftWorkflowSetup } from '@/components/documents/DraftWorkflowSetup';
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
 import { SignaturePad } from '@/components/pdf/SignaturePad';
@@ -21,6 +24,7 @@ import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { useDocumentSocket } from '@/lib/socket';
 import { useRenderedPdfUrl } from '@/lib/use-rendered-pdf-url';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
+import { clampPlacementToPageCount } from '@/lib/pdf-signature-placement';
 import {
   createMissingTemplateFields,
   listSignatureSigners,
@@ -80,6 +84,12 @@ export function DocumentViewerClient({
   );
   const [comments, setComments] = useState<CommentDto[]>(initialComments);
   const [sidebarTab, setSidebarTab] = useState<'workflow' | 'comments' | 'form'>('workflow');
+
+  useEffect(() => {
+    if (initialDoc.status === 'draft' && initialDoc.workflowSteps.length === 0) {
+      setSidebarTab('workflow');
+    }
+  }, [initialDoc.status, initialDoc.workflowSteps.length]);
   const [placementMode, setPlacementMode] = useState(false);
   const [fieldPlacementMode, setFieldPlacementMode] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
@@ -98,10 +108,11 @@ export function DocumentViewerClient({
   const [autoMapBusy, setAutoMapBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [formSaveBusy, setFormSaveBusy] = useState(false);
+  const [saveTemplateBusy, setSaveTemplateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const autoMapOnLoadRef = useRef(false);
 
-  const formFields = resolveFormTemplateFields(doc.formTemplateId);
+  const formFields = resolveDocumentFormFields(doc);
   const hasForm = formFields.length > 0;
   const isTemplateDoc = !!doc.formTemplateId;
   const isHaknasot = doc.formTemplateId === 'haknasot';
@@ -122,7 +133,15 @@ export function DocumentViewerClient({
   const viewerPdfUrl = showRenderedPdf
     ? renderedPdfUrl
     : doc.fileUrl ?? templatePdfUrl;
-  const viewerLoading = showRenderedPdf ? renderedPdfLoading : templatePdfLoading;
+  const viewerLoading = showRenderedPdf
+    ? renderedPdfLoading
+    : doc.fileUrl
+      ? false
+      : templatePdfLoading;
+
+  const pageCount = doc.pageCount ?? 1;
+  const displaySignatures = clampPlacementToPageCount(signatures, pageCount);
+  const displaySignatureFields = clampPlacementToPageCount(signatureFields, pageCount);
 
   const signatureSigners = listSignatureSigners(doc);
   const unmappedSigners = signersMissingFields(doc, signatureFields);
@@ -190,6 +209,10 @@ export function DocumentViewerClient({
   const canSign = !!mySignerInActiveStep && doc.status === 'pending_signature';
   const isOwner = doc.ownerId === myClerkId;
   const isDraft = doc.status === 'draft';
+  const hasWorkflowSteps = doc.workflowSteps.length > 0;
+  const canSubmitDraft =
+    hasWorkflowSteps && doc.workflowSteps.every((s) => s.signers.length > 0);
+  const canSaveAsTemplate = isOwner && signatureFields.length > 0 && !!doc.fileUrl;
 
   const myAssignedFields =
     mySignerInActiveStep && activeStep
@@ -269,11 +292,95 @@ export function DocumentViewerClient({
     }
   }
 
+  async function updateFieldPosition(
+    fieldId: string,
+    patch: { pageNumber?: number; x?: number; y?: number; width?: number; height?: number },
+  ) {
+    try {
+      const updated = await api.patch<SignatureFieldDto>(
+        `/documents/${doc._id}/signature-fields/${fieldId}`,
+        patch,
+      );
+      setSignatureFields((prev) =>
+        prev.map((f) => (f._id === fieldId ? updated : f)),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.moveFieldFailed'));
+    }
+  }
+
+  function onFieldMove(fieldId: string, page: number, x: number, y: number) {
+    if (!isOwner || !isDraft) return;
+    const rounded = {
+      x: Number(x.toFixed(2)),
+      y: Number(y.toFixed(2)),
+    };
+    setSignatureFields((prev) =>
+      prev.map((f) =>
+        f._id === fieldId ? { ...f, pageNumber: page, ...rounded } : f,
+      ),
+    );
+    void updateFieldPosition(fieldId, { pageNumber: page, ...rounded });
+  }
+
+  function onFieldResize(fieldId: string, width: number, height: number) {
+    if (!isOwner || !isDraft) return;
+    const rounded = {
+      width: Number(width.toFixed(2)),
+      height: Number(height.toFixed(2)),
+    };
+    setSignatureFields((prev) =>
+      prev.map((f) => (f._id === fieldId ? { ...f, ...rounded } : f)),
+    );
+    void updateFieldPosition(fieldId, rounded);
+  }
+
+  function mapPdfTemplateFields(
+    template: PdfTemplateDto,
+  ): SignatureFieldTemplate[] {
+    return template.fields.map((f) => ({
+      pageNumber: f.pageNumber,
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+      label: f.label,
+    }));
+  }
+
+  async function loadPdfTemplateLayout(): Promise<SignatureFieldTemplate[] | undefined> {
+    if (isTemplateDoc) return undefined;
+    try {
+      if (doc.pdfTemplateId) {
+        const linked = await api.get<PdfTemplateDto>(
+          `/templates/${doc.pdfTemplateId}`,
+        );
+        if (linked.fields.length > 0) return mapPdfTemplateFields(linked);
+      }
+      const templates = await api.get<PdfTemplateDto[]>('/templates');
+      const pick =
+        templates.find((t) => t.isDefault && t.fields.length > 0) ??
+        templates.find((t) => t.fields.length > 0);
+      if (!pick) return undefined;
+      return pick.fields.map((f) => ({
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        label: f.label,
+      }));
+    } catch {
+      return undefined;
+    }
+  }
+
   async function autoMapSignersFromTemplate() {
     if (!isOwner || !isDraft) return;
     setAutoMapBusy(true);
     setError(null);
     try {
+      const pdfTemplate = await loadPdfTemplateLayout();
       const created = await createMissingTemplateFields(
         doc,
         signatureFields,
@@ -282,6 +389,7 @@ export function DocumentViewerClient({
             `/documents/${doc._id}/signature-fields`,
             mapping,
           ),
+        pdfTemplate,
       );
       if (created.length > 0) {
         setSignatureFields((prev) => [...prev, ...created]);
@@ -365,6 +473,27 @@ export function DocumentViewerClient({
       setError(err instanceof Error ? err.message : t('document.downloadFailed'));
     } finally {
       setDownloadBusy(false);
+    }
+  }
+
+  async function saveAsTemplate() {
+    const defaultName = `${doc.title} template`;
+    const name = window.prompt(t('document.saveAsTemplatePrompt'), defaultName);
+    if (!name?.trim()) return;
+    setSaveTemplateBusy(true);
+    setError(null);
+    try {
+      const template = await api.post<PdfTemplateDto>(
+        `/documents/${doc._id}/save-as-template`,
+        { name: name.trim() },
+      );
+      router.push(`/templates/${template._id}`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.saveAsTemplateFailed'),
+      );
+    } finally {
+      setSaveTemplateBusy(false);
     }
   }
 
@@ -561,17 +690,24 @@ export function DocumentViewerClient({
           {viewerPdfUrl && (
             <PDFViewer
               pdfUrl={viewerPdfUrl}
-              signatures={showRenderedPdf ? [] : signatures}
-              signatureFields={showRenderedPdf ? signatureFields.filter((f) => !f.signed) : signatureFields}
+              signatures={showRenderedPdf ? [] : displaySignatures}
+              signatureFields={
+                showRenderedPdf
+                  ? displaySignatureFields.filter((f) => !f.signed)
+                  : displaySignatureFields
+              }
               comments={comments}
               formFields={showRenderedPdf ? [] : formFields}
               formValues={showRenderedPdf ? undefined : doc.formValues}
               placementMode={placementMode}
               fieldPlacementMode={fieldPlacementMode}
+              fieldEditMode={isOwner && isDraft}
               commentMode={commentMode}
               activeSignerId={canSign ? mySignerInActiveStep?._id : null}
               onSignaturePlace={onPlace}
               onFieldPlace={onFieldPlace}
+              onFieldMove={onFieldMove}
+              onFieldResize={onFieldResize}
               onFieldClick={onFieldClick}
               onCommentPin={(page, x, y) => {
                 setPendingCommentTarget({ page, x, y });
@@ -587,6 +723,28 @@ export function DocumentViewerClient({
           {!isTemplateDoc && (fieldPlacementMode || isDraft) && (
             <div className="mx-auto mt-4 max-w-3xl rounded border border-gray-200 bg-white p-3 text-sm">
               <div className="mb-2 font-medium">{t('document.signerMapping')}</div>
+              {isDraft && isOwner && signatureFields.length > 0 && (
+                <p className="mb-2 text-xs text-gray-500">
+                  {t('document.dragToMoveField')}
+                </p>
+              )}
+              {canSaveAsTemplate && (
+                <div className="mb-3">
+                  <p className="mb-2 text-xs text-gray-500">
+                    {t('document.saveAsTemplateHint')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void saveAsTemplate()}
+                    disabled={saveTemplateBusy}
+                    className="w-full rounded border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+                  >
+                    {saveTemplateBusy
+                      ? t('common.saving')
+                      : t('document.saveAsTemplate')}
+                  </button>
+                </div>
+              )}
               <ul className="mb-3 space-y-1">
                 {signatureSigners.map((signer) => {
                   const mapped = signatureFields.some(
@@ -667,7 +825,14 @@ export function DocumentViewerClient({
                 )}
                 <button
                   onClick={submitDocument}
-                  disabled={submitBusy || (!isTemplateDoc && !allSignersMapped)}
+                  disabled={
+                    submitBusy ||
+                    !canSubmitDraft ||
+                    (!isTemplateDoc && !allSignersMapped)
+                  }
+                  title={
+                    !canSubmitDraft ? t('document.setupWorkflowHint') : undefined
+                  }
                   className="rounded bg-black px-5 py-2 text-sm font-medium text-white shadow disabled:opacity-50"
                 >
                   {submitBusy ? t('common.sending') : t('document.sendToSigners')}
@@ -691,7 +856,7 @@ export function DocumentViewerClient({
                   </select>
                 </label>
                 <span className="text-xs text-gray-500">
-                  {t('document.clickToPlaceField')}
+                  {t('document.clickToPlaceField')} · {t('document.dragToMoveField')}
                 </span>
                 <button
                   onClick={() => setFieldPlacementMode(false)}
@@ -786,7 +951,15 @@ export function DocumentViewerClient({
               />
             </div>
           )}
-          {sidebarTab === 'workflow' && (
+          {sidebarTab === 'workflow' && isDraft && isOwner && !hasWorkflowSteps && (
+            <DraftWorkflowSetup
+              documentId={doc._id}
+              currentUserEmail={myEmail}
+              currentUserName=""
+              onSaved={(fresh) => setDoc(fresh)}
+            />
+          )}
+          {sidebarTab === 'workflow' && (hasWorkflowSteps || !isDraft || !isOwner) && (
             <WorkflowSidebar
               doc={doc}
               isOwner={isOwner}

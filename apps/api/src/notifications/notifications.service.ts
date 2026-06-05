@@ -13,6 +13,17 @@ export interface SendInviteEmailJob {
   token: string;
 }
 
+export interface SendCommentNotifyJob {
+  to: string;
+  recipientName: string;
+  documentTitle: string;
+  documentId: string;
+  authorName: string | null;
+  authorEmail: string;
+  commentPreview: string;
+  isReply?: boolean;
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly resend: Resend | null;
@@ -51,6 +62,41 @@ export class NotificationsService {
     });
   }
 
+  async sendCommentEmail(job: SendCommentNotifyJob): Promise<void> {
+    if (!this.resend) {
+      // eslint-disable-next-line no-console
+      console.warn('[notifications] RESEND_API_KEY not set - skipping email', {
+        to: job.to,
+      });
+      return;
+    }
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const authorLabel = job.authorName?.trim() || job.authorEmail;
+    const link = `${appUrl}/documents/${job.documentId}`;
+    const subject = job.isReply
+      ? `${authorLabel} replied on ${job.documentTitle}`
+      : `New comment on ${job.documentTitle}`;
+    const intro = job.isReply
+      ? `<p><strong>${escapeHtml(authorLabel)}</strong> replied to a comment on
+           <strong>${escapeHtml(job.documentTitle)}</strong>:</p>`
+      : `<p><strong>${escapeHtml(authorLabel)}</strong> left a comment on
+           <strong>${escapeHtml(job.documentTitle)}</strong>:</p>`;
+
+    await this.resend.emails.send({
+      from: this.from,
+      to: job.to,
+      subject,
+      html: `
+        <p>Hi ${escapeHtml(job.recipientName)},</p>
+        ${intro}
+        <blockquote style="border-left:3px solid #ccc;margin:0;padding:8px 12px;color:#333;">
+          ${escapeHtml(job.commentPreview)}
+        </blockquote>
+        <p><a href="${link}">View document</a></p>
+      `,
+    });
+  }
+
   /** Queue invite email; fall back to sending inline when Redis is unavailable. */
   async enqueueInviteEmail(job: SendInviteEmailJob): Promise<void> {
     try {
@@ -71,6 +117,29 @@ export class NotificationsService {
         // eslint-disable-next-line no-console
         console.error('[notifications] inline send-invite failed', sendErr);
         throw sendErr;
+      }
+    }
+  }
+
+  /** Queue comment notification; fall back to sending inline when Redis is unavailable. */
+  async enqueueCommentEmail(job: SendCommentNotifyJob): Promise<void> {
+    try {
+      await this.queue.add('notify-comment', job, {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: true,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[notifications] queue unavailable, sending comment notify inline',
+        err,
+      );
+      try {
+        await this.sendCommentEmail(job);
+      } catch (sendErr) {
+        // eslint-disable-next-line no-console
+        console.error('[notifications] inline notify-comment failed', sendErr);
       }
     }
   }

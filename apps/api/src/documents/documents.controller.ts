@@ -19,10 +19,15 @@ import { DocumentsService } from './documents.service';
 import { ConfirmUploadDto, CreateDocumentDto, UpdateDocumentDto, UpdateFormValuesDto } from './documents.dto';
 import { WorkflowService } from '../workflow/workflow.service';
 import { InvitesService } from '../invites/invites.service';
+import { TemplatesService } from '../templates/templates.service';
+import { CreateTemplateFromDocumentDto } from '../templates/templates.dto';
 import { AddSignerDto, AddStepDto } from '../workflow/workflow.dto';
 import { toDocumentDto } from './documents.mapper';
 import { SignatureFieldsService } from './signature-fields.service';
-import { CreateSignatureFieldDto } from './signature-fields.dto';
+import {
+  CreateSignatureFieldDto,
+  UpdateSignatureFieldDto,
+} from './signature-fields.dto';
 
 @Controller('documents')
 @UseGuards(ClerkAuthGuard)
@@ -32,6 +37,7 @@ export class DocumentsController {
     private readonly workflowService: WorkflowService,
     private readonly invitesService: InvitesService,
     private readonly signatureFieldsService: SignatureFieldsService,
+    private readonly templatesService: TemplatesService,
   ) {}
 
   @Post()
@@ -40,8 +46,20 @@ export class DocumentsController {
     @Body() dto: CreateDocumentDto,
   ) {
     if (!user.email) throw new BadRequestException('No email on token');
+    if (dto.formTemplateId && dto.pdfTemplateId) {
+      throw new BadRequestException(
+        'Use either formTemplateId or pdfTemplateId, not both',
+      );
+    }
     if (dto.formTemplateId) {
       return this.documentsService.createFromTemplate(
+        user.clerkId,
+        user.email,
+        dto,
+      );
+    }
+    if (dto.pdfTemplateId) {
+      return this.documentsService.createFromPdfTemplate(
         user.clerkId,
         user.email,
         dto,
@@ -68,6 +86,11 @@ export class DocumentsController {
   @Post(':id/extract-signers')
   extractSigners(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.documentsService.extractSigners(id, user.clerkId);
+  }
+
+  @Post(':id/extract-form-fields')
+  extractFormFields(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
+    return this.documentsService.extractFormFields(id, user.clerkId);
   }
 
   @Patch(':id')
@@ -161,6 +184,15 @@ export class DocumentsController {
     return this.documentsService.devSignAll(id, user.clerkId, body?.imageKeys);
   }
 
+  @Post(':id/save-as-template')
+  async saveAsTemplate(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateTemplateFromDocumentDto,
+  ) {
+    return this.templatesService.createFromDocument(id, user.clerkId, dto);
+  }
+
   @Post(':id/steps')
   async addStep(
     @CurrentUser() user: CurrentUserPayload,
@@ -244,6 +276,21 @@ export class DocumentsController {
     @Body() dto: CreateSignatureFieldDto,
   ) {
     return this.signatureFieldsService.createField(id, dto, user.clerkId);
+  }
+
+  @Patch(':id/signature-fields/:fieldId')
+  updateSignatureField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Param('fieldId') fieldId: string,
+    @Body() dto: UpdateSignatureFieldDto,
+  ) {
+    return this.signatureFieldsService.updateField(
+      id,
+      fieldId,
+      dto,
+      user.clerkId,
+    );
   }
 
   @Delete(':id/signature-fields/:fieldId')

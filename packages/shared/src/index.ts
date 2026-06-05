@@ -110,6 +110,10 @@ export interface CommentResolvedPayload extends SocketEventPayloadBase {
   resolvedBy: string;
 }
 
+export interface NotificationNewPayload {
+  notification: UserNotificationDto;
+}
+
 export interface SocketEvents {
   'document:status_changed': DocumentStatusChangedPayload;
   'step:completed': StepCompletedPayload;
@@ -117,6 +121,10 @@ export interface SocketEvents {
   'signer:rejected': SignerRejectedPayload;
   'comment:added': CommentAddedPayload;
   'comment:resolved': CommentResolvedPayload;
+}
+
+export interface UserSocketEvents {
+  'notification:new': NotificationNewPayload;
 }
 
 export type SocketEventName = keyof SocketEvents;
@@ -167,6 +175,10 @@ export interface DocumentDto {
   participantEmails: string[];
   participantClerkIds: string[];
   formTemplateId: string | null;
+  /** Saved PDF template id when the document was created from /templates. */
+  pdfTemplateId?: string | null;
+  /** AI-detected fillable regions for uploaded PDFs (not used for haknasot template). */
+  formFields?: PdfFormFieldTemplate[];
   formValues: Record<string, string>;
   createdAt: string;
   updatedAt: string;
@@ -244,6 +256,22 @@ export interface CommentDto {
   updatedAt: string;
 }
 
+export type UserNotificationType = 'comment' | 'comment_reply';
+
+export interface UserNotificationDto {
+  _id: string;
+  type: UserNotificationType;
+  documentId: string;
+  documentTitle: string;
+  commentId: string;
+  parentCommentId: string | null;
+  authorName: string | null;
+  authorEmail: string;
+  contentPreview: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface TemplateFieldDto {
   _id: string;
   label: string;
@@ -283,6 +311,7 @@ export interface GuestSigningDataDto {
   documentTitle: string;
   presignedPdfUrl?: string;
   formTemplateId?: string | null;
+  formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   stepLabel: string;
   stepId: string;
@@ -311,6 +340,8 @@ export {
   type TemplateWorkflowStep,
 } from './template-signature-fields.js';
 
+export { buildGenericUploadSignatureTemplate } from './generic-upload-signature-template.js';
+
 export const HEBREW_SAMPLE_PDF_FILENAME = 'haknasot.pdf';
 
 export const HEBREW_SAMPLE_DEFAULT_TITLE = 'הכנסות';
@@ -334,3 +365,9 @@ export function resolveFormTemplateFields(
   }
   return [];
 }
+
+export {
+  buildPdfFormFieldsFromExtracted,
+  resolveDocumentFormFields,
+  allowedDocumentFormFieldIds,
+} from './document-form-fields.js';

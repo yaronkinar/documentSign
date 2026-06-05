@@ -8,6 +8,7 @@ import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { InvitesModule } from '../invites/invites.module';
+import { TemplatesModule } from '../templates/templates.module';
 import { AiModule } from '../ai/ai.module';
 import { SignatureFieldsService } from './signature-fields.service';
 import {
@@ -25,6 +26,7 @@ import {
     ]),
     WorkflowModule,
     InvitesModule,
+    TemplatesModule,
     AiModule,
   ],
   providers: [DocumentsService, SignatureFieldsService],

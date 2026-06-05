@@ -1,5 +1,22 @@
-import type { DocumentDto, SignerDto, WorkflowStepDto } from '@docflow/shared';
+import type { DocumentDto, PdfFormFieldTemplate, SignerDto, WorkflowStepDto } from '@docflow/shared';
 import type { DocumentDocument } from './document.schema';
+
+function toFormFieldsDto(
+  fields: DocumentDocument['formFields'] | undefined,
+): PdfFormFieldTemplate[] {
+  if (!fields?.length) return [];
+  return fields.map((f) => ({
+    id: f.id,
+    label: f.label,
+    type: f.type,
+    section: f.section,
+    pageNumber: f.pageNumber,
+    x: f.x,
+    y: f.y,
+    width: f.width,
+    height: f.height,
+  }));
+}
 
 /**
  * Maps a Mongoose DocumentDocument to a sanitized DocumentDto.
@@ -23,6 +40,8 @@ export function toDocumentDto(
     participantEmails: doc.participantEmails,
     participantClerkIds: doc.participantClerkIds,
     formTemplateId: doc.formTemplateId ?? null,
+    pdfTemplateId: doc.pdfTemplateId ?? null,
+    formFields: toFormFieldsDto(doc.formFields),
     formValues: doc.formValues ?? {},
     createdAt: (doc as unknown as { createdAt: Date }).createdAt.toISOString(),
     updatedAt: (doc as unknown as { updatedAt: Date }).updatedAt.toISOString(),

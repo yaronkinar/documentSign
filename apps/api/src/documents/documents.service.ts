@@ -7,7 +7,15 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { AuditEventType, HAKNASOT_FORM_TEMPLATE_ID, MUNICIPAL_APPROVAL_SIGNER_TITLES, type DocumentDto } from '@docflow/shared';
+import {
+  allowedDocumentFormFieldIds,
+  AuditEventType,
+  buildPdfFormFieldsFromExtracted,
+  HAKNASOT_FORM_TEMPLATE_ID,
+  MUNICIPAL_APPROVAL_SIGNER_TITLES,
+  type DocumentDto,
+  type PdfFormFieldTemplate,
+} from '@docflow/shared';
 
 import { Document, DocumentDocument } from './document.schema';
 import { Signature, SignatureDocument } from '../signatures/signature.schema';
@@ -19,9 +27,11 @@ import {
 import { InvitesService } from '../invites/invites.service';
 import { StorageService } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
+import { fieldLabelAppearsInPdfText } from '../ai/pdf-field-label';
 import { AiService } from '../ai/ai.service';
 import { ConfirmUploadDto, CreateDocumentDto, UpdateDocumentDto, UpdateFormValuesDto } from './documents.dto';
 import { toDocumentDto } from './documents.mapper';
+import { TemplatesService } from '../templates/templates.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { renderHaknasotPdf, type SignedRowInput } from './haknasot-renderer';
 import {
@@ -45,6 +55,7 @@ export class DocumentsService {
     private readonly auditService: AuditService,
     private readonly aiService: AiService,
     private readonly workflowService: WorkflowService,
+    private readonly templatesService: TemplatesService,
   ) {}
 
   async createFromTemplate(
@@ -85,6 +96,48 @@ export class DocumentsService {
     });
 
     return toDocumentDto(doc);
+  }
+
+  async createFromPdfTemplate(
+    clerkId: string,
+    actorEmail: string,
+    dto: CreateDocumentDto,
+  ): Promise<DocumentDto> {
+    const pdfTemplateId = dto.pdfTemplateId!.trim();
+    const { buffer, fileSize, pageCount, name } =
+      await this.templatesService.readTemplatePdf(pdfTemplateId, clerkId);
+
+    const documentId = new Types.ObjectId();
+    const fileKey = `docs/${documentId.toString()}/${uuidv4()}.pdf`;
+    await this.storageService.uploadBuffer(fileKey, buffer, 'application/pdf');
+
+    const doc = new this.documentModel({
+      _id: documentId,
+      title: (dto.title?.trim() || name).slice(0, 200),
+      description: dto.description ?? null,
+      fileKey,
+      fileSize,
+      pageCount: pageCount ?? 1,
+      pdfTemplateId,
+      ownerId: clerkId,
+      status: 'draft',
+      currentStep: 0,
+      workflowSteps: [],
+      participantEmails: [actorEmail.toLowerCase()],
+      participantClerkIds: [clerkId],
+    });
+    await doc.save();
+
+    this.auditService.log({
+      documentId: doc._id,
+      actorId: clerkId,
+      actorEmail,
+      eventType: AuditEventType.DocumentCreated,
+      metadata: { title: doc.title, pdfTemplateId },
+    });
+
+    const fileUrl = await this.storageService.getDownloadUrl(fileKey);
+    return toDocumentDto(doc, { fileUrl });
   }
 
   async createUpload(
@@ -203,6 +256,48 @@ export class DocumentsService {
     return { signers };
   }
 
+  async extractFormFields(
+    documentId: string,
+    clerkId: string,
+  ): Promise<{ fields: PdfFormFieldTemplate[] }> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    if (!doc.fileKey) {
+      throw new BadRequestException('Document has no uploaded PDF');
+    }
+    if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
+      throw new BadRequestException('Form extraction is for uploaded PDFs only');
+    }
+
+    const pdfBuffer = await this.storageService.downloadObject(doc.fileKey);
+    const pdfText = await this.aiService.extractPdfText(pdfBuffer);
+    const rolesFromPdf = await this.aiService.extractSignerRoles(pdfText);
+    const signerHints = rolesFromPdf.map((label) => ({ label }));
+    const extracted = await this.aiService.extractTemplateFieldsFromPdf(
+      pdfBuffer,
+      doc.pageCount,
+      signerHints,
+      'uploaded_document',
+    );
+    const filtered = extracted.filter((field) =>
+      fieldLabelAppearsInPdfText(field.label, pdfText),
+    );
+    const fields = buildPdfFormFieldsFromExtracted(filtered);
+    doc.formFields = fields.map((f) => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      section: f.section,
+      pageNumber: f.pageNumber,
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+    })) as never;
+    doc.markModified('formFields');
+    await doc.save();
+    return { fields };
+  }
+
   async updateDocument(
     documentId: string,
     clerkId: string,
@@ -226,12 +321,28 @@ export class DocumentsService {
     if (doc.status !== 'draft') {
       throw new ForbiddenException('Form values can only be edited in draft');
     }
-    if (!doc.formTemplateId) {
-      throw new ForbiddenException('Document has no form template');
+    const allowedIds = allowedDocumentFormFieldIds({
+      formTemplateId: doc.formTemplateId,
+      formFields: doc.formFields?.map((f) => ({
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      })),
+    });
+    if (allowedIds.size === 0) {
+      throw new ForbiddenException('Document has no fillable form fields');
     }
 
     const allowed = new Set(
-      Object.keys(dto.values).filter((key) => typeof dto.values[key] === 'string'),
+      Object.keys(dto.values).filter(
+        (key) => typeof dto.values[key] === 'string' && allowedIds.has(key),
+      ),
     );
     doc.formValues = {
       ...(doc.formValues ?? {}),

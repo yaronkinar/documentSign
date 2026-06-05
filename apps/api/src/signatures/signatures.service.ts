@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import type { SignatureDto, GuestSigningDataDto } from '@docflow/shared';
+import {
+  resolveDocumentFormFields,
+  type SignatureDto,
+  type GuestSigningDataDto,
+} from '@docflow/shared';
 
 import { Signature, SignatureDocument } from './signature.schema';
 import { Document, DocumentDocument } from '../documents/document.schema';
@@ -336,10 +340,25 @@ export class SignaturesService {
       String(step._id),
       String(signer._id),
     );
+    const formFields = resolveDocumentFormFields({
+      formTemplateId: doc.formTemplateId,
+      formFields: doc.formFields?.map((f) => ({
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      })),
+    });
     return {
       documentTitle: doc.title,
       presignedPdfUrl,
       formTemplateId: doc.formTemplateId ?? null,
+      formFields: formFields.length > 0 ? formFields : undefined,
       formValues: doc.formValues ?? {},
       stepLabel: step.label,
       stepId: String(step._id),

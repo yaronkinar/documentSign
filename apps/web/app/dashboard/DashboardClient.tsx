@@ -2,6 +2,7 @@
 
 import { useAuth } from '@clerk/nextjs';
 import { Download, Trash2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -255,10 +256,19 @@ export function DashboardClient({
           </div>
 
           <ul className="divide-y divide-border">
-            {filtered.map((doc) => {
+            {filtered.map((doc, index) => {
               const isSelected = selectedIds.has(doc._id);
               return (
-                <li key={doc._id}>
+                <motion.li
+                  key={doc._id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    delay: Math.min(index * 0.025, 0.3),
+                    ease: 'easeOut',
+                  }}
+                >
                   <div
                     className={cn(
                       'flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-muted',
@@ -314,7 +324,7 @@ export function DashboardClient({
                       <StatusBadge status={doc.status} />
                     </div>
                   </div>
-                </li>
+                </motion.li>
               );
             })}
           </ul>

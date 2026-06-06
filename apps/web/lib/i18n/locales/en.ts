@@ -20,6 +20,7 @@ export const en = {
     downloading: 'Downloading…',
     signIn: 'Sign in',
     signUp: 'Sign up',
+    signOut: 'Sign out',
     downloadPdf: 'Download PDF',
     language: 'Language',
     english: 'English',
@@ -33,6 +34,7 @@ export const en = {
     demo: 'Demo',
     users: 'Users',
     settings: 'Settings',
+    manageAccount: 'Manage account',
   },
   home: {
     tagline: 'Upload, route, and sign documents with a full audit trail.',

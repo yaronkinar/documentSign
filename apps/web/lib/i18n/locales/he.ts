@@ -22,6 +22,7 @@ export const he: TranslationDict = {
     downloading: 'מוריד…',
     signIn: 'התחברות',
     signUp: 'הרשמה',
+    signOut: 'התנתק',
     downloadPdf: 'הורד PDF',
     language: 'שפה',
     english: 'English',
@@ -35,6 +36,7 @@ export const he: TranslationDict = {
     demo: 'דמו',
     users: 'משתמשים',
     settings: 'הגדרות',
+    manageAccount: 'נהל חשבון',
   },
   home: {
     tagline: 'העלאה, ניתוב וחתימה על מסמכים עם מעקב מלא.',

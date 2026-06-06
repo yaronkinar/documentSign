@@ -32,6 +32,7 @@ export const en = {
     templates: 'Templates',
     demo: 'Demo',
     users: 'Users',
+    settings: 'Settings',
   },
   home: {
     tagline: 'Upload, route, and sign documents with a full audit trail.',
@@ -77,6 +78,16 @@ export const en = {
   },
   meta: {
     description: 'Document signing and workflow platform',
+  },
+  settings: {
+    title: 'Settings',
+    appearance: {
+      title: 'Appearance',
+      description:
+        'Choose how DocFlow looks for you. Your choice is saved on this device, and follows you to other devices when you\'re signed in.',
+      themeLabel: 'Theme',
+    },
+    saveFailed: 'Could not save your settings. Try again in a moment.',
   },
   dashboard: {
     title: 'Documents',

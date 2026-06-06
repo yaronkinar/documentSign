@@ -34,6 +34,7 @@ export const he: TranslationDict = {
     templates: 'תבניות',
     demo: 'דמו',
     users: 'משתמשים',
+    settings: 'הגדרות',
   },
   home: {
     tagline: 'העלאה, ניתוב וחתימה על מסמכים עם מעקב מלא.',
@@ -79,6 +80,16 @@ export const he: TranslationDict = {
   },
   meta: {
     description: 'פלטפורמת חתימה וניהול תהליכי מסמכים',
+  },
+  settings: {
+    title: 'הגדרות',
+    appearance: {
+      title: 'מראה',
+      description:
+        'בחר איך DocFlow ייראה אצלך. הבחירה נשמרת במכשיר הזה, ומתעדכנת גם במכשירים אחרים כשאתה מחובר.',
+      themeLabel: 'ערכת נושא',
+    },
+    saveFailed: 'לא הצלחנו לשמור את ההגדרות. נסה שוב בעוד רגע.',
   },
   dashboard: {
     title: 'מסמכים',

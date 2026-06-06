@@ -10,9 +10,18 @@ import type { DocumentDto } from '@docflow/shared';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApiClient } from '@/lib/api-client';
 import { useDateLocale, useTranslation } from '@/lib/i18n/LocaleProvider';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type Filter = 'all' | 'mine' | 'pending';
@@ -63,19 +72,17 @@ export function DashboardClient({
   const [documents, setDocuments] = useState(initialDocuments);
   const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const [downloadBusyId, setDownloadBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<DocumentDto | null>(null);
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
 
   useEffect(() => {
     setDocuments(initialDocuments);
   }, [initialDocuments]);
 
-  async function deleteDocument(doc: DocumentDto) {
-    if (!window.confirm(t('dashboard.deleteConfirm', { title: doc.title })))
-      return;
+  async function runDeleteDocument(doc: DocumentDto) {
     setDeleteBusyId(doc._id);
-    setError(null);
     try {
       await api.delete(`/documents/${doc._id}`);
       setDocuments((prev) => prev.filter((d) => d._id !== doc._id));
@@ -86,15 +93,17 @@ export function DashboardClient({
       });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('dashboard.deleteFailed'));
+      toast.error(
+        err instanceof Error ? err.message : t('dashboard.deleteFailed'),
+      );
     } finally {
       setDeleteBusyId(null);
+      setConfirmDelete(null);
     }
   }
 
   async function downloadDocument(doc: DocumentDto) {
     setDownloadBusyId(doc._id);
-    setError(null);
     try {
       const token = CLIENT_BYPASS_TOKEN ?? (await getToken());
       if (!token) throw new Error('Not authenticated');
@@ -115,7 +124,7 @@ export function DashboardClient({
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     } catch (err) {
-      setError(
+      toast.error(
         err instanceof Error ? err.message : t('document.downloadFailed'),
       );
     } finally {
@@ -123,16 +132,9 @@ export function DashboardClient({
     }
   }
 
-  async function deleteSelected() {
+  async function runDeleteSelected() {
     const ids = [...selectedIds];
-    if (
-      !window.confirm(
-        t('dashboard.batchDeleteConfirm', { count: String(ids.length) }),
-      )
-    )
-      return;
     setBatchDeleting(true);
-    setError(null);
     const failed: string[] = [];
     for (const id of ids) {
       try {
@@ -148,8 +150,9 @@ export function DashboardClient({
       }
     }
     setBatchDeleting(false);
+    setConfirmBatchDelete(false);
     if (failed.length > 0) {
-      setError(t('dashboard.batchDeleteFailed'));
+      toast.error(t('dashboard.batchDeleteFailed'));
     } else {
       router.refresh();
     }
@@ -214,15 +217,6 @@ export function DashboardClient({
         </Tabs>
       </div>
 
-      {error && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-border bg-surface-muted px-4 py-2 text-sm text-danger"
-        >
-          {error}
-        </div>
-      )}
-
       {selectedIds.size > 0 && (
         <div className="mb-3 flex items-center gap-3 rounded-md border border-border bg-surface-muted px-4 py-2 text-sm">
           <span className="text-fg">
@@ -232,7 +226,7 @@ export function DashboardClient({
             type="button"
             size="sm"
             variant="destructive"
-            onClick={deleteSelected}
+            onClick={() => setConfirmBatchDelete(true)}
             disabled={batchDeleting}
           >
             {batchDeleting
@@ -307,7 +301,7 @@ export function DashboardClient({
                         type="button"
                         size="sm"
                         variant="ghost"
-                        onClick={() => deleteDocument(doc)}
+                        onClick={() => setConfirmDelete(doc)}
                         disabled={deleteBusyId === doc._id}
                         aria-label={t('common.delete')}
                         className="text-danger hover:bg-surface-muted hover:text-danger"
@@ -326,6 +320,73 @@ export function DashboardClient({
           </ul>
         </div>
       )}
+      <Dialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('common.delete')}</DialogTitle>
+            <DialogDescription>
+              {confirmDelete
+                ? t('dashboard.deleteConfirm', { title: confirmDelete.title })
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDelete(null)}
+              disabled={deleteBusyId !== null}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmDelete && runDeleteDocument(confirmDelete)}
+              disabled={deleteBusyId !== null}
+            >
+              {deleteBusyId
+                ? t('common.deleting')
+                : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmBatchDelete}
+        onOpenChange={setConfirmBatchDelete}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('dashboard.deleteSelected')}</DialogTitle>
+            <DialogDescription>
+              {t('dashboard.batchDeleteConfirm', {
+                count: String(selectedIds.size),
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmBatchDelete(false)}
+              disabled={batchDeleting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={runDeleteSelected}
+              disabled={batchDeleting}
+            >
+              {batchDeleting
+                ? t('dashboard.deletingSelected')
+                : t('dashboard.deleteSelected')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

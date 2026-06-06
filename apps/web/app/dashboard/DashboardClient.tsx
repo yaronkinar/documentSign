@@ -1,14 +1,19 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
+import { Download, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DocumentDto } from '@docflow/shared';
 
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApiClient } from '@/lib/api-client';
 import { useDateLocale, useTranslation } from '@/lib/i18n/LocaleProvider';
+import { cn } from '@/lib/utils';
 
 type Filter = 'all' | 'mine' | 'pending';
 
@@ -34,6 +39,10 @@ function safePdfFileName(title: string): string {
     .replace(/\s+/g, ' ')
     .slice(0, 80);
   return cleaned || 'document';
+}
+
+function countSigners(doc: DocumentDto): number {
+  return doc.workflowSteps.reduce((sum, s) => sum + s.signers.length, 0);
 }
 
 export function DashboardClient({
@@ -63,13 +72,18 @@ export function DashboardClient({
   }, [initialDocuments]);
 
   async function deleteDocument(doc: DocumentDto) {
-    if (!window.confirm(t('dashboard.deleteConfirm', { title: doc.title }))) return;
+    if (!window.confirm(t('dashboard.deleteConfirm', { title: doc.title })))
+      return;
     setDeleteBusyId(doc._id);
     setError(null);
     try {
       await api.delete(`/documents/${doc._id}`);
       setDocuments((prev) => prev.filter((d) => d._id !== doc._id));
-      setSelectedIds((prev) => { const next = new Set(prev); next.delete(doc._id); return next; });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(doc._id);
+        return next;
+      });
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('dashboard.deleteFailed'));
@@ -101,7 +115,9 @@ export function DashboardClient({
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('document.downloadFailed'));
+      setError(
+        err instanceof Error ? err.message : t('document.downloadFailed'),
+      );
     } finally {
       setDownloadBusyId(null);
     }
@@ -109,7 +125,12 @@ export function DashboardClient({
 
   async function deleteSelected() {
     const ids = [...selectedIds];
-    if (!window.confirm(t('dashboard.batchDeleteConfirm', { count: String(ids.length) }))) return;
+    if (
+      !window.confirm(
+        t('dashboard.batchDeleteConfirm', { count: String(ids.length) }),
+      )
+    )
+      return;
     setBatchDeleting(true);
     setError(null);
     const failed: string[] = [];
@@ -117,7 +138,11 @@ export function DashboardClient({
       try {
         await api.delete(`/documents/${id}`);
         setDocuments((prev) => prev.filter((d) => d._id !== id));
-        setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       } catch {
         failed.push(id);
       }
@@ -150,11 +175,7 @@ export function DashboardClient({
     return documents;
   }, [documents, filter, myClerkId, myEmail]);
 
-  const selectableIds = useMemo(
-    () => filtered.map((d) => d._id),
-    [filtered],
-  );
-
+  const selectableIds = useMemo(() => filtered.map((d) => d._id), [filtered]);
   const allSelected =
     selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
 
@@ -178,146 +199,133 @@ export function DashboardClient({
   return (
     <>
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold">{t('dashboard.title')}</h1>
+        <h1 className="text-2xl">{t('dashboard.title')}</h1>
       </header>
-      <div className="mb-6 flex gap-2 text-sm">
-        <FilterTab
-          label={t('dashboard.filterAll')}
-          active={filter === 'all'}
-          onClick={() => setFilter('all')}
-        />
-        <FilterTab
-          label={t('dashboard.filterMine')}
-          active={filter === 'mine'}
-          onClick={() => setFilter('mine')}
-        />
-        <FilterTab
-          label={t('dashboard.filterPending')}
-          active={filter === 'pending'}
-          onClick={() => setFilter('pending')}
-        />
+
+      <div className="mb-6">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+          <TabsList>
+            <TabsTrigger value="all">{t('dashboard.filterAll')}</TabsTrigger>
+            <TabsTrigger value="mine">{t('dashboard.filterMine')}</TabsTrigger>
+            <TabsTrigger value="pending">
+              {t('dashboard.filterPending')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
+
       {error && (
-        <div className="mb-4 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-border bg-surface-muted px-4 py-2 text-sm text-danger"
+        >
           {error}
         </div>
       )}
+
       {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm">
-          <span className="text-blue-700">
+        <div className="mb-3 flex items-center gap-3 rounded-md border border-border bg-surface-muted px-4 py-2 text-sm">
+          <span className="text-fg">
             {t('dashboard.selected', { count: String(selectedIds.size) })}
           </span>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="destructive"
             onClick={deleteSelected}
             disabled={batchDeleting}
-            className="rounded px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
           >
-            {batchDeleting ? t('dashboard.deletingSelected') : t('dashboard.deleteSelected')}
-          </button>
+            {batchDeleting
+              ? t('dashboard.deletingSelected')
+              : t('dashboard.deleteSelected')}
+          </Button>
         </div>
       )}
+
       {filtered.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
+        <p className="rounded-md border border-dashed border-border py-12 text-center text-sm text-fg-muted">
           {t('dashboard.noDocuments')}
         </p>
       ) : (
-        <ul className="divide-y rounded border">
-          <li className="border-b bg-gray-50 px-4 py-2">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-gray-300"
-                checked={allSelected}
-                disabled={selectableIds.length === 0}
-                onChange={toggleSelectAll}
-                aria-label={t('dashboard.selectAll')}
-              />
-              <span className="text-xs text-gray-500">{t('dashboard.selectAll')}</span>
-            </div>
-          </li>
-          {filtered.map((doc) => {
-            const canDelete = true;
-            const isSelected = selectedIds.has(doc._id);
-            return (
-              <li key={doc._id}>
-                <div
-                  className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 shrink-0 rounded border-gray-300"
-                    checked={isSelected}
-                    disabled={!canDelete}
-                    onChange={() => toggleSelect(doc._id)}
-                    aria-label={`Select ${doc.title}`}
-                  />
-                  <Link href={`/documents/${doc._id}`} className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{doc.title}</div>
-                    <div className="text-xs text-gray-500">
-                      {countSigners(doc)} {t('dashboard.signers')} ·{' '}
-                      {t('dashboard.updated')}{' '}
-                      {formatUpdatedAt(doc.updatedAt, dateLocale)}
-                    </div>
-                  </Link>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => downloadDocument(doc)}
-                      disabled={downloadBusyId === doc._id}
-                      className="rounded px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-                      aria-label={t('common.downloadPdf')}
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+          <div className="flex items-center gap-3 border-b border-border bg-surface-muted px-4 py-2">
+            <Checkbox
+              checked={allSelected}
+              disabled={selectableIds.length === 0}
+              onCheckedChange={toggleSelectAll}
+              aria-label={t('dashboard.selectAll')}
+            />
+            <span className="text-xs text-fg-muted">
+              {t('dashboard.selectAll')}
+            </span>
+          </div>
+
+          <ul className="divide-y divide-border">
+            {filtered.map((doc) => {
+              const isSelected = selectedIds.has(doc._id);
+              return (
+                <li key={doc._id}>
+                  <div
+                    className={cn(
+                      'flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-muted',
+                      isSelected && 'bg-surface-muted',
+                    )}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(doc._id)}
+                      aria-label={`Select ${doc.title}`}
+                    />
+                    <Link
+                      href={`/documents/${doc._id}`}
+                      className="min-w-0 flex-1"
                     >
-                      {downloadBusyId === doc._id
-                        ? t('common.downloading')
-                        : t('common.downloadPdf')}
-                    </button>
-                    {canDelete && (
-                      <button
+                      <div className="truncate font-medium text-fg">
+                        {doc.title}
+                      </div>
+                      <div className="text-xs text-fg-muted">
+                        {countSigners(doc)} {t('dashboard.signers')} ·{' '}
+                        {t('dashboard.updated')}{' '}
+                        {formatUpdatedAt(doc.updatedAt, dateLocale)}
+                      </div>
+                    </Link>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => downloadDocument(doc)}
+                        disabled={downloadBusyId === doc._id}
+                        aria-label={t('common.downloadPdf')}
+                      >
+                        <Download className="me-1.5 h-3.5 w-3.5" />
+                        {downloadBusyId === doc._id
+                          ? t('common.downloading')
+                          : t('common.downloadPdf')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
                         onClick={() => deleteDocument(doc)}
                         disabled={deleteBusyId === doc._id}
-                        className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
                         aria-label={t('common.delete')}
+                        className="text-danger hover:bg-surface-muted hover:text-danger"
                       >
+                        <Trash2 className="me-1.5 h-3.5 w-3.5" />
                         {deleteBusyId === doc._id
                           ? t('common.deleting')
                           : t('common.delete')}
-                      </button>
-                    )}
-                    <StatusBadge status={doc.status} />
+                      </Button>
+                      <StatusBadge status={doc.status} />
+                    </div>
                   </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </>
   );
-}
-
-function FilterTab({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-3 py-1 ${
-        active ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function countSigners(doc: DocumentDto): number {
-  return doc.workflowSteps.reduce((sum, s) => sum + s.signers.length, 0);
 }

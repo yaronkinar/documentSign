@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation';
+
 import { PreviewClient } from './PreviewClient';
 
 export const metadata = {
@@ -5,5 +7,8 @@ export const metadata = {
 };
 
 export default function TokensPreviewPage() {
+  if (process.env.NODE_ENV === 'production') {
+    notFound();
+  }
   return <PreviewClient />;
 }

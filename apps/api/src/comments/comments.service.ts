@@ -85,9 +85,11 @@ export class CommentsService {
 
     void this.notifyOtherParticipants(
       doc,
+      actorId,
       actorEmail,
       actorName,
       dto.content,
+      dto.type,
       String(created._id),
       dto.parentId ?? null,
       mentionedEmails,
@@ -164,9 +166,11 @@ export class CommentsService {
 
   private async notifyOtherParticipants(
     doc: DocumentDocument,
+    authorClerkId: string,
     authorEmail: string,
     authorName: string | null,
     content: string,
+    commentType: CreateCommentDto['type'],
     commentId: string,
     parentId: string | null,
     mentionedEmails: string[],
@@ -174,11 +178,14 @@ export class CommentsService {
     const author = authorEmail.toLowerCase();
     const namesByEmail = new Map<string, string | null>();
     const clerkIdsByEmail = new Map<string, string | null>();
+    const signerEmails = new Set<string>();
 
     for (const step of doc.workflowSteps) {
       for (const signer of step.signers) {
-        namesByEmail.set(signer.email, signer.name);
-        clerkIdsByEmail.set(signer.email, signer.clerkId);
+        const email = signer.email.toLowerCase();
+        signerEmails.add(email);
+        namesByEmail.set(email, signer.name);
+        clerkIdsByEmail.set(email, signer.clerkId);
       }
     }
 
@@ -193,7 +200,9 @@ export class CommentsService {
     );
     let recipients: string[];
     if (mentionedSet.size > 0) {
-      recipients = [...mentionedSet].filter((email) => email !== author);
+      recipients = [...mentionedSet].filter(
+        (email) => email !== author && signerEmails.has(email),
+      );
       if (
         parentAuthorEmail &&
         parentAuthorEmail !== author &&
@@ -201,8 +210,20 @@ export class CommentsService {
       ) {
         recipients.push(parentAuthorEmail);
       }
+    } else if (commentType === 'general') {
+      recipients = [...signerEmails].filter((email) => email !== author);
     } else {
-      recipients = doc.participantEmails.filter((email) => email !== author);
+      recipients = [];
+    }
+
+    if (authorClerkId !== doc.ownerId) {
+      const ownerEmail = await this.usersService.findEmailByClerkId(doc.ownerId);
+      if (ownerEmail) {
+        const ownerLower = ownerEmail.toLowerCase();
+        if (ownerLower !== author && !recipients.includes(ownerLower)) {
+          recipients.push(ownerLower);
+        }
+      }
     }
     const commentPreview =
       content.length > 240 ? `${content.slice(0, 237)}...` : content;

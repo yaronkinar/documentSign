@@ -12,3 +12,6 @@ coverage/
 .idea/
 .vscode/
 *.tsbuildinfo
+.superpowers/
+playwright-report/
+test-results/

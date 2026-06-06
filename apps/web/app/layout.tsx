@@ -13,12 +13,9 @@ import {
   parseLocale,
   type Locale,
 } from '@/lib/i18n/locale';
-import { ThemeProvider } from '@/lib/theme/ThemeProvider';
-import {
-  DEFAULT_THEME,
-  THEME_BOOTSTRAP_SCRIPT,
-  themeClass,
-} from '@/lib/theme/theme';
+import { ThemeProviderWithClerk } from '@/lib/theme/ThemeProviderWithClerk';
+import { resolveServerTheme } from '@/lib/theme/server-theme';
+import { THEME_BOOTSTRAP_SCRIPT, themeClass } from '@/lib/theme/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -32,20 +29,21 @@ function resolveServerLocale(): Locale {
   return localeFromAcceptLanguage(headers().get('accept-language'));
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const locale = resolveServerLocale();
   const dir = localeDirection(locale);
+  const initialTheme = await resolveServerTheme();
 
   return (
     <ClerkProvider>
       <html
         lang={locale}
         dir={dir}
-        className={themeClass(DEFAULT_THEME)}
+        className={themeClass(initialTheme)}
         suppressHydrationWarning
       >
         <head>
@@ -53,13 +51,13 @@ export default function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         </head>
         <body className="flex min-h-screen flex-col antialiased">
-          <ThemeProvider>
-            <LocaleProvider initialLocale={locale}>
+          <LocaleProvider initialLocale={locale}>
+            <ThemeProviderWithClerk initialTheme={initialTheme}>
               <Navbar />
               <div className="flex flex-1 flex-col">{children}</div>
               <Toaster />
-            </LocaleProvider>
-          </ThemeProvider>
+            </ThemeProviderWithClerk>
+          </LocaleProvider>
         </body>
       </html>
     </ClerkProvider>

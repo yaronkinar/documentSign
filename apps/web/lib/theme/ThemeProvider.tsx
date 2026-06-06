@@ -47,9 +47,11 @@ function readClientTheme(fallback: Theme): Theme {
 export function ThemeProvider({
   children,
   initialTheme = DEFAULT_THEME,
+  onPersist,
 }: {
   children: React.ReactNode;
   initialTheme?: Theme;
+  onPersist?: (theme: Theme) => void;
 }) {
   const theme = useSyncExternalStore(
     subscribeToTheme,
@@ -57,10 +59,14 @@ export function ThemeProvider({
     () => initialTheme,
   );
 
-  const setTheme = useCallback((next: Theme) => {
-    persistTheme(next);
-    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
-  }, []);
+  const setTheme = useCallback(
+    (next: Theme) => {
+      persistTheme(next);
+      window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+      onPersist?.(next);
+    },
+    [onPersist],
+  );
 
   useEffect(() => {
     const el = document.documentElement;

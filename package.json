@@ -11,6 +11,7 @@
     "dev:api": "npm run start:dev -w api",
     "dev:web": "npm run dev -w web",
     "test:e2e": "playwright test",
+    "test:e2e:gmail-doc": "playwright test tests/e2e/create-doc-gmail-signers.spec.ts --config=playwright.integration.config.ts",
     "build:api": "npm run build -w api",
     "build:web": "npm run build -w web",
     "build:shared": "npm run build -w @docflow/shared",

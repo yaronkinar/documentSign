@@ -6,15 +6,19 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { en } from './locales/en';
 import { he } from './locales/he';
-import type { Locale } from './types';
+import {
+  LOCALE_STORAGE_KEY,
+  parseLocale,
+  persistLocale,
+  type Locale,
+} from './locale';
 
-const LOCALE_STORAGE_KEY = 'docflow-locale';
-
+const LOCALE_CHANGE_EVENT = 'docflow-locale-change';
 const dictionaries = { en, he } as const;
 
 type InterpolationValues = Record<string, string | number>;
@@ -45,35 +49,46 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-function detectInitialLocale(): Locale {
-  if (typeof window === 'undefined') return 'en';
-  const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-  if (stored === 'en' || stored === 'he') return stored;
-  const browserLang = navigator.language.toLowerCase();
-  return browserLang.startsWith('he') ? 'he' : 'en';
+function subscribeToLocale(onStoreChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === LOCALE_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener('storage', onStorage);
+  window.addEventListener(LOCALE_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener(LOCALE_CHANGE_EVENT, onStoreChange);
+  };
 }
 
-export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en');
-  const [ready, setReady] = useState(false);
+function readClientLocale(fallback: Locale): Locale {
+  return parseLocale(window.localStorage.getItem(LOCALE_STORAGE_KEY)) ?? fallback;
+}
 
-  useEffect(() => {
-    setLocaleState(detectInitialLocale());
-    setReady(true);
-  }, []);
+export function LocaleProvider({
+  children,
+  initialLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale: Locale;
+}) {
+  const locale = useSyncExternalStore(
+    subscribeToLocale,
+    () => readClientLocale(initialLocale),
+    () => initialLocale,
+  );
 
   const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
+    persistLocale(next);
+    window.dispatchEvent(new Event(LOCALE_CHANGE_EVENT));
   }, []);
 
   const dir: 'ltr' | 'rtl' = locale === 'he' ? 'rtl' : 'ltr';
 
   useEffect(() => {
-    if (!ready) return;
     document.documentElement.lang = locale;
     document.documentElement.dir = dir;
-  }, [locale, dir, ready]);
+  }, [locale, dir]);
 
   const t = useCallback(
     (key: string, values?: InterpolationValues) => {

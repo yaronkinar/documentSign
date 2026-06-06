@@ -3,6 +3,7 @@ import { Job } from 'bullmq';
 import { Resend } from 'resend';
 
 import { NOTIFICATIONS_QUEUE } from './notifications.constants';
+import { resolveEmailDelivery } from './email-delivery.util';
 import {
   NotificationsService,
   type SendCommentNotifyJob,
@@ -53,17 +54,22 @@ export class NotificationsProcessor extends WorkerHost {
     if (!this.resend) return;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     try {
-      await this.resend.emails.send({
+      const delivery = resolveEmailDelivery(job.data.ownerEmail);
+      const result = await this.resend.emails.send({
         from: this.from,
-        to: job.data.ownerEmail,
-        subject: `Signature rejected: ${job.data.documentTitle}`,
+        to: delivery.to,
+        subject: `${delivery.subjectPrefix}Signature rejected: ${job.data.documentTitle}`,
         html: `
+          ${delivery.devBannerHtml}
           <p>${escapeHtml(job.data.signerEmail)} rejected the document
              <strong>${escapeHtml(job.data.documentTitle)}</strong>.</p>
           <p>Reason: ${escapeHtml(job.data.reason)}</p>
           <p><a href="${appUrl}/documents/${job.data.documentId}">Review</a></p>
         `,
       });
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[notifications] notify-rejection failed', err);

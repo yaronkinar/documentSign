@@ -1,4 +1,4 @@
-export type Locale = 'en' | 'he';
+export type { Locale } from './locale';
 
 type DeepString<T> = T extends string ? string : { [K in keyof T]: DeepString<T[K]> };
 

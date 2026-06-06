@@ -4,6 +4,7 @@ import type { Queue } from 'bullmq';
 import { Resend } from 'resend';
 
 import { NOTIFICATIONS_QUEUE } from './notifications.constants';
+import { resolveEmailDelivery } from './email-delivery.util';
 
 export interface SendInviteEmailJob {
   to: string;
@@ -47,19 +48,24 @@ export class NotificationsService {
     }
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     const link = `${appUrl}/sign/${job.documentId}?token=${job.token}`;
+    const delivery = resolveEmailDelivery(job.to);
 
-    await this.resend.emails.send({
-      from: this.from,
-      to: job.to,
-      subject: `Please sign: ${job.documentTitle}`,
-      html: `
+    await this.sendOrLogError(
+      {
+        from: this.from,
+        to: delivery.to,
+        subject: `${delivery.subjectPrefix}Please sign: ${job.documentTitle}`,
+        html: `
+        ${delivery.devBannerHtml}
         <p>Hi ${escapeHtml(job.signerName)},</p>
         <p>You have been invited to sign the document
            <strong>${escapeHtml(job.documentTitle)}</strong>.</p>
         <p><a href="${link}">Open and sign</a></p>
         <p>This link expires in 72 hours.</p>
       `,
-    });
+      },
+      job.to,
+    );
   }
 
   async sendCommentEmail(job: SendCommentNotifyJob): Promise<void> {
@@ -82,11 +88,15 @@ export class NotificationsService {
       : `<p><strong>${escapeHtml(authorLabel)}</strong> left a comment on
            <strong>${escapeHtml(job.documentTitle)}</strong>:</p>`;
 
-    await this.resend.emails.send({
-      from: this.from,
-      to: job.to,
-      subject,
-      html: `
+    const delivery = resolveEmailDelivery(job.to);
+
+    await this.sendOrLogError(
+      {
+        from: this.from,
+        to: delivery.to,
+        subject: `${delivery.subjectPrefix}${subject}`,
+        html: `
+        ${delivery.devBannerHtml}
         <p>Hi ${escapeHtml(job.recipientName)},</p>
         ${intro}
         <blockquote style="border-left:3px solid #ccc;margin:0;padding:8px 12px;color:#333;">
@@ -94,7 +104,26 @@ export class NotificationsService {
         </blockquote>
         <p><a href="${link}">View document</a></p>
       `,
-    });
+      },
+      job.to,
+    );
+  }
+
+  private async sendOrLogError(
+    payload: { from: string; to: string; subject: string; html: string },
+    intendedTo: string,
+  ): Promise<void> {
+    if (!this.resend) return;
+    const result = await this.resend.emails.send(payload);
+    if (result.error) {
+      // eslint-disable-next-line no-console
+      console.error('[notifications] Resend rejected email', {
+        intendedTo,
+        to: payload.to,
+        error: result.error,
+      });
+      throw new Error(result.error.message);
+    }
   }
 
   /** Queue invite email; fall back to sending inline when Redis is unavailable. */

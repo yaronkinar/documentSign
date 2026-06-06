@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 const port = Number(process.env.PORT ?? 3100);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${port}`;
 
+const bypassToken = process.env.BYPASS_TOKEN ?? 'dev-bypass-token-local';
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -24,10 +26,11 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       BYPASS_AUTH: 'true',
-      BYPASS_TOKEN: 'playwright-token',
+      BYPASS_TOKEN: bypassToken,
+      BYPASS_AUTH_EMAIL: process.env.BYPASS_AUTH_EMAIL ?? 'yaronkinar@gmail.com',
       NEXT_PUBLIC_BYPASS_AUTH: 'true',
-      NEXT_PUBLIC_BYPASS_TOKEN: 'playwright-token',
-      NEXT_PUBLIC_API_URL: 'http://127.0.0.1:3001',
+      NEXT_PUBLIC_BYPASS_TOKEN: bypassToken,
+      NEXT_PUBLIC_API_URL: process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:3001',
       NEXT_PUBLIC_APP_URL: baseURL,
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
         process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??

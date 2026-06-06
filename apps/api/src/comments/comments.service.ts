@@ -22,7 +22,16 @@ import {
 } from '../notifications/user-notifications.service';
 import { UsersService } from '../users/users.service';
 import { WorkflowGateway } from '../workflow/workflow.gateway';
-import { CreateCommentDto } from './comments.dto';
+import { CreateCommentDto, DevTestCommentNotifyDto } from './comments.dto';
+
+export interface DevTestCommentNotifyResult {
+  dryRun: boolean;
+  authorEmail: string;
+  authorClerkId: string;
+  mentionedEmails: string[];
+  recipients: string[];
+  emailsQueued: number;
+}
 
 @Injectable()
 export class CommentsService {
@@ -111,6 +120,88 @@ export class CommentsService {
     return list.map((c) => this.toDto(c));
   }
 
+  /**
+   * Dev-only: preview or send comment notification emails without persisting a comment.
+   * Requires BYPASS_AUTH=true.
+   */
+  async devTestCommentNotifications(
+    documentId: string,
+    actorClerkId: string,
+    actorEmail: string,
+    dto: DevTestCommentNotifyDto,
+  ): Promise<DevTestCommentNotifyResult> {
+    if (process.env.BYPASS_AUTH !== 'true') {
+      throw new ForbiddenException(
+        'devTestCommentNotifications only available when BYPASS_AUTH=true',
+      );
+    }
+
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    if (doc.ownerId !== actorClerkId) {
+      throw new ForbiddenException('Only the document owner can run this dev test');
+    }
+
+    const content = dto.content?.trim() || 'Dev test comment notification';
+    const type = dto.type ?? 'general';
+    const authorEmail = (dto.authorEmail ?? actorEmail).toLowerCase();
+    const authorClerkId = dto.authorClerkId ?? actorClerkId;
+    const authorName = dto.authorName?.trim() || null;
+    const mentionedEmails = this.resolveMentionedEmails(
+      doc,
+      content,
+      dto.mentionedEmails,
+    );
+    const recipients = await this.resolveCommentNotificationRecipients({
+      doc,
+      authorClerkId,
+      authorEmail,
+      commentType: type,
+      mentionedEmails,
+      parentId: null,
+      ownerEmailOverride: dto.ownerEmailOverride?.toLowerCase(),
+    });
+    const dryRun = dto.dryRun === true;
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        authorEmail,
+        authorClerkId,
+        mentionedEmails,
+        recipients,
+        emailsQueued: 0,
+      };
+    }
+
+    const commentPreview =
+      content.length > 240 ? `${content.slice(0, 237)}...` : content;
+    const namesByEmail = this.signerNamesByEmail(doc);
+
+    await Promise.all(
+      recipients.map((email) =>
+        this.notifications.enqueueCommentEmail({
+          to: email,
+          recipientName: namesByEmail.get(email) ?? email,
+          documentTitle: doc.title,
+          documentId: String(doc._id),
+          authorName,
+          authorEmail,
+          commentPreview,
+        }),
+      ),
+    );
+
+    return {
+      dryRun: false,
+      authorEmail,
+      authorClerkId,
+      mentionedEmails,
+      recipients,
+      emailsQueued: recipients.length,
+    };
+  }
+
   async resolveComment(
     commentId: string,
     actorId: string,
@@ -164,39 +255,51 @@ export class CommentsService {
     return [...new Set(combined)].filter((email) => participantSet.has(email));
   }
 
-  private async notifyOtherParticipants(
-    doc: DocumentDocument,
-    authorClerkId: string,
-    authorEmail: string,
-    authorName: string | null,
-    content: string,
-    commentType: CreateCommentDto['type'],
-    commentId: string,
-    parentId: string | null,
-    mentionedEmails: string[],
-  ): Promise<void> {
-    const author = authorEmail.toLowerCase();
+  private signerNamesByEmail(doc: DocumentDocument): Map<string, string | null> {
     const namesByEmail = new Map<string, string | null>();
-    const clerkIdsByEmail = new Map<string, string | null>();
-    const signerEmails = new Set<string>();
-
     for (const step of doc.workflowSteps) {
       for (const signer of step.signers) {
-        const email = signer.email.toLowerCase();
-        signerEmails.add(email);
-        namesByEmail.set(email, signer.name);
-        clerkIdsByEmail.set(email, signer.clerkId);
+        namesByEmail.set(signer.email.toLowerCase(), signer.name);
+      }
+    }
+    return namesByEmail;
+  }
+
+  private signerClerkIdsByEmail(doc: DocumentDocument): Map<string, string | null> {
+    const clerkIdsByEmail = new Map<string, string | null>();
+    for (const step of doc.workflowSteps) {
+      for (const signer of step.signers) {
+        clerkIdsByEmail.set(signer.email.toLowerCase(), signer.clerkId);
+      }
+    }
+    return clerkIdsByEmail;
+  }
+
+  private async resolveCommentNotificationRecipients(options: {
+    doc: DocumentDocument;
+    authorClerkId: string;
+    authorEmail: string;
+    commentType: CreateCommentDto['type'];
+    mentionedEmails: string[];
+    parentId: string | null;
+    ownerEmailOverride?: string;
+  }): Promise<string[]> {
+    const author = options.authorEmail.toLowerCase();
+    const signerEmails = new Set<string>();
+    for (const step of options.doc.workflowSteps) {
+      for (const signer of step.signers) {
+        signerEmails.add(signer.email.toLowerCase());
       }
     }
 
     let parentAuthorEmail: string | null = null;
-    if (parentId) {
-      const parent = await this.commentModel.findById(parentId).exec();
+    if (options.parentId) {
+      const parent = await this.commentModel.findById(options.parentId).exec();
       parentAuthorEmail = parent?.authorEmail.toLowerCase() ?? null;
     }
 
     const mentionedSet = new Set(
-      mentionedEmails.map((email) => email.toLowerCase()),
+      options.mentionedEmails.map((email) => email.toLowerCase()),
     );
     let recipients: string[];
     if (mentionedSet.size > 0) {
@@ -210,14 +313,16 @@ export class CommentsService {
       ) {
         recipients.push(parentAuthorEmail);
       }
-    } else if (commentType === 'general') {
+    } else if (options.commentType === 'general') {
       recipients = [...signerEmails].filter((email) => email !== author);
     } else {
       recipients = [];
     }
 
-    if (authorClerkId !== doc.ownerId) {
-      const ownerEmail = await this.usersService.findEmailByClerkId(doc.ownerId);
+    if (options.authorClerkId !== options.doc.ownerId) {
+      const ownerEmail =
+        options.ownerEmailOverride ??
+        (await this.usersService.findEmailByClerkId(options.doc.ownerId));
       if (ownerEmail) {
         const ownerLower = ownerEmail.toLowerCase();
         if (ownerLower !== author && !recipients.includes(ownerLower)) {
@@ -225,6 +330,39 @@ export class CommentsService {
         }
       }
     }
+
+    return recipients;
+  }
+
+  private async notifyOtherParticipants(
+    doc: DocumentDocument,
+    authorClerkId: string,
+    authorEmail: string,
+    authorName: string | null,
+    content: string,
+    commentType: CreateCommentDto['type'],
+    commentId: string,
+    parentId: string | null,
+    mentionedEmails: string[],
+  ): Promise<void> {
+    const author = authorEmail.toLowerCase();
+    const namesByEmail = this.signerNamesByEmail(doc);
+    const clerkIdsByEmail = this.signerClerkIdsByEmail(doc);
+
+    let parentAuthorEmail: string | null = null;
+    if (parentId) {
+      const parent = await this.commentModel.findById(parentId).exec();
+      parentAuthorEmail = parent?.authorEmail.toLowerCase() ?? null;
+    }
+
+    const recipients = await this.resolveCommentNotificationRecipients({
+      doc,
+      authorClerkId,
+      authorEmail,
+      commentType,
+      mentionedEmails,
+      parentId,
+    });
     const commentPreview =
       content.length > 240 ? `${content.slice(0, 237)}...` : content;
 

@@ -84,7 +84,7 @@ export const en = {
     appearance: {
       title: 'Appearance',
       description:
-        'Choose how DocFlow looks for you. Your choice is saved on this device, and follows you to other devices when you\'re signed in.',
+        `Choose how DocFlow looks for you. Your choice is saved on this device, and follows you to other devices when you're signed in.`,
       themeLabel: 'Theme',
     },
     saveFailed: 'Could not save your settings. Try again in a moment.',

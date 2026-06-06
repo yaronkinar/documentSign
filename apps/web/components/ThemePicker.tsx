@@ -34,6 +34,18 @@ const OPTIONS: ThemeOption[] = [
   },
 ];
 
+/**
+ * Radio-card group for switching between the three named themes.
+ *
+ * A11y note: uses role="radiogroup" + role="radio" on real <button>s.
+ * Tab + Enter works out of the box. Full ARIA roving-tabindex + arrow-key
+ * navigation is deferred to Phase 2 when this component ships to
+ * Settings → Appearance and gets production-grade keyboard polish.
+ *
+ * Swatch colors are inlined via `style` (not Tailwind utilities) because
+ * each card must always show its own theme's palette, regardless of the
+ * currently active theme.
+ */
 export function ThemePicker({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
 

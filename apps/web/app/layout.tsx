@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { cookies, headers } from 'next/headers';
 
 import { Navbar } from '@/components/Navbar';
+import { Toaster } from '@/components/ui/sonner';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import {
   LOCALE_BOOTSTRAP_SCRIPT,
@@ -56,6 +57,7 @@ export default function RootLayout({
             <LocaleProvider initialLocale={locale}>
               <Navbar />
               <div className="flex flex-1 flex-col">{children}</div>
+              <Toaster />
             </LocaleProvider>
           </ThemeProvider>
         </body>

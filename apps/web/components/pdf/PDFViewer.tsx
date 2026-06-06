@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { CommentDto, PdfFormFieldTemplate, SignatureDto, SignatureFieldDto } from '@docflow/shared';
 
@@ -23,12 +23,31 @@ export interface PDFViewerProps {
   comments?: CommentDto[];
   placementMode?: boolean;
   fieldPlacementMode?: boolean;
+  /** Draft owner: drag unsigned signature fields to reposition. */
+  fieldEditMode?: boolean;
   commentMode?: boolean;
   /** When set, only this signer's unsigned fields are clickable. */
   activeSignerId?: string | null;
+  /** Signatures are baked into the PDF; render invisible click targets for tagging. */
+  signatureTagHitTargetsOnly?: boolean;
   onSignaturePlace?: (page: number, xPct: number, yPct: number) => void;
   onFieldPlace?: (page: number, xPct: number, yPct: number) => void;
+  onFieldMove?: (
+    fieldId: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => void;
+  onFieldResize?: (fieldId: string, width: number, height: number) => void;
   onFieldClick?: (field: SignatureFieldDto) => void;
+  onSignerTag?: (payload: {
+    signerId: string;
+    email: string;
+    name: string | null;
+    pageNumber: number;
+    x: number;
+    y: number;
+  }) => void;
   onCommentPin?: (page: number, xPct: number, yPct: number) => void;
   onCommentSelect?: (commentId: string) => void;
   formFields?: PdfFormFieldTemplate[];
@@ -164,11 +183,16 @@ export function PDFViewer(props: PDFViewerProps) {
               )}
               placementMode={!!props.placementMode}
               fieldPlacementMode={!!props.fieldPlacementMode}
+              fieldEditMode={!!props.fieldEditMode}
               commentMode={!!props.commentMode}
               activeSignerId={props.activeSignerId}
+              signatureTagHitTargetsOnly={!!props.signatureTagHitTargetsOnly}
               onSignaturePlace={props.onSignaturePlace}
               onFieldPlace={props.onFieldPlace}
+              onFieldMove={props.onFieldMove}
+              onFieldResize={props.onFieldResize}
               onFieldClick={props.onFieldClick}
+              onSignerTag={props.onSignerTag}
               onCommentPin={props.onCommentPin}
               onCommentSelect={props.onCommentSelect}
               formFields={(props.formFields ?? []).filter(
@@ -203,11 +227,16 @@ function LazyPDFPage({
   comments,
   placementMode,
   fieldPlacementMode,
+  fieldEditMode,
   commentMode,
   activeSignerId,
+  signatureTagHitTargetsOnly,
   onSignaturePlace,
   onFieldPlace,
+  onFieldMove,
+  onFieldResize,
   onFieldClick,
+  onSignerTag,
   onCommentPin,
   onCommentSelect,
   formFields,
@@ -231,11 +260,28 @@ function LazyPDFPage({
   comments: CommentDto[];
   placementMode: boolean;
   fieldPlacementMode: boolean;
+  fieldEditMode: boolean;
   commentMode: boolean;
   activeSignerId?: string | null;
+  signatureTagHitTargetsOnly?: boolean;
   onSignaturePlace?: (page: number, xPct: number, yPct: number) => void;
   onFieldPlace?: (page: number, xPct: number, yPct: number) => void;
+  onFieldMove?: (
+    fieldId: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => void;
+  onFieldResize?: (fieldId: string, width: number, height: number) => void;
   onFieldClick?: (field: SignatureFieldDto) => void;
+  onSignerTag?: (payload: {
+    signerId: string;
+    email: string;
+    name: string | null;
+    pageNumber: number;
+    x: number;
+    y: number;
+  }) => void;
   onCommentPin?: (page: number, xPct: number, yPct: number) => void;
   onCommentSelect?: (commentId: string) => void;
   formFields?: PdfFormFieldTemplate[];
@@ -249,6 +295,7 @@ function LazyPDFPage({
   onTemplateFieldMove?: (id: string, x: number, y: number) => void;
   onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }) {
+  const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -338,11 +385,13 @@ function LazyPDFPage({
   }, [pdf, pageNumber, scale, dimensions, eager, prefetch]);
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (templateEditMode) {
+    if (templateEditMode || fieldPlacementMode) {
       if (justDraggedRef.current) {
         justDraggedRef.current = false;
         return;
       }
+    }
+    if (templateEditMode) {
       const rect = e.currentTarget.getBoundingClientRect();
       const xPct = ((e.clientX - rect.left) / rect.width) * 100;
       const yPct = ((e.clientY - rect.top) / rect.height) * 100;
@@ -363,14 +412,55 @@ function LazyPDFPage({
     }
   }
 
+  function canTagField(field: SignatureFieldDto): boolean {
+    return (
+      !!field.signerEmail.includes('@') ||
+      !!field.signerName?.trim() ||
+      !!field.label?.trim()
+    );
+  }
+
+  function tagSignerFromField(field: SignatureFieldDto) {
+    if (!signerTagEnabled || !canTagField(field)) return;
+    onSignerTag?.({
+      signerId: field.signerId,
+      email: field.signerEmail,
+      name: field.signerName ?? field.label,
+      pageNumber: field.pageNumber,
+      x: field.x,
+      y: field.y,
+    });
+  }
+
   function handleFieldClick(
     e: React.MouseEvent<HTMLButtonElement>,
     field: SignatureFieldDto,
   ) {
     e.stopPropagation();
-    if (field.signed) return;
-    if (activeSignerId && field.signerId !== activeSignerId) return;
-    onFieldClick?.(field);
+    const isMine = !activeSignerId || field.signerId === activeSignerId;
+    const canSignThisField = !field.signed && isMine && !!onFieldClick;
+    if (canSignThisField) {
+      onFieldClick(field);
+      return;
+    }
+    tagSignerFromField(field);
+  }
+
+  function handleSignatureImageClick(
+    e: React.MouseEvent<HTMLButtonElement>,
+    signature: SignatureDto,
+  ) {
+    e.stopPropagation();
+    const field = signatureFields.find((f) => f._id === signature.signatureFieldId);
+    if (!signerTagEnabled || !field || !canTagField(field)) return;
+    onSignerTag?.({
+      signerId: field.signerId,
+      email: field.signerEmail || signature.signerEmail,
+      name: field.signerName ?? field.label,
+      pageNumber: signature.pageNumber,
+      x: signature.x,
+      y: signature.y,
+    });
   }
 
   function startTemplateDrag(
@@ -443,11 +533,92 @@ function LazyPDFPage({
     window.addEventListener('mouseup', onMouseUp);
   }
 
+  function startSignatureFieldDrag(
+    e: React.MouseEvent,
+    field: SignatureFieldDto,
+    mode: 'move' | 'resize',
+  ) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const fieldEl = (e.currentTarget as HTMLElement).closest(
+      '[data-sfield]',
+    ) as HTMLElement;
+    if (!fieldEl) return;
+
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startFieldX = field.x;
+    const startFieldY = field.y;
+    const startWidth = field.width;
+    const startHeight = field.height;
+
+    function onMouseMove(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const rect = overlay.getBoundingClientRect();
+      const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+      const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+
+      if (mode === 'move') {
+        const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
+        const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
+        fieldEl.style.left = `${newX}%`;
+        fieldEl.style.top = `${newY}%`;
+      } else {
+        const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+        const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+        fieldEl.style.width = `${newW}%`;
+        fieldEl.style.height = `${newH}%`;
+      }
+    }
+
+    function onMouseUp(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (overlay) {
+        const rect = overlay.getBoundingClientRect();
+        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+        const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
+
+        if (moved) {
+          justDraggedRef.current = true;
+          if (mode === 'move') {
+            const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
+            const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
+            onFieldMove?.(field._id, pageNumber, newX, newY);
+          } else {
+            const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+            const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+            onFieldResize?.(field._id, newW, newH);
+          }
+          setTimeout(() => {
+            justDraggedRef.current = false;
+          }, 50);
+        }
+      }
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  const signerTagEnabled =
+    !!onSignerTag &&
+    !placementMode &&
+    !fieldPlacementMode &&
+    !commentMode &&
+    !fieldEditMode &&
+    !templateEditMode;
+
   const overlayInteractive =
     templateEditMode ||
     placementMode ||
     fieldPlacementMode ||
     commentMode ||
+    signerTagEnabled ||
     signatureFields.some(
       (f) =>
         !f.signed &&
@@ -591,23 +762,33 @@ function LazyPDFPage({
           {signatureFields.map((field) => {
             const isMine =
               !activeSignerId || field.signerId === activeSignerId;
-            const clickable = !field.signed && isMine && !!onFieldClick;
+            const canSignThisField = !field.signed && isMine && !!onFieldClick;
+            const canTagSigner = signerTagEnabled && canTagField(field);
+            const clickable = canSignThisField || canTagSigner;
+            const draggable =
+              fieldEditMode &&
+              !field.signed &&
+              !!(onFieldMove || onFieldResize);
             const label =
               field.label ||
               field.signerName ||
               field.signerEmail.split('@')[0];
-            return (
-              <button
-                key={field._id}
-                type="button"
-                onClick={(e) => handleFieldClick(e, field)}
-                disabled={!clickable}
-                title={
-                  field.signed
-                    ? `Signed – ${field.signerEmail}`
-                    : `${label} – ${field.signerEmail}`
+            const tagHitTargetOnly =
+              signatureTagHitTargetsOnly && field.signed && canTagSigner;
+            const boxStyle: CSSProperties = tagHitTargetOnly
+              ? {
+                  position: 'absolute',
+                  left: `${field.x}%`,
+                  top: `${field.y}%`,
+                  width: `${field.width}%`,
+                  height: `${field.height}%`,
+                  border: '2px solid transparent',
+                  background: 'transparent',
+                  borderRadius: 4,
+                  boxSizing: 'border-box',
+                  userSelect: 'none',
                 }
-                style={{
+              : {
                   position: 'absolute',
                   left: `${field.x}%`,
                   top: `${field.y}%`,
@@ -624,45 +805,155 @@ function LazyPDFPage({
                       ? 'rgba(37, 99, 235, 0.08)'
                       : 'rgba(156, 163, 175, 0.08)',
                   borderRadius: 4,
+                  boxSizing: 'border-box',
+                  userSelect: 'none',
+                };
+            const labelEl = !field.signed && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -18,
+                  left: 0,
+                  fontSize: 10,
+                  lineHeight: 1,
+                  color: isMine ? '#1d4ed8' : '#6b7280',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                  background: 'rgba(255,255,255,0.85)',
+                  padding: '1px 3px',
+                  borderRadius: 2,
+                }}
+              >
+                {label}
+              </span>
+            );
+
+            if (draggable) {
+              return (
+                <div
+                  key={field._id}
+                  data-sfield={field._id}
+                  title={`${label} – ${field.signerEmail}`}
+                  onMouseDown={(e) => startSignatureFieldDrag(e, field, 'move')}
+                  style={{
+                    ...boxStyle,
+                    cursor: 'move',
+                    pointerEvents: 'auto',
+                  }}
+                >
+                  {labelEl}
+                  {onFieldResize && (
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        startSignatureFieldDrag(e, field, 'resize');
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: 10,
+                        height: 10,
+                        background: '#2563eb',
+                        cursor: 'se-resize',
+                        borderRadius: '2px 0 2px 0',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={field._id}
+                type="button"
+                onClick={(e) => handleFieldClick(e, field)}
+                disabled={!clickable}
+                title={
+                  field.signed
+                    ? signerTagEnabled
+                      ? `${label} – ${t('document.tagSignerInComment')}`
+                      : `Signed – ${field.signerEmail}`
+                    : canSignThisField
+                      ? `${label} – ${field.signerEmail}`
+                      : signerTagEnabled
+                        ? `${label} – ${t('document.tagSignerInComment')}`
+                        : `${label} – ${field.signerEmail}`
+                }
+                className={
+                  tagHitTargetOnly
+                    ? 'hover:outline hover:outline-2 hover:outline-blue-400/70'
+                    : undefined
+                }
+                style={{
+                  ...boxStyle,
                   cursor: clickable ? 'pointer' : 'default',
                   pointerEvents: clickable || fieldPlacementMode ? 'auto' : 'none',
                   padding: 0,
+                  zIndex: tagHitTargetOnly ? 20 : undefined,
                 }}
               >
-                {!field.signed && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: -18,
-                      left: 0,
-                      fontSize: 10,
-                      lineHeight: 1,
-                      color: isMine ? '#1d4ed8' : '#6b7280',
-                      whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {label}
-                  </span>
-                )}
+                {labelEl}
               </button>
             );
           })}
-          {signatures.map((s) => (
-            <img
-              key={s._id}
-              src={s.imageUrl}
-              alt="signature"
-              style={{
-                position: 'absolute',
-                left: `${s.x}%`,
-                top: `${s.y}%`,
-                width: `${s.width}%`,
-                height: `${s.height}%`,
-                pointerEvents: 'none',
-              }}
-            />
-          ))}
+          {signatures.map((s) =>
+            signerTagEnabled ? (
+              <button
+                key={s._id}
+                type="button"
+                onClick={(e) => handleSignatureImageClick(e, s)}
+                title={t('document.tagSignerInComment')}
+                className={
+                  signatureTagHitTargetsOnly
+                    ? 'hover:outline hover:outline-2 hover:outline-blue-400/70'
+                    : undefined
+                }
+                style={{
+                  position: 'absolute',
+                  left: `${s.x}%`,
+                  top: `${s.y}%`,
+                  width: `${s.width}%`,
+                  height: `${s.height}%`,
+                  padding: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  pointerEvents: 'auto',
+                  zIndex: 20,
+                }}
+              >
+                {!signatureTagHitTargetsOnly && (
+                  <img
+                    src={s.imageUrl}
+                    alt="signature"
+                    draggable={false}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+              </button>
+            ) : (
+              <img
+                key={s._id}
+                src={s.imageUrl}
+                alt="signature"
+                style={{
+                  position: 'absolute',
+                  left: `${s.x}%`,
+                  top: `${s.y}%`,
+                  width: `${s.width}%`,
+                  height: `${s.height}%`,
+                  pointerEvents: 'none',
+                }}
+              />
+            ),
+          )}
           {comments.map((c) => (
             <div
               key={c._id}

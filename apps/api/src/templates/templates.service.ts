@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,12 +10,13 @@ import { v4 as uuidv4 } from 'uuid';
 import type { PdfTemplateDto } from '@docflow/shared';
 
 import { PdfTemplate, PdfTemplateDocument } from './template.schema';
+import { Document, DocumentDocument } from '../documents/document.schema';
 import { StorageService } from '../storage/storage.service';
 import { AiService, type ExtractedTemplateField } from '../ai/ai.service';
-import { SignerProfile, SignerProfileDocument } from '../signer-profiles/signer-profile.schema';
 import {
   ConfirmTemplateUploadDto,
   CreateTemplateDto,
+  CreateTemplateFromDocumentDto,
   UpdateTemplateDto,
 } from './templates.dto';
 
@@ -23,8 +25,8 @@ export class TemplatesService {
   constructor(
     @InjectModel(PdfTemplate.name)
     private readonly templateModel: Model<PdfTemplateDocument>,
-    @InjectModel(SignerProfile.name)
-    private readonly signerProfileModel: Model<SignerProfileDocument>,
+    @InjectModel(Document.name)
+    private readonly documentModel: Model<DocumentDocument>,
     private readonly storageService: StorageService,
     private readonly aiService: AiService,
   ) {}
@@ -74,6 +76,29 @@ export class TemplatesService {
     return this.toDto(template);
   }
 
+  /** Download template PDF bytes for copying into a new document. */
+  async readTemplatePdf(
+    id: string,
+    clerkId: string,
+  ): Promise<{
+    buffer: Buffer;
+    fileSize: number;
+    pageCount: number | null;
+    name: string;
+  }> {
+    const template = await this.requireOwner(id, clerkId);
+    if (!template.fileKey) {
+      throw new BadRequestException('Template PDF has not been uploaded yet');
+    }
+    const buffer = await this.storageService.downloadObject(template.fileKey);
+    return {
+      buffer,
+      fileSize: template.fileSize ?? buffer.length,
+      pageCount: template.pageCount ?? null,
+      name: template.name,
+    };
+  }
+
   async updateTemplate(
     id: string,
     clerkId: string,
@@ -119,13 +144,85 @@ export class TemplatesService {
     }
 
     const pdfBuffer = await this.storageService.downloadObject(template.fileKey);
-    const signerHints = await this.getSignerHints(clerkId);
-    const fields = await this.aiService.extractTemplateFieldsFromPdf(
-      pdfBuffer,
-      template.pageCount,
-      signerHints,
-    );
+    let fields: ExtractedTemplateField[] = [];
+    try {
+      const pdfText = await this.aiService.extractPdfText(pdfBuffer);
+      const rolesFromPdf = await this.aiService.extractSignerRoles(pdfText);
+      const signerHints = rolesFromPdf.map((label) => ({ label }));
+      fields = await this.aiService.extractTemplateFieldsFromPdf(
+        pdfBuffer,
+        template.pageCount,
+        signerHints,
+        'uploaded_document',
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const visionUnavailable =
+        message.includes('OPENAI_API_KEY') ||
+        message.includes('not configured');
+      if (!visionUnavailable) throw err;
+    }
+    if (fields.length === 0) {
+      fields = await this.aiService.deriveTemplateFieldsFromPdf(pdfBuffer);
+    }
     return { fields };
+  }
+
+  /** Copy document PDF + placed signature fields into a reusable PDF template. */
+  async createFromDocument(
+    documentId: string,
+    clerkId: string,
+    dto: CreateTemplateFromDocumentDto,
+  ): Promise<PdfTemplateDto> {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    if (doc.ownerId !== clerkId) throw new ForbiddenException();
+
+    const sourceKey = doc.fileKey ?? doc.completedFileKey;
+    if (!sourceKey) {
+      throw new BadRequestException(
+        'Document has no PDF file to save as a template',
+      );
+    }
+
+    const signatureFields = doc.signatureFields ?? [];
+    if (signatureFields.length === 0) {
+      throw new BadRequestException(
+        'Place at least one signature field before saving as a template',
+      );
+    }
+
+    const pdfBuffer = await this.storageService.downloadObject(sourceKey);
+    const templateId = new Types.ObjectId();
+    const fileKey = `templates/${templateId}/${uuidv4()}.pdf`;
+    await this.storageService.uploadBuffer(fileKey, pdfBuffer, 'application/pdf');
+
+    const usedLabels = new Map<string, number>();
+    const templateFields = signatureFields.map((field) => {
+      const label = this.resolveSignatureFieldLabel(doc, field, usedLabels);
+      return {
+        _id: new Types.ObjectId(),
+        label,
+        pageNumber: field.pageNumber,
+        x: field.x,
+        y: field.y,
+        width: field.width,
+        height: field.height,
+      };
+    });
+
+    const template = new this.templateModel({
+      _id: templateId,
+      name: dto.name.trim(),
+      ownerId: clerkId,
+      fileKey,
+      fileSize: pdfBuffer.length,
+      pageCount: doc.pageCount,
+      isDefault: false,
+      fields: templateFields,
+    });
+    await template.save();
+    return this.toDto(template);
   }
 
   async deleteTemplate(id: string, clerkId: string): Promise<void> {
@@ -134,6 +231,19 @@ export class TemplatesService {
       await this.storageService.deleteObject(template.fileKey).catch(() => {});
     }
     await template.deleteOne();
+  }
+
+  private resolveSignatureFieldLabel(
+    doc: DocumentDocument,
+    field: DocumentDocument['signatureFields'][number],
+    usedLabels: Map<string, number>,
+  ): string {
+    const step = doc.workflowSteps.id(field.stepId);
+    const signer = step?.signers.id(field.signerId);
+    const base = (field.label ?? signer?.name ?? signer?.email ?? 'Signer').trim();
+    const count = (usedLabels.get(base) ?? 0) + 1;
+    usedLabels.set(base, count);
+    return count === 1 ? base : `${base} (${count})`;
   }
 
   private async requireOwner(
@@ -146,36 +256,10 @@ export class TemplatesService {
     return template;
   }
 
-  private async getSignerHints(
-    clerkId: string,
-  ): Promise<Array<{ label: string; email?: string | null }>> {
-    const profiles = await this.signerProfileModel
-      .find({ ownerId: clerkId })
-      .select('title name email')
-      .sort({ title: 1, name: 1 })
-      .lean()
-      .exec();
-
-    const seen = new Set<string>();
-    return profiles.flatMap((profile) => {
-      const labels = [profile.title, profile.name].filter(
-        (label): label is string =>
-          typeof label === 'string' && label.trim().length > 0 && label.trim() !== '—',
-      );
-      return labels.flatMap((label) => {
-        const trimmed = label.trim();
-        const key = `${trimmed.toLowerCase()}:${profile.email ?? ''}`;
-        if (seen.has(key)) return [];
-        seen.add(key);
-        return [{ label: trimmed, email: profile.email ?? null }];
-      });
-    });
-  }
-
   private async toDto(template: PdfTemplateDocument): Promise<PdfTemplateDto> {
     let fileUrl: string | null = null;
     if (template.fileKey) {
-      fileUrl = await this.storageService.getDownloadUrl(template.fileKey);
+      fileUrl = await this.storageService.tryGetDownloadUrl(template.fileKey);
     }
     return {
       _id: template._id.toString(),

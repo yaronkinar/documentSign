@@ -44,3 +44,34 @@ export class CreateSignatureFieldDto {
   @IsString()
   label?: string;
 }
+
+export class UpdateSignatureFieldDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pageNumber?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  x?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  y?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  width?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  height?: number;
+}

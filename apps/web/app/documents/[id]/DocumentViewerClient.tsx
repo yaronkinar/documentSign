@@ -5,13 +5,25 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   CommentDto,
   DocumentDto,
+  PdfTemplateDto,
   SavedSignatureDto,
   SignatureDto,
   SignatureFieldDto,
   SignerDto,
+  SignatureFieldTemplate,
 } from '@docflow/shared';
-import { resolveFormTemplateFields } from '@docflow/shared';
+import { resolveDocumentFormFields } from '@docflow/shared';
 
+import {
+  CommentComposer,
+  CommentContent,
+  type CommentSignerOption,
+  type SignerTagRequest,
+} from '@/components/documents/CommentComposer';
+import {
+  DraftWorkflowSetup,
+  draftWorkflowFallbackRoles,
+} from '@/components/documents/DraftWorkflowSetup';
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
 import { SignaturePad } from '@/components/pdf/SignaturePad';
@@ -21,6 +33,7 @@ import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { useDocumentSocket } from '@/lib/socket';
 import { useRenderedPdfUrl } from '@/lib/use-rendered-pdf-url';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
+import { clampPlacementToPageCount } from '@/lib/pdf-signature-placement';
 import {
   createMissingTemplateFields,
   listSignatureSigners,
@@ -80,11 +93,20 @@ export function DocumentViewerClient({
   );
   const [comments, setComments] = useState<CommentDto[]>(initialComments);
   const [sidebarTab, setSidebarTab] = useState<'workflow' | 'comments' | 'form'>('workflow');
+
+  useEffect(() => {
+    if (initialDoc.status === 'draft' && initialDoc.workflowSteps.length === 0) {
+      setSidebarTab('workflow');
+    }
+  }, [initialDoc.status, initialDoc.workflowSteps.length]);
   const [placementMode, setPlacementMode] = useState(false);
   const [fieldPlacementMode, setFieldPlacementMode] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [pendingCommentTarget, setPendingCommentTarget] =
     useState<CommentTarget | null>(null);
+  const [signerTagRequest, setSignerTagRequest] = useState<SignerTagRequest | null>(
+    null,
+  );
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [selectedSignerKey, setSelectedSignerKey] = useState('');
   const [showSigPad, setShowSigPad] = useState(false);
@@ -98,10 +120,12 @@ export function DocumentViewerClient({
   const [autoMapBusy, setAutoMapBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [formSaveBusy, setFormSaveBusy] = useState(false);
+  const [saveTemplateBusy, setSaveTemplateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const autoMapOnLoadRef = useRef(false);
+  const [draftFallbackRoles, setDraftFallbackRoles] = useState<string[]>([]);
 
-  const formFields = resolveFormTemplateFields(doc.formTemplateId);
+  const formFields = resolveDocumentFormFields(doc);
   const hasForm = formFields.length > 0;
   const isTemplateDoc = !!doc.formTemplateId;
   const isHaknasot = doc.formTemplateId === 'haknasot';
@@ -122,7 +146,15 @@ export function DocumentViewerClient({
   const viewerPdfUrl = showRenderedPdf
     ? renderedPdfUrl
     : doc.fileUrl ?? templatePdfUrl;
-  const viewerLoading = showRenderedPdf ? renderedPdfLoading : templatePdfLoading;
+  const viewerLoading = showRenderedPdf
+    ? renderedPdfLoading
+    : doc.fileUrl
+      ? false
+      : templatePdfLoading;
+
+  const pageCount = doc.pageCount ?? 1;
+  const displaySignatures = clampPlacementToPageCount(signatures, pageCount);
+  const displaySignatureFields = clampPlacementToPageCount(signatureFields, pageCount);
 
   const signatureSigners = listSignatureSigners(doc);
   const unmappedSigners = signersMissingFields(doc, signatureFields);
@@ -190,6 +222,10 @@ export function DocumentViewerClient({
   const canSign = !!mySignerInActiveStep && doc.status === 'pending_signature';
   const isOwner = doc.ownerId === myClerkId;
   const isDraft = doc.status === 'draft';
+  const hasWorkflowSteps = doc.workflowSteps.length > 0;
+  const canSubmitDraft =
+    hasWorkflowSteps && doc.workflowSteps.every((s) => s.signers.length > 0);
+  const canSaveAsTemplate = isOwner && signatureFields.length > 0 && !!doc.fileUrl;
 
   const myAssignedFields =
     mySignerInActiveStep && activeStep
@@ -210,6 +246,24 @@ export function DocumentViewerClient({
       label: `${signer.name ?? signer.email} (${step.label})`,
     })),
   );
+  const commentSignerOptions: CommentSignerOption[] = (() => {
+    const byKey = new Map<string, CommentSignerOption>();
+    for (const step of doc.workflowSteps) {
+      for (const signer of step.signers) {
+        const email = signer.email.trim().toLowerCase();
+        const name = signer.name?.trim() ?? '';
+        if (!email && !name) continue;
+        const key = email || `name:${name.toLowerCase()}`;
+        if (byKey.has(key)) continue;
+        byKey.set(key, {
+          email: signer.email,
+          name: signer.name,
+          stepLabel: step.label,
+        });
+      }
+    }
+    return [...byKey.values()];
+  })();
 
   async function uploadSignatureBlob(blob: Blob): Promise<string> {
     const { uploadUrl, imageKey } = await api.post<{
@@ -269,11 +323,95 @@ export function DocumentViewerClient({
     }
   }
 
+  async function updateFieldPosition(
+    fieldId: string,
+    patch: { pageNumber?: number; x?: number; y?: number; width?: number; height?: number },
+  ) {
+    try {
+      const updated = await api.patch<SignatureFieldDto>(
+        `/documents/${doc._id}/signature-fields/${fieldId}`,
+        patch,
+      );
+      setSignatureFields((prev) =>
+        prev.map((f) => (f._id === fieldId ? updated : f)),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.moveFieldFailed'));
+    }
+  }
+
+  function onFieldMove(fieldId: string, page: number, x: number, y: number) {
+    if (!isOwner || !isDraft) return;
+    const rounded = {
+      x: Number(x.toFixed(2)),
+      y: Number(y.toFixed(2)),
+    };
+    setSignatureFields((prev) =>
+      prev.map((f) =>
+        f._id === fieldId ? { ...f, pageNumber: page, ...rounded } : f,
+      ),
+    );
+    void updateFieldPosition(fieldId, { pageNumber: page, ...rounded });
+  }
+
+  function onFieldResize(fieldId: string, width: number, height: number) {
+    if (!isOwner || !isDraft) return;
+    const rounded = {
+      width: Number(width.toFixed(2)),
+      height: Number(height.toFixed(2)),
+    };
+    setSignatureFields((prev) =>
+      prev.map((f) => (f._id === fieldId ? { ...f, ...rounded } : f)),
+    );
+    void updateFieldPosition(fieldId, rounded);
+  }
+
+  function mapPdfTemplateFields(
+    template: PdfTemplateDto,
+  ): SignatureFieldTemplate[] {
+    return template.fields.map((f) => ({
+      pageNumber: f.pageNumber,
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+      label: f.label,
+    }));
+  }
+
+  async function loadPdfTemplateLayout(): Promise<SignatureFieldTemplate[] | undefined> {
+    if (isTemplateDoc) return undefined;
+    try {
+      if (doc.pdfTemplateId) {
+        const linked = await api.get<PdfTemplateDto>(
+          `/templates/${doc.pdfTemplateId}`,
+        );
+        if (linked.fields.length > 0) return mapPdfTemplateFields(linked);
+      }
+      const templates = await api.get<PdfTemplateDto[]>('/templates');
+      const pick =
+        templates.find((t) => t.isDefault && t.fields.length > 0) ??
+        templates.find((t) => t.fields.length > 0);
+      if (!pick) return undefined;
+      return pick.fields.map((f) => ({
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        label: f.label,
+      }));
+    } catch {
+      return undefined;
+    }
+  }
+
   async function autoMapSignersFromTemplate() {
     if (!isOwner || !isDraft) return;
     setAutoMapBusy(true);
     setError(null);
     try {
+      const pdfTemplate = await loadPdfTemplateLayout();
       const created = await createMissingTemplateFields(
         doc,
         signatureFields,
@@ -282,6 +420,7 @@ export function DocumentViewerClient({
             `/documents/${doc._id}/signature-fields`,
             mapping,
           ),
+        pdfTemplate,
       );
       if (created.length > 0) {
         setSignatureFields((prev) => [...prev, ...created]);
@@ -301,6 +440,41 @@ export function DocumentViewerClient({
       .then((r) => { if (r) setProfileSignatureId(r.signerProfileId); })
       .catch(() => {});
   }, [doc._id]);
+
+  useEffect(() => {
+    if (!isDraft || hasWorkflowSteps) return;
+    const templateId = doc.pdfTemplateId ?? doc.formTemplateId;
+    if (doc.formTemplateId) {
+      setDraftFallbackRoles(
+        draftWorkflowFallbackRoles(doc.formTemplateId, []),
+      );
+      return;
+    }
+    if (doc.pdfTemplateId) {
+      api
+        .get<PdfTemplateDto>(`/templates/${doc.pdfTemplateId}`)
+        .then((template) => {
+          const labels = template.fields
+            .map((f) => f.label.trim())
+            .filter(Boolean);
+          setDraftFallbackRoles(draftWorkflowFallbackRoles(null, labels));
+        })
+        .catch(() => setDraftFallbackRoles([]));
+      return;
+    }
+    if (!templateId) {
+      api
+        .post<{ signers: string[] }>(`/documents/${doc._id}/extract-signers`)
+        .then(({ signers }) => setDraftFallbackRoles(signers))
+        .catch(() => setDraftFallbackRoles([]));
+    }
+  }, [
+    doc._id,
+    doc.formTemplateId,
+    doc.pdfTemplateId,
+    isDraft,
+    hasWorkflowSteps,
+  ]);
 
   useEffect(() => {
     if (autoMapOnLoadRef.current || isTemplateDoc) return;
@@ -365,6 +539,27 @@ export function DocumentViewerClient({
       setError(err instanceof Error ? err.message : t('document.downloadFailed'));
     } finally {
       setDownloadBusy(false);
+    }
+  }
+
+  async function saveAsTemplate() {
+    const defaultName = `${doc.title} template`;
+    const name = window.prompt(t('document.saveAsTemplatePrompt'), defaultName);
+    if (!name?.trim()) return;
+    setSaveTemplateBusy(true);
+    setError(null);
+    try {
+      const template = await api.post<PdfTemplateDto>(
+        `/documents/${doc._id}/save-as-template`,
+        { name: name.trim() },
+      );
+      router.push(`/templates/${template._id}`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.saveAsTemplateFailed'),
+      );
+    } finally {
+      setSaveTemplateBusy(false);
     }
   }
 
@@ -463,10 +658,67 @@ export function DocumentViewerClient({
     }]);
   }
 
-  async function onAddComment(content: string, page?: number, x?: number, y?: number) {
+  function resolveSignerForCommentTag(payload: {
+    signerId: string;
+    email: string;
+    name: string | null;
+  }): { email: string; name: string | null } | null {
+    for (const step of doc.workflowSteps) {
+      for (const signer of step.signers) {
+        if (signer._id === payload.signerId) {
+          return {
+            email: signer.email || payload.email,
+            name: signer.name ?? payload.name,
+          };
+        }
+      }
+    }
+    const email = payload.email.trim();
+    if (email.includes('@')) {
+      return { email, name: payload.name };
+    }
+    if (payload.name?.trim()) {
+      return { email, name: payload.name };
+    }
+    return null;
+  }
+
+  function tagSignerInComment(payload: {
+    signerId: string;
+    email: string;
+    name: string | null;
+    pageNumber: number;
+    x: number;
+    y: number;
+  }) {
+    const signer = resolveSignerForCommentTag(payload);
+    if (!signer) return;
+    setSidebarTab('comments');
+    setCommentMode(false);
+    setPlacementMode(false);
+    setPendingCommentTarget({
+      page: payload.pageNumber,
+      x: payload.x,
+      y: payload.y,
+    });
+    setSignerTagRequest({
+      key: Date.now(),
+      email: signer.email,
+      name: signer.name,
+    });
+  }
+
+  async function onAddComment(
+    content: string,
+    mentionedEmails: string[],
+    page?: number,
+    x?: number,
+    y?: number,
+  ) {
     try {
       const c = await api.post<CommentDto>(`/documents/${doc._id}/comments`, {
         content,
+        mentionedEmails,
         type: page !== undefined ? 'annotation' : 'general',
         pageNumber: page,
         x,
@@ -493,6 +745,16 @@ export function DocumentViewerClient({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {canSaveAsTemplate && (
+            <button
+              type="button"
+              onClick={() => void saveAsTemplate()}
+              disabled={saveTemplateBusy}
+              className="rounded border border-violet-300 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+            >
+              {saveTemplateBusy ? t('common.saving') : t('document.saveAsTemplate')}
+            </button>
+          )}
           <button
             type="button"
             onClick={downloadCurrentPdf}
@@ -561,18 +823,23 @@ export function DocumentViewerClient({
           {viewerPdfUrl && (
             <PDFViewer
               pdfUrl={viewerPdfUrl}
-              signatures={showRenderedPdf ? [] : signatures}
-              signatureFields={showRenderedPdf ? signatureFields.filter((f) => !f.signed) : signatureFields}
+              signatures={displaySignatures}
+              signatureFields={displaySignatureFields}
+              signatureTagHitTargetsOnly={showRenderedPdf}
               comments={comments}
               formFields={showRenderedPdf ? [] : formFields}
               formValues={showRenderedPdf ? undefined : doc.formValues}
               placementMode={placementMode}
               fieldPlacementMode={fieldPlacementMode}
+              fieldEditMode={isOwner && isDraft}
               commentMode={commentMode}
               activeSignerId={canSign ? mySignerInActiveStep?._id : null}
               onSignaturePlace={onPlace}
               onFieldPlace={onFieldPlace}
+              onFieldMove={onFieldMove}
+              onFieldResize={onFieldResize}
               onFieldClick={onFieldClick}
+              onSignerTag={tagSignerInComment}
               onCommentPin={(page, x, y) => {
                 setPendingCommentTarget({ page, x, y });
                 setSidebarTab('comments');
@@ -587,6 +854,28 @@ export function DocumentViewerClient({
           {!isTemplateDoc && (fieldPlacementMode || isDraft) && (
             <div className="mx-auto mt-4 max-w-3xl rounded border border-gray-200 bg-white p-3 text-sm">
               <div className="mb-2 font-medium">{t('document.signerMapping')}</div>
+              {isDraft && isOwner && signatureFields.length > 0 && (
+                <p className="mb-2 text-xs text-gray-500">
+                  {t('document.dragToMoveField')}
+                </p>
+              )}
+              {canSaveAsTemplate && (
+                <div className="mb-3">
+                  <p className="mb-2 text-xs text-gray-500">
+                    {t('document.saveAsTemplateHint')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void saveAsTemplate()}
+                    disabled={saveTemplateBusy}
+                    className="w-full rounded border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+                  >
+                    {saveTemplateBusy
+                      ? t('common.saving')
+                      : t('document.saveAsTemplate')}
+                  </button>
+                </div>
+              )}
               <ul className="mb-3 space-y-1">
                 {signatureSigners.map((signer) => {
                   const mapped = signatureFields.some(
@@ -667,7 +956,14 @@ export function DocumentViewerClient({
                 )}
                 <button
                   onClick={submitDocument}
-                  disabled={submitBusy || (!isTemplateDoc && !allSignersMapped)}
+                  disabled={
+                    submitBusy ||
+                    !canSubmitDraft ||
+                    (!isTemplateDoc && !allSignersMapped)
+                  }
+                  title={
+                    !canSubmitDraft ? t('document.setupWorkflowHint') : undefined
+                  }
                   className="rounded bg-black px-5 py-2 text-sm font-medium text-white shadow disabled:opacity-50"
                 >
                   {submitBusy ? t('common.sending') : t('document.sendToSigners')}
@@ -691,7 +987,7 @@ export function DocumentViewerClient({
                   </select>
                 </label>
                 <span className="text-xs text-gray-500">
-                  {t('document.clickToPlaceField')}
+                  {t('document.clickToPlaceField')} · {t('document.dragToMoveField')}
                 </span>
                 <button
                   onClick={() => setFieldPlacementMode(false)}
@@ -786,7 +1082,17 @@ export function DocumentViewerClient({
               />
             </div>
           )}
-          {sidebarTab === 'workflow' && (
+          {sidebarTab === 'workflow' && isDraft && isOwner && !hasWorkflowSteps && (
+            <DraftWorkflowSetup
+              documentId={doc._id}
+              templateId={doc.pdfTemplateId ?? doc.formTemplateId ?? null}
+              fallbackRoleNames={draftFallbackRoles}
+              currentUserEmail={myEmail}
+              currentUserName=""
+              onSaved={(fresh) => setDoc(fresh)}
+            />
+          )}
+          {sidebarTab === 'workflow' && (hasWorkflowSteps || !isDraft || !isOwner) && (
             <WorkflowSidebar
               doc={doc}
               isOwner={isOwner}
@@ -820,22 +1126,31 @@ export function DocumentViewerClient({
               resendBusy={resendBusy}
             />
           )}
-          {sidebarTab === 'comments' && (
-            <CommentsSidebar
-              comments={comments}
-              pendingTarget={pendingCommentTarget}
-              selectedCommentId={selectedCommentId}
-              onAdd={async (content, target) => {
-                await onAddComment(content, target?.page, target?.x, target?.y);
-                setPendingCommentTarget(null);
-              }}
-              onCancelTarget={() => setPendingCommentTarget(null)}
-              onResolve={async (id) => {
-                await api.patch(`/comments/${id}/resolve`);
-                await refreshComments();
-              }}
-            />
-          )}
+          <CommentsSidebar
+            className={sidebarTab === 'comments' ? 'flex h-full flex-col' : 'hidden'}
+            comments={comments}
+            signers={commentSignerOptions}
+            myEmail={myEmail}
+            pendingTarget={pendingCommentTarget}
+            tagSignerRequest={signerTagRequest}
+            onTagSignerConsumed={() => setSignerTagRequest(null)}
+            selectedCommentId={selectedCommentId}
+            onAdd={async (content, mentionedEmails, target) => {
+              await onAddComment(
+                content,
+                mentionedEmails,
+                target?.page,
+                target?.x,
+                target?.y,
+              );
+              setPendingCommentTarget(null);
+            }}
+            onCancelTarget={() => setPendingCommentTarget(null)}
+            onResolve={async (id) => {
+              await api.patch(`/comments/${id}/resolve`);
+              await refreshComments();
+            }}
+          />
         </aside>
       </div>
 
@@ -979,32 +1294,46 @@ function SignerRow({
 }
 
 function CommentsSidebar({
+  className,
   comments,
+  signers,
+  myEmail,
   pendingTarget,
+  tagSignerRequest,
+  onTagSignerConsumed,
   selectedCommentId,
   onAdd,
   onCancelTarget,
   onResolve,
 }: {
+  className?: string;
   comments: CommentDto[];
+  signers: CommentSignerOption[];
+  myEmail: string;
   pendingTarget: CommentTarget | null;
+  tagSignerRequest: SignerTagRequest | null;
+  onTagSignerConsumed: () => void;
   selectedCommentId: string | null;
-  onAdd: (content: string, target?: CommentTarget | null) => void | Promise<void>;
+  onAdd: (
+    content: string,
+    mentionedEmails: string[],
+    target?: CommentTarget | null,
+  ) => void | Promise<void>;
   onCancelTarget: () => void;
   onResolve: (id: string) => void;
 }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState('');
 
   const tree = buildCommentTree(comments);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className={className ?? 'flex h-full flex-col'}>
       <ul className="flex-1 space-y-3 overflow-auto p-4 text-sm">
         {tree.map((c) => (
           <CommentNode
             key={c._id}
             comment={c}
+            signers={signers}
             selectedCommentId={selectedCommentId}
             onResolve={onResolve}
           />
@@ -1023,24 +1352,18 @@ function CommentsSidebar({
             </button>
           </div>
         )}
-        <textarea
-          rows={2}
+        <CommentComposer
+          signers={signers}
+          myEmail={myEmail}
           placeholder={t('document.addCommentPlaceholder')}
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-        <button
-          onClick={async () => {
-            if (draft.trim()) {
-              await onAdd(draft.trim(), pendingTarget);
-              setDraft('');
-            }
+          mentionHint={t('document.mentionSignersHint')}
+          postLabel={t('common.post')}
+          tagSignerRequest={tagSignerRequest}
+          onTagSignerConsumed={onTagSignerConsumed}
+          onPost={async (content, mentionedEmails) => {
+            await onAdd(content, mentionedEmails, pendingTarget);
           }}
-          className="mt-1 rounded bg-black px-3 py-1 text-xs text-white"
-        >
-          {t('common.post')}
-        </button>
+        />
       </div>
     </div>
   );
@@ -1066,10 +1389,12 @@ function buildCommentTree(flat: CommentDto[]): CommentNode[] {
 
 function CommentNode({
   comment,
+  signers,
   selectedCommentId,
   onResolve,
 }: {
   comment: CommentNode;
+  signers: CommentSignerOption[];
   selectedCommentId: string | null;
   onResolve: (id: string) => void;
 }) {
@@ -1103,7 +1428,9 @@ function CommentNode({
           <span className="ms-2 text-green-600">{t('document.resolved')}</span>
         )}
       </div>
-      <div className="mt-1 whitespace-pre-wrap">{comment.content}</div>
+      <div className="mt-1">
+        <CommentContent content={comment.content} signers={signers} />
+      </div>
       {!comment.resolved && (
         <button
           onClick={() => onResolve(comment._id)}
@@ -1118,6 +1445,7 @@ function CommentNode({
             <CommentNode
               key={child._id}
               comment={child}
+              signers={signers}
               selectedCommentId={selectedCommentId}
               onResolve={onResolve}
             />

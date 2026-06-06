@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "copy-pdf-worker": "node scripts/copy-pdf-worker.js",
     "predev": "node scripts/copy-pdf-worker.js && node ../../scripts/generate-haknasot-pdf.mjs",
     "prebuild": "node scripts/copy-pdf-worker.js && node ../../scripts/generate-haknasot-pdf.mjs",
     "dev": "next dev",

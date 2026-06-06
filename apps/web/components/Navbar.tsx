@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 function shouldHideNavbar(pathname: string) {
@@ -99,6 +100,7 @@ export function Navbar() {
           </div>
           <div className="flex items-center gap-4">
             <LanguageSwitcher />
+            <NotificationBell />
             <UserButton afterSignOutUrl="/" />
           </div>
         </div>

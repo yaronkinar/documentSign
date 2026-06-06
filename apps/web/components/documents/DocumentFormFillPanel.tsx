@@ -9,7 +9,15 @@ const SECTION_LABELS: Record<string, string> = {
   details: 'פרטי החוזה',
   budget: 'תקציב',
   amounts: 'סכומים ואישורים',
+  general: 'שדות',
 };
+
+function sectionLabel(section: string): string {
+  if (SECTION_LABELS[section]) return SECTION_LABELS[section];
+  const pageMatch = /^page_(\d+)$/.exec(section);
+  if (pageMatch) return `עמוד ${pageMatch[1]}`;
+  return section;
+}
 
 interface Props {
   fields: PdfFormFieldTemplate[];
@@ -68,8 +76,8 @@ export function DocumentFormFillPanel({
     <div className="space-y-4 text-sm">
       {sections.map(([section, sectionFields]) => (
         <div key={section}>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            {SECTION_LABELS[section] ?? section}
+          <h3 className="mb-2 text-xs font-semibold tracking-wide text-gray-500">
+            {sectionLabel(section)}
           </h3>
           <div className="space-y-3">
             {sectionFields.map((field) => (

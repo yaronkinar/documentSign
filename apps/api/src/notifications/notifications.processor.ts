@@ -3,9 +3,13 @@ import { Job } from 'bullmq';
 import { Resend } from 'resend';
 
 import { NOTIFICATIONS_QUEUE } from './notifications.constants';
-import { NotificationsService, type SendInviteEmailJob } from './notifications.service';
+import {
+  NotificationsService,
+  type SendCommentNotifyJob,
+  type SendInviteEmailJob,
+} from './notifications.service';
 
-export type { SendInviteEmailJob } from './notifications.service';
+export type { SendCommentNotifyJob, SendInviteEmailJob } from './notifications.service';
 
 export interface SendRejectionNotifyJob {
   ownerEmail: string;
@@ -35,6 +39,10 @@ export class NotificationsProcessor extends WorkerHost {
         );
       case 'notify-rejection':
         return this.notifyRejection(job as Job<SendRejectionNotifyJob>);
+      case 'notify-comment':
+        return this.notificationsService.sendCommentEmail(
+          job.data as SendCommentNotifyJob,
+        );
       default:
         // eslint-disable-next-line no-console
         console.warn('[notifications] unknown job name', job.name);

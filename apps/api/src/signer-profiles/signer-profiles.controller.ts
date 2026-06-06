@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -6,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { SignerProfileDto } from '@docflow/shared';
@@ -25,8 +27,14 @@ export class SignerProfilesController {
   constructor(private readonly signerProfilesService: SignerProfilesService) {}
 
   @Get()
-  list(@CurrentUser() user: CurrentUserPayload): Promise<SignerProfileDto[]> {
-    return this.signerProfilesService.list(user.clerkId);
+  list(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('templateId') templateId?: string,
+  ): Promise<SignerProfileDto[]> {
+    if (!templateId?.trim()) {
+      throw new BadRequestException('templateId query parameter is required');
+    }
+    return this.signerProfilesService.list(user.clerkId, templateId.trim());
   }
 
   @Post()

@@ -3,6 +3,10 @@ import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 export class CreateSignerProfileDto {
   @IsString()
   @MaxLength(120)
+  templateId!: string;
+
+  @IsString()
+  @MaxLength(120)
   title!: string;
 
   @IsString()

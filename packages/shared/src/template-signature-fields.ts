@@ -107,10 +107,11 @@ function resolveTemplateSlot(
 function fallbackSlot(
   index: number,
   signer: TemplateSignerRef,
+  pageNumber = MUNICIPAL_APPROVAL_FIELD_LAYOUT.pageNumber,
 ): SignatureFieldTemplate {
   const row = index % 11;
   return {
-    pageNumber: MUNICIPAL_APPROVAL_FIELD_LAYOUT.pageNumber,
+    pageNumber,
     x: MUNICIPAL_APPROVAL_FIELD_LAYOUT.x,
     y:
       MUNICIPAL_APPROVAL_FIELD_LAYOUT.startY +

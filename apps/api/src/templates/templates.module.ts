@@ -2,19 +2,16 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { PdfTemplate, PdfTemplateSchema } from './template.schema';
+import { Document, DocumentSchema } from '../documents/document.schema';
 import { TemplatesService } from './templates.service';
 import { TemplatesController } from './templates.controller';
 import { AiModule } from '../ai/ai.module';
-import {
-  SignerProfile,
-  SignerProfileSchema,
-} from '../signer-profiles/signer-profile.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: PdfTemplate.name, schema: PdfTemplateSchema },
-      { name: SignerProfile.name, schema: SignerProfileSchema },
+      { name: Document.name, schema: DocumentSchema },
     ]),
     AiModule,
   ],

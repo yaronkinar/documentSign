@@ -10,7 +10,10 @@ import type { SignatureFieldDto } from '@docflow/shared';
 
 import { Document, DocumentDocument } from './document.schema';
 import { Signature, SignatureDocument } from '../signatures/signature.schema';
-import { CreateSignatureFieldDto } from './signature-fields.dto';
+import {
+  CreateSignatureFieldDto,
+  UpdateSignatureFieldDto,
+} from './signature-fields.dto';
 
 function fieldsOf(doc: DocumentDocument) {
   return doc.signatureFields ?? [];
@@ -72,6 +75,31 @@ export class SignatureFieldsService {
 
     const field = doc.signatureFields[doc.signatureFields.length - 1];
     const signedIds = await this.getSignedFieldIds(doc._id);
+    return this.toFieldDto(doc, field, signedIds);
+  }
+
+  async updateField(
+    documentId: string,
+    fieldId: string,
+    dto: UpdateSignatureFieldDto,
+    clerkId: string,
+  ): Promise<SignatureFieldDto> {
+    const doc = await this.findOwnedDraft(documentId, clerkId);
+    const field = doc.signatureFields.id(fieldId);
+    if (!field) throw new NotFoundException('Field not found');
+
+    const signedIds = await this.getSignedFieldIds(doc._id);
+    if (signedIds.has(String(field._id))) {
+      throw new BadRequestException('Cannot move a field that has been signed');
+    }
+
+    if (dto.pageNumber !== undefined) field.pageNumber = dto.pageNumber;
+    if (dto.x !== undefined) field.x = dto.x;
+    if (dto.y !== undefined) field.y = dto.y;
+    if (dto.width !== undefined) field.width = dto.width;
+    if (dto.height !== undefined) field.height = dto.height;
+
+    await doc.save();
     return this.toFieldDto(doc, field, signedIds);
   }
 

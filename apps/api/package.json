@@ -33,6 +33,7 @@
     "mongoose": "^8.4.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^4.4.168",
     "reflect-metadata": "^0.2.2",
     "resend": "^3.2.0",
     "rxjs": "^7.8.1",

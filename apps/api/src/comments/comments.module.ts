@@ -6,6 +6,8 @@ import { Document, DocumentSchema } from '../documents/document.schema';
 import { CommentsService } from './comments.service';
 import { CommentsController } from './comments.controller';
 import { WorkflowModule } from '../workflow/workflow.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { WorkflowModule } from '../workflow/workflow.module';
       { name: Document.name, schema: DocumentSchema },
     ]),
     WorkflowModule,
+    NotificationsModule,
+    UsersModule,
   ],
   providers: [CommentsService],
   controllers: [CommentsController],

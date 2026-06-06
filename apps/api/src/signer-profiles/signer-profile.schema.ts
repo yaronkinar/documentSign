@@ -6,6 +6,10 @@ export class SignerProfile {
   @Prop({ required: true, index: true })
   ownerId!: string;
 
+  /** PDF template id or built-in form template id (e.g. haknasot). */
+  @Prop({ required: true, index: true })
+  templateId!: string;
+
   @Prop({ required: true })
   title!: string;
 
@@ -26,4 +30,4 @@ export class SignerProfile {
 export type SignerProfileDocument = HydratedDocument<SignerProfile>;
 export const SignerProfileSchema = SchemaFactory.createForClass(SignerProfile);
 
-SignerProfileSchema.index({ ownerId: 1, title: 1, name: 1 });
+SignerProfileSchema.index({ ownerId: 1, templateId: 1, title: 1, name: 1 });

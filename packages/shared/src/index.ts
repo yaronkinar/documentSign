@@ -110,6 +110,10 @@ export interface CommentResolvedPayload extends SocketEventPayloadBase {
   resolvedBy: string;
 }
 
+export interface NotificationNewPayload {
+  notification: UserNotificationDto;
+}
+
 export interface SocketEvents {
   'document:status_changed': DocumentStatusChangedPayload;
   'step:completed': StepCompletedPayload;
@@ -117,6 +121,10 @@ export interface SocketEvents {
   'signer:rejected': SignerRejectedPayload;
   'comment:added': CommentAddedPayload;
   'comment:resolved': CommentResolvedPayload;
+}
+
+export interface UserSocketEvents {
+  'notification:new': NotificationNewPayload;
 }
 
 export type SocketEventName = keyof SocketEvents;
@@ -167,6 +175,10 @@ export interface DocumentDto {
   participantEmails: string[];
   participantClerkIds: string[];
   formTemplateId: string | null;
+  /** Saved PDF template id when the document was created from /templates. */
+  pdfTemplateId?: string | null;
+  /** AI-detected fillable regions for uploaded PDFs (not used for haknasot template). */
+  formFields?: PdfFormFieldTemplate[];
   formValues: Record<string, string>;
   createdAt: string;
   updatedAt: string;
@@ -186,6 +198,8 @@ export interface SavedSignatureDto {
 /** Pre-configured signer in the owner's directory (title + name + optional signature). */
 export interface SignerProfileDto {
   _id: string;
+  /** PDF template id or built-in form template id (e.g. haknasot). */
+  templateId: string;
   title: string;
   name: string;
   email: string | null;
@@ -233,6 +247,7 @@ export interface CommentDto {
   authorEmail: string;
   authorName: string | null;
   content: string;
+  mentionedEmails: string[];
   pageNumber: number | null;
   x: number | null;
   y: number | null;
@@ -242,6 +257,22 @@ export interface CommentDto {
   parentId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type UserNotificationType = 'comment' | 'comment_reply';
+
+export interface UserNotificationDto {
+  _id: string;
+  type: UserNotificationType;
+  documentId: string;
+  documentTitle: string;
+  commentId: string;
+  parentCommentId: string | null;
+  authorName: string | null;
+  authorEmail: string;
+  contentPreview: string;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface TemplateFieldDto {
@@ -283,6 +314,7 @@ export interface GuestSigningDataDto {
   documentTitle: string;
   presignedPdfUrl?: string;
   formTemplateId?: string | null;
+  formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   stepLabel: string;
   stepId: string;
@@ -311,6 +343,22 @@ export {
   type TemplateWorkflowStep,
 } from './template-signature-fields.js';
 
+export { buildGenericUploadSignatureTemplate } from './generic-upload-signature-template.js';
+
+export {
+  MENTION_PATTERN,
+  formatSignerMention,
+  formatSignerMentionPlain,
+  appendSignerMentionToDraft,
+  extractMentionedEmails,
+  resolveMentionedEmails,
+  parseCommentContent,
+  filterSignersByNameQuery,
+  signerDisplayName,
+  type CommentContentPart,
+  type SignerMentionRef,
+} from './comment-mentions.js';
+
 export const HEBREW_SAMPLE_PDF_FILENAME = 'haknasot.pdf';
 
 export const HEBREW_SAMPLE_DEFAULT_TITLE = 'הכנסות';
@@ -334,3 +382,9 @@ export function resolveFormTemplateFields(
   }
   return [];
 }
+
+export {
+  buildPdfFormFieldsFromExtracted,
+  resolveDocumentFormFields,
+  allowedDocumentFormFieldIds,
+} from './document-form-fields.js';

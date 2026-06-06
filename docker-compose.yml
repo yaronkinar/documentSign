@@ -1,4 +1,11 @@
 services:
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
   redis:
     image: redis:7-alpine
     ports:
@@ -15,9 +22,16 @@ services:
     env_file: .env
     environment:
       PORT: "3001"
+      MONGODB_URI: mongodb://mongodb:27017/docflow
       REDIS_URL: redis://redis:6379
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_PATH: /data/storage
+      API_PUBLIC_URL: http://localhost:3001
       CHOKIDAR_USEPOLLING: "1"
+    volumes:
+      - local_storage:/data/storage
     depends_on:
+      - mongodb
       - redis
     develop:
       watch:
@@ -66,4 +80,6 @@ services:
           action: rebuild
 
 volumes:
+  mongo_data:
   redis_data:
+  local_storage:

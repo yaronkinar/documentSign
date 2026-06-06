@@ -121,6 +121,39 @@ export class SignatureField {
 
 export const SignatureFieldSchema = SchemaFactory.createForClass(SignatureField);
 
+@Schema({ _id: false })
+export class DocumentFormField {
+  @Prop({ required: true })
+  id!: string;
+
+  @Prop({ required: true })
+  label!: string;
+
+  @Prop({ required: true, enum: ['text', 'textarea', 'date'], default: 'text' })
+  type!: 'text' | 'textarea' | 'date';
+
+  @Prop({ required: true, default: 'general' })
+  section!: string;
+
+  @Prop({ required: true })
+  pageNumber!: number;
+
+  @Prop({ required: true })
+  x!: number;
+
+  @Prop({ required: true })
+  y!: number;
+
+  @Prop({ required: true, default: 20 })
+  width!: number;
+
+  @Prop({ required: true, default: 6 })
+  height!: number;
+}
+
+export const DocumentFormFieldSchema =
+  SchemaFactory.createForClass(DocumentFormField);
+
 @Schema({ collection: 'documents', timestamps: true })
 export class Document {
   @Prop({ required: true })
@@ -181,8 +214,16 @@ export class Document {
   @Prop({ type: String, default: null })
   formTemplateId!: string | null;
 
+  /** Saved PDF template used to seed this document (signature field layout). */
+  @Prop({ type: String, default: null })
+  pdfTemplateId!: string | null;
+
   @Prop({ type: Object, default: {} })
   formValues!: Record<string, string>;
+
+  /** Fillable regions detected from an uploaded PDF (vision extraction). */
+  @Prop({ type: [DocumentFormFieldSchema], default: [] })
+  formFields!: Types.DocumentArray<DocumentFormField>;
 }
 
 export type DocumentDocument = HydratedDocument<Document>;
@@ -195,6 +236,9 @@ DocumentSchema.post('init', function initSignatureFields(doc) {
   }
   if (!doc.formValues) {
     doc.set('formValues', {});
+  }
+  if (!doc.formFields) {
+    doc.set('formFields', []);
   }
 });
 

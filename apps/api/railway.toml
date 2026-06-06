@@ -4,8 +4,9 @@
 # Root Directory: leave empty (repo root — required for npm workspaces)
 
 [build]
-builder = "NIXPACKS"
-buildCommand = "npm ci && npm run build:shared && npm run build:api"
+# Use Dockerfile instead of Nixpacks — avoids npm ci EBUSY on node_modules/.cache
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
 watchPatterns = [
   "/apps/api/**",
   "/packages/shared/**",

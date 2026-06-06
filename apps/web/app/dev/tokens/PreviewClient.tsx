@@ -56,7 +56,11 @@ export function PreviewClient() {
 
   return (
     <TooltipProvider>
-      <div dir={dir} className="min-h-screen bg-bg text-fg">
+      <div
+        dir={dir}
+        data-testid="tokens-preview-root"
+        className="min-h-screen bg-bg text-fg"
+      >
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-12">
           <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>

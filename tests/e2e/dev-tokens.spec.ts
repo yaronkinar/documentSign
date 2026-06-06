@@ -42,24 +42,15 @@ test.describe('/dev/tokens preview route', () => {
   test('RTL toggle flips direction without reloading', async ({ page }) => {
     await gotoTokens(page, 'humane');
 
-    const initialDir = await page.evaluate(() =>
-      document.querySelector('[dir]')?.getAttribute('dir'),
-    );
-    expect(initialDir).toBe('ltr');
+    const wrapper = page.locator('[data-testid="tokens-preview-root"]');
+    await expect(wrapper).toHaveAttribute('dir', 'ltr');
 
     await page.getByRole('button', { name: /direction: ltr/i }).click();
 
     await expect(
       page.getByRole('button', { name: /direction: rtl/i }),
     ).toBeVisible();
-
-    await expect
-      .poll(async () =>
-        page.evaluate(
-          () => document.querySelector('[dir]')?.getAttribute('dir'),
-        ),
-      )
-      .toBe('rtl');
+    await expect(wrapper).toHaveAttribute('dir', 'rtl');
   });
 
   test('selecting a theme in ThemePicker updates the html class', async ({

@@ -52,6 +52,14 @@ test.describe('/dev/tokens preview route', () => {
     await expect(
       page.getByRole('button', { name: /direction: rtl/i }),
     ).toBeVisible();
+
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          () => document.querySelector('[dir]')?.getAttribute('dir'),
+        ),
+      )
+      .toBe('rtl');
   });
 
   test('selecting a theme in ThemePicker updates the html class', async ({

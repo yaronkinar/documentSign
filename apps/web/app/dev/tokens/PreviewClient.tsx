@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Download, MoreHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,6 +53,14 @@ type Direction = 'ltr' | 'rtl';
 
 export function PreviewClient() {
   const [dir, setDir] = useState<Direction>('ltr');
+
+  // Ensure dir attribute is synced to DOM for accessibility/styling
+  useEffect(() => {
+    const wrapper = document.querySelector('[dir]');
+    if (wrapper && wrapper.getAttribute('dir') !== dir) {
+      wrapper.setAttribute('dir', dir);
+    }
+  }, [dir]);
 
   return (
     <TooltipProvider>

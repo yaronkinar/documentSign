@@ -12,6 +12,12 @@ import {
   parseLocale,
   type Locale,
 } from '@/lib/i18n/locale';
+import { ThemeProvider } from '@/lib/theme/ThemeProvider';
+import {
+  DEFAULT_THEME,
+  THEME_BOOTSTRAP_SCRIPT,
+  themeClass,
+} from '@/lib/theme/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -35,15 +41,23 @@ export default function RootLayout({
 
   return (
     <ClerkProvider>
-      <html lang={locale} dir={dir} suppressHydrationWarning>
+      <html
+        lang={locale}
+        dir={dir}
+        className={themeClass(DEFAULT_THEME)}
+        suppressHydrationWarning
+      >
         <head>
           <script dangerouslySetInnerHTML={{ __html: LOCALE_BOOTSTRAP_SCRIPT }} />
+          <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         </head>
         <body className="flex min-h-screen flex-col antialiased">
-          <LocaleProvider initialLocale={locale}>
-            <Navbar />
-            <div className="flex flex-1 flex-col">{children}</div>
-          </LocaleProvider>
+          <ThemeProvider>
+            <LocaleProvider initialLocale={locale}>
+              <Navbar />
+              <div className="flex flex-1 flex-col">{children}</div>
+            </LocaleProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

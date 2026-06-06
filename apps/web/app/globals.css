@@ -123,6 +123,18 @@
     color: var(--color-fg);
   }
 
+  /*
+   * Smooth theme transitions. When the theme class on <html> changes,
+   * every element fades its background, border, text, and SVG fill/stroke
+   * over 200ms. Tailwind's own `transition-colors` utility (150ms) still
+   * wins on elements that opt into it for hover/active states.
+   */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke, outline-color;
+    transition-duration: 200ms;
+    transition-timing-function: ease-out;
+  }
+
   /* Headings: tracking-tight + semibold, never bold. */
   h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.015em;

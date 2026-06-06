@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DocumentDto } from '@docflow/shared';
+import { MUNICIPAL_APPROVAL_SIGNER_TITLES } from '@docflow/shared';
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
+import { hydrateWorkflowStepsFromProfiles } from '@/lib/signer-profile-workflow';
 import {
   WorkflowStepEditor,
   type SignerInput,
@@ -12,6 +14,8 @@ import {
 
 interface Props {
   documentId: string;
+  templateId: string | null;
+  fallbackRoleNames?: string[];
   currentUserEmail: string;
   currentUserName: string;
   onSaved: (doc: DocumentDto) => void;
@@ -19,6 +23,8 @@ interface Props {
 
 export function DraftWorkflowSetup({
   documentId,
+  templateId,
+  fallbackRoleNames = [],
   currentUserEmail,
   currentUserName,
   onSaved,
@@ -32,8 +38,47 @@ export function DraftWorkflowSetup({
       signers: [],
     },
   ]);
+  const [loadingProfiles, setLoadingProfiles] = useState(!!templateId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSteps() {
+      if (!templateId) {
+        if (fallbackRoleNames.length > 0) {
+          setSteps([
+            {
+              label: t('newDocument.signaturesStepLabel'),
+              stepType: 'approval',
+              signers: fallbackRoleNames.map((name) => ({ name, email: '' })),
+            },
+          ]);
+        }
+        return;
+      }
+      setLoadingProfiles(true);
+      try {
+        const hydrated = await hydrateWorkflowStepsFromProfiles(
+          api,
+          templateId,
+          steps,
+          fallbackRoleNames,
+        );
+        if (!cancelled) setSteps(hydrated);
+      } catch {
+        // keep defaults
+      } finally {
+        if (!cancelled) setLoadingProfiles(false);
+      }
+    }
+
+    void loadSteps();
+    return () => {
+      cancelled = true;
+    };
+  }, [templateId, fallbackRoleNames.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function addStep() {
     setSteps((prev) => [
@@ -109,6 +154,12 @@ export function DraftWorkflowSetup({
     }
   }
 
+  if (loadingProfiles) {
+    return (
+      <div className="p-4 text-sm text-gray-500">{t('common.saving')}…</div>
+    );
+  }
+
   return (
     <div className="space-y-3 p-4">
       <p className="text-sm text-amber-900">{t('document.setupWorkflowHint')}</p>
@@ -126,11 +177,21 @@ export function DraftWorkflowSetup({
         onRemoveStep={removeStep}
         onAddSigner={addSigner}
         onRemoveSigner={removeSigner}
-        onNext={() => void saveWorkflow()}
+        onNext={saveWorkflow}
         nextLabel={busy ? t('common.saving') : t('document.saveWorkflow')}
-        nextDisabled={busy || steps.length === 0}
-        showNav
+        nextDisabled={busy}
+        showNav={false}
       />
     </div>
   );
+}
+
+export function draftWorkflowFallbackRoles(
+  formTemplateId: string | null | undefined,
+  pdfTemplateFields: string[],
+): string[] {
+  if (formTemplateId === 'haknasot') {
+    return [...MUNICIPAL_APPROVAL_SIGNER_TITLES];
+  }
+  return pdfTemplateFields;
 }

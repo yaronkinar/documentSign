@@ -40,7 +40,12 @@ async function fulfillJson(route: Route, data: unknown, status = 200) {
 }
 
 async function installPdfMock(page: Page) {
-  await page.route('**/samples/haknasot.pdf', async (route) => {
+  const tinyPdf = Buffer.from(
+    'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9G',
+    'base64',
+  );
+
+  const resolvePdfBytes = () => {
     const generatedPdf = path.join(
       __dirname,
       '..',
@@ -49,18 +54,25 @@ async function installPdfMock(page: Page) {
       '.out',
       'haknasot-filled-sample.pdf',
     );
+    return fs.existsSync(generatedPdf) ? fs.readFileSync(generatedPdf) : tinyPdf;
+  };
 
-    if (fs.existsSync(generatedPdf)) {
-      await route.fulfill({ path: generatedPdf, contentType: 'application/pdf' });
-      return;
-    }
+  await page.route('**/api/template-pdf/haknasot', async (route) => {
+    const bytes = resolvePdfBytes();
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        mimeType: 'application/pdf',
+        data: bytes.toString('base64'),
+      }),
+    });
+  });
 
+  await page.route('**/samples/haknasot.pdf', async (route) => {
+    const bytes = resolvePdfBytes();
     await route.fulfill({
       contentType: 'application/pdf',
-      body: Buffer.from(
-        'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9G',
-        'base64',
-      ),
+      body: bytes,
     });
   });
 }
@@ -134,6 +146,67 @@ async function installApiMocks(page: Page, calls: ApiCall[]) {
   });
 }
 
+test('loads Haknasot template preview via JSON API without errors', async ({
+  page,
+}) => {
+  const templatePdfRequests: Array<{
+    accept: string | null;
+    responseContentType: string | null;
+    payloadMimeType: string | null;
+    payloadBytes: number;
+  }> = [];
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('docflow-locale', 'en');
+  });
+
+  await page.route('**/api/template-pdf/haknasot', async (route) => {
+    const tinyPdf = Buffer.from(
+      'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9G',
+      'base64',
+    );
+    const accept = route.request().headers()['accept'] ?? null;
+
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        mimeType: 'application/pdf',
+        data: tinyPdf.toString('base64'),
+      }),
+    });
+
+    templatePdfRequests.push({
+      accept,
+      responseContentType: 'application/json',
+      payloadMimeType: 'application/pdf',
+      payloadBytes: tinyPdf.length,
+    });
+  });
+
+  await page.goto('/documents/new');
+
+  await expect(page.getByRole('heading', { name: 'New Document' })).toBeVisible();
+  await expect(
+    page.getByText('Municipal income form (הכנסות)'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start form' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toBeVisible();
+
+  await expect(page.getByText(/Template PDF failed to load/i)).toHaveCount(0);
+  await expect(page.getByText(/Template PDF is empty/i)).toHaveCount(0);
+  await expect(page.getByText('Loading PDF…')).toHaveCount(0);
+
+  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
+
+  await expect.poll(() => templatePdfRequests.length).toBeGreaterThanOrEqual(1);
+  for (const req of templatePdfRequests) {
+    expect(req.accept).toContain('application/json');
+    expect(req.responseContentType).toBe('application/json');
+    expect(req.payloadMimeType).toBe('application/pdf');
+    expect(req.payloadBytes).toBeGreaterThan(0);
+  }
+});
+
 test('creates a Haknasot document through the mocked wizard flow', async ({
   page,
 }) => {
@@ -162,8 +235,27 @@ test('creates a Haknasot document through the mocked wizard flow', async ({
   await page.getByLabel('Title').fill('Playwright mocked integration doc');
   await page.getByRole('button', { name: 'Next' }).click();
 
-  await page.getByRole('button', { name: /Add all approval roles/ }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(
+    page.getByText('Add an email address for each approval role'),
+  ).toBeVisible();
+
+  const addAllApprovals = page.getByRole('button', {
+    name: /Add all approval roles/,
+  });
+  if (await addAllApprovals.isVisible()) {
+    await addAllApprovals.click();
+  }
+
+  const signerEmails = page.getByLabel('Email');
+  await expect(signerEmails.first()).toBeVisible();
+  const signerCount = await signerEmails.count();
+  for (let i = 0; i < signerCount; i++) {
+    await signerEmails.nth(i).fill(`signer${i}@example.com`);
+  }
+
+  const workflowNext = page.getByRole('button', { name: 'Next' });
+  await expect(workflowNext).toBeEnabled();
+  await workflowNext.click();
 
   await expect(
     page.getByRole('button', { name: 'Save & assign fields' }),

@@ -52,9 +52,11 @@ export class SignaturesService {
   ): Promise<{ signerProfileId: string; signatureImageUrl: string } | null> {
     const doc = await this.documentModel.findById(documentId).exec();
     if (!doc) return null;
+    const templateId = doc.pdfTemplateId ?? doc.formTemplateId ?? null;
     const found = await this.signerProfilesService.findProfileForSigner(
       doc.ownerId,
       signerEmail,
+      templateId,
     );
     if (!found) return null;
     return {
@@ -193,6 +195,7 @@ export class SignaturesService {
       const profileKey = await this.signerProfilesService.getImageKey(
         doc.ownerId,
         dto.signerProfileId,
+        doc.pdfTemplateId ?? doc.formTemplateId ?? null,
       );
       if (!profileKey) {
         throw new BadRequestException('Signer profile signature not found');

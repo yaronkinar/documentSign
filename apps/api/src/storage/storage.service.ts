@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { LocalStorageBackend } from './local-storage.backend';
 import { SupabaseStorageBackend } from './supabase-storage.backend';
 
@@ -33,6 +33,33 @@ export class StorageService {
 
   getDownloadUrl(key: string, expiresIn?: number): Promise<string> {
     return this.backend.getDownloadUrl(key, expiresIn);
+  }
+
+  /** Returns null when the object is missing instead of throwing. */
+  async tryGetDownloadUrl(
+    key: string,
+    expiresIn?: number,
+  ): Promise<string | null> {
+    try {
+      return await this.backend.getDownloadUrl(key, expiresIn);
+    } catch (err) {
+      if (StorageService.isMissingObjectError(err)) return null;
+      throw err;
+    }
+  }
+
+  objectExists(key: string): Promise<boolean> {
+    return this.backend.objectExists(key);
+  }
+
+  private static isMissingObjectError(err: unknown): boolean {
+    const message =
+      err instanceof InternalServerErrorException
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return /not found/i.test(message);
   }
 
   downloadObject(key: string): Promise<Buffer> {

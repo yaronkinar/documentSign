@@ -7,6 +7,7 @@ import {
   HAKNASOT_FORM_TEMPLATE_ID,
   HAKNASOT_SAMPLE_FORM_VALUES,
   HEBREW_SAMPLE_DEFAULT_TITLE,
+  MUNICIPAL_APPROVAL_SIGNER_TITLES,
   resolveFormTemplateFields,
 } from '@docflow/shared';
 
@@ -23,6 +24,7 @@ import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { downloadHaknasotPdf } from '@/lib/generate-haknasot-pdf';
 import { getPdfPageCount } from '@/lib/pdf-page-count';
+import { hydrateWorkflowStepsFromProfiles } from '@/lib/signer-profile-workflow';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 
 type Step = 'start' | 'form' | 'details' | 'workflow' | 'review';
@@ -49,6 +51,7 @@ export function NewDocumentClient() {
   const [extractingSigners, setExtractingSigners] = useState(false);
   const [extractingFormFields, setExtractingFormFields] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<PdfTemplateDto[]>([]);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(
     () => clerkUser?.primaryEmailAddress?.emailAddress ?? '',
   );
@@ -120,6 +123,7 @@ export function NewDocumentClient() {
       setDocumentId(doc._id);
       setTitle(doc.title);
       setDocSource('template');
+      setActiveTemplateId(HAKNASOT_FORM_TEMPLATE_ID);
       const fields = resolveFormTemplateFields(doc.formTemplateId);
       setFormFields(fields);
       setFormValues(doc.formValues ?? {});
@@ -153,6 +157,7 @@ export function NewDocumentClient() {
     setSummaryError(null);
     setDescription('');
     setDocSource('upload');
+    setActiveTemplateId(null);
     setFormFields([]);
     setFormValues({});
     setUploadPdfUrl(null);
@@ -266,6 +271,7 @@ export function NewDocumentClient() {
     setSummaryError(null);
     setDescription('');
     setDocSource('saved_pdf');
+    setActiveTemplateId(template._id);
     setFormFields([]);
     setFormValues({});
     setUploadPdfUrl(template.fileUrl);
@@ -294,23 +300,27 @@ export function NewDocumentClient() {
         }
       }
 
-      if (signers.length > 0) {
-        setSteps([
-          {
-            label: t('newDocument.signaturesStepLabel'),
-            stepType: 'approval',
-            signers: signers.map((name) => ({ email: '', name })),
-          },
-        ]);
-      } else {
-        setSteps([
-          {
-            label: t('newDocument.stepLabel', { n: 1 }),
-            stepType: 'signature',
-            signers: [],
-          },
-        ]);
-      }
+      const hydrated = await hydrateWorkflowStepsFromProfiles(
+        api,
+        template._id,
+        signers.length > 0
+          ? [
+              {
+                label: t('newDocument.signaturesStepLabel'),
+                stepType: 'approval' as const,
+                signers: signers.map((name) => ({ email: '', name })),
+              },
+            ]
+          : [
+              {
+                label: t('newDocument.stepLabel', { n: 1 }),
+                stepType: 'signature' as const,
+                signers: [],
+              },
+            ],
+        signers,
+      );
+      setSteps(hydrated);
       setStep('details');
       void requestSummarize(doc._id);
     } catch (err) {
@@ -355,6 +365,19 @@ export function NewDocumentClient() {
     setError(null);
     try {
       await api.patch(`/documents/${documentId}`, { title, description });
+      if (activeTemplateId) {
+        const fallbackRoles =
+          activeTemplateId === HAKNASOT_FORM_TEMPLATE_ID
+            ? [...MUNICIPAL_APPROVAL_SIGNER_TITLES]
+            : [];
+        const hydrated = await hydrateWorkflowStepsFromProfiles(
+          api,
+          activeTemplateId,
+          steps,
+          fallbackRoles,
+        );
+        setSteps(hydrated);
+      }
       setStep('workflow');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newDocument.saveDetailsFailed'));

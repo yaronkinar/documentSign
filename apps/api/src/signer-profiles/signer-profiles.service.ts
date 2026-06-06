@@ -22,9 +22,9 @@ export class SignerProfilesService {
     private readonly storageService: StorageService,
   ) {}
 
-  async list(ownerId: string): Promise<SignerProfileDto[]> {
+  async list(ownerId: string, templateId: string): Promise<SignerProfileDto[]> {
     const profiles = await this.profileModel
-      .find({ ownerId })
+      .find({ ownerId, templateId })
       .sort({ title: 1, name: 1 })
       .exec();
     return Promise.all(profiles.map((p) => this.toDto(p)));
@@ -36,6 +36,7 @@ export class SignerProfilesService {
   ): Promise<SignerProfileDto> {
     const profile = await this.profileModel.create({
       ownerId,
+      templateId: dto.templateId.trim(),
       title: dto.title.trim(),
       name: dto.name.trim(),
       email: dto.email?.toLowerCase().trim() ?? null,
@@ -96,6 +97,12 @@ export class SignerProfilesService {
     const expectedKey = `sigs/profiles/${profileId}.png`;
     if (imageKey !== expectedKey) {
       throw new BadRequestException('Invalid imageKey');
+    }
+    const uploaded = await this.storageService.objectExists(imageKey);
+    if (!uploaded) {
+      throw new BadRequestException(
+        'Signature image was not uploaded. Please try uploading again.',
+      );
     }
     const previousKey = profile.signatureImageKey;
     profile.signatureImageKey = imageKey;
@@ -159,8 +166,14 @@ export class SignerProfilesService {
   }
 
   /** Returns the raw imageKey for a profile owned by `ownerId`, or null if missing/no signature. */
-  async getImageKey(ownerId: string, profileId: string): Promise<string | null> {
-    const profile = await this.profileModel.findOne({ _id: profileId, ownerId }).exec();
+  async getImageKey(
+    ownerId: string,
+    profileId: string,
+    templateId?: string | null,
+  ): Promise<string | null> {
+    const query: Record<string, unknown> = { _id: profileId, ownerId };
+    if (templateId) query.templateId = templateId;
+    const profile = await this.profileModel.findOne(query).exec();
     return profile?.signatureImageKey ?? null;
   }
 
@@ -168,15 +181,22 @@ export class SignerProfilesService {
   async findProfileForSigner(
     ownerId: string,
     email: string,
+    templateId: string | null,
   ): Promise<{ _id: string; imageKey: string } | null> {
-    const profile = await this.profileModel
-      .findOne({
-        ownerId,
-        email: email.toLowerCase(),
-        signatureImageKey: { $ne: null },
-      })
-      .exec();
+    const query: Record<string, unknown> = {
+      ownerId,
+      email: email.toLowerCase(),
+      signatureImageKey: { $ne: null },
+    };
+    if (templateId) query.templateId = templateId;
+    const profile = await this.profileModel.findOne(query).exec();
     if (!profile || !profile.signatureImageKey) return null;
+    const exists = await this.storageService.objectExists(profile.signatureImageKey);
+    if (!exists) {
+      profile.signatureImageKey = null;
+      await profile.save().catch(() => {});
+      return null;
+    }
     return { _id: profile._id.toString(), imageKey: profile.signatureImageKey };
   }
 
@@ -192,14 +212,23 @@ export class SignerProfilesService {
   }
 
   private async toDto(profile: SignerProfileDocument): Promise<SignerProfileDto> {
+    let signatureImageUrl: string | null = null;
+    if (profile.signatureImageKey) {
+      signatureImageUrl = await this.storageService.tryGetDownloadUrl(
+        profile.signatureImageKey,
+      );
+      if (!signatureImageUrl) {
+        profile.signatureImageKey = null;
+        await profile.save().catch(() => {});
+      }
+    }
     return {
       _id: profile._id.toString(),
+      templateId: profile.templateId,
       title: profile.title,
       name: profile.name,
       email: profile.email,
-      signatureImageUrl: profile.signatureImageKey
-        ? await this.storageService.getDownloadUrl(profile.signatureImageKey)
-        : null,
+      signatureImageUrl,
       createdAt: profile.createdAt.toISOString(),
       updatedAt: profile.updatedAt.toISOString(),
     };

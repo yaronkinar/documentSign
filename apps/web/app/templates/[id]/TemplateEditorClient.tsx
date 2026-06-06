@@ -6,6 +6,7 @@ import type { PdfTemplateDto } from '@docflow/shared';
 
 import { PDFViewer, type TemplateEditField } from '@/components/pdf/PDFViewer';
 import { useApiClient } from '@/lib/api-client';
+import { ensureSignerProfilesForRoles } from '@/lib/signer-profile-workflow';
 
 interface Props {
   template: PdfTemplateDto;
@@ -23,6 +24,18 @@ interface ExtractTemplateFieldsResponse {
 }
 
 let localFieldCounter = 0;
+
+function uniqueFieldLabels(fields: Array<{ label: string }>): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const field of fields) {
+    const label = field.label.trim();
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    labels.push(label);
+  }
+  return labels;
+}
 
 function toEditFields(template: PdfTemplateDto): TemplateEditField[] {
   return template.fields.map((f) => ({
@@ -122,7 +135,13 @@ export function TemplateEditorClient({ template }: Props) {
       setFields(nextFields);
       setSelectedId(nextFields[0]?.id ?? null);
       setAddMode(false);
-      if (nextFields.length === 0) {
+      if (nextFields.length > 0) {
+        void ensureSignerProfilesForRoles(
+          api,
+          template._id,
+          uniqueFieldLabels(nextFields),
+        );
+      } else {
         setExtractError('AI did not find any fields in this PDF.');
       }
     } catch (err) {
@@ -151,6 +170,11 @@ export function TemplateEditorClient({ template }: Props) {
           height: f.height,
         })),
       });
+      await ensureSignerProfilesForRoles(
+        api,
+        template._id,
+        uniqueFieldLabels(fields),
+      );
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {

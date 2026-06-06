@@ -420,7 +420,7 @@ export class DocumentsService {
       .find({ documentId: doc._id })
       .exec();
     const signerProfiles = await this.signerProfileModel
-      .find({ ownerId: doc.ownerId })
+      .find({ ownerId: doc.ownerId, templateId: doc.formTemplateId })
       .select('title name email')
       .lean()
       .exec();

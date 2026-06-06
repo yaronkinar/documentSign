@@ -198,6 +198,8 @@ export interface SavedSignatureDto {
 /** Pre-configured signer in the owner's directory (title + name + optional signature). */
 export interface SignerProfileDto {
   _id: string;
+  /** PDF template id or built-in form template id (e.g. haknasot). */
+  templateId: string;
   title: string;
   name: string;
   email: string | null;
@@ -245,6 +247,7 @@ export interface CommentDto {
   authorEmail: string;
   authorName: string | null;
   content: string;
+  mentionedEmails: string[];
   pageNumber: number | null;
   x: number | null;
   y: number | null;
@@ -341,6 +344,20 @@ export {
 } from './template-signature-fields.js';
 
 export { buildGenericUploadSignatureTemplate } from './generic-upload-signature-template.js';
+
+export {
+  MENTION_PATTERN,
+  formatSignerMention,
+  formatSignerMentionPlain,
+  appendSignerMentionToDraft,
+  extractMentionedEmails,
+  resolveMentionedEmails,
+  parseCommentContent,
+  filterSignersByNameQuery,
+  signerDisplayName,
+  type CommentContentPart,
+  type SignerMentionRef,
+} from './comment-mentions.js';
 
 export const HEBREW_SAMPLE_PDF_FILENAME = 'haknasot.pdf';
 

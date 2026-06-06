@@ -19,6 +19,9 @@ export class Comment {
   @Prop({ required: true })
   content!: string;
 
+  @Prop({ type: [String], default: [] })
+  mentionedEmails!: string[];
+
   @Prop({ type: Number, default: null })
   pageNumber!: number | null;
 

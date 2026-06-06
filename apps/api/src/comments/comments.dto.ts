@@ -1,4 +1,6 @@
 import {
+  IsArray,
+  IsEmail,
   IsEnum,
   IsInt,
   IsNumber,
@@ -37,4 +39,9 @@ export class CreateCommentDto {
   @IsOptional()
   @IsString()
   parentId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  mentionedEmails?: string[];
 }

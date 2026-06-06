@@ -1,17 +1,45 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { SignerProfileDto } from '@docflow/shared';
-import { MUNICIPAL_APPROVAL_SIGNER_TITLES } from '@docflow/shared';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { PdfTemplateDto, SignerProfileDto } from '@docflow/shared';
+import {
+  HAKNASOT_FORM_TEMPLATE_ID,
+  MUNICIPAL_APPROVAL_SIGNER_TITLES,
+} from '@docflow/shared';
 
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
+function signerRolesForTemplate(
+  templateId: string,
+  pdfTemplates: PdfTemplateDto[],
+): string[] {
+  if (templateId === HAKNASOT_FORM_TEMPLATE_ID) {
+    return [...MUNICIPAL_APPROVAL_SIGNER_TITLES];
+  }
+  const template = pdfTemplates.find((t) => t._id === templateId);
+  if (!template) return [];
+  const seen = new Set<string>();
+  const roles: string[] = [];
+  for (const field of template.fields) {
+    const label = field.label.trim();
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    roles.push(label);
+  }
+  return roles;
+}
+
 export function UsersClient() {
   const api = useApiClient();
   const { t } = useTranslation();
+  const [pdfTemplates, setPdfTemplates] = useState<PdfTemplateDto[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    HAKNASOT_FORM_TEMPLATE_ID,
+  );
   const [profiles, setProfiles] = useState<SignerProfileDto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -21,10 +49,63 @@ export function UsersClient() {
   const [email, setEmail] = useState('');
   const [creating, setCreating] = useState(false);
 
-  async function refresh() {
+  const templateOptions = useMemo(
+    () => [
+      {
+        id: HAKNASOT_FORM_TEMPLATE_ID,
+        name: t('users.haknasotTemplate'),
+      },
+      ...pdfTemplates.map((template) => ({
+        id: template._id,
+        name: template.name,
+      })),
+    ],
+    [pdfTemplates, t],
+  );
+
+  const roleOptions = useMemo(
+    () => signerRolesForTemplate(selectedTemplateId, pdfTemplates),
+    [selectedTemplateId, pdfTemplates],
+  );
+
+  const isHaknasotTemplate = selectedTemplateId === HAKNASOT_FORM_TEMPLATE_ID;
+
+  useEffect(() => {
+    let cancelled = false;
+    setTemplatesLoading(true);
+    api
+      .get<PdfTemplateDto[]>('/templates')
+      .then((list) => {
+        if (cancelled) return;
+        setPdfTemplates(list);
+        setSelectedTemplateId((current) => {
+          if (current) return current;
+          return HAKNASOT_FORM_TEMPLATE_ID;
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : t('users.loadFailed'));
+        setSelectedTemplateId(HAKNASOT_FORM_TEMPLATE_ID);
+      })
+      .finally(() => {
+        if (!cancelled) setTemplatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function refresh(templateId: string) {
+    if (!templateId) {
+      setProfiles([]);
+      return;
+    }
     setLoading(true);
     try {
-      const list = await api.get<SignerProfileDto[]>('/signer-profiles');
+      const list = await api.get<SignerProfileDto[]>('/signer-profiles', {
+        templateId,
+      });
       setProfiles(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('users.loadFailed'));
@@ -34,10 +115,17 @@ export function UsersClient() {
   }
 
   useEffect(() => {
-    void refresh();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!selectedTemplateId) return;
+    void refresh(selectedTemplateId);
+  }, [selectedTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setTitle('');
+    setCustomTitle('');
+  }, [selectedTemplateId]);
 
   async function createProfile() {
+    if (!selectedTemplateId) return;
     const resolvedTitle =
       title === '__custom__' ? customTitle.trim() : title.trim();
     if (!resolvedTitle || !name.trim()) {
@@ -48,6 +136,7 @@ export function UsersClient() {
     setError(null);
     try {
       const created = await api.post<SignerProfileDto>('/signer-profiles', {
+        templateId: selectedTemplateId,
         title: resolvedTitle,
         name: name.trim(),
         email: email.trim() || undefined,
@@ -150,6 +239,7 @@ export function UsersClient() {
   }
 
   async function addAllApprovalRoles() {
+    if (!selectedTemplateId || !isHaknasotTemplate) return;
     const usedTitles = new Set(profiles.map((p) => p.title));
     const missing = MUNICIPAL_APPROVAL_SIGNER_TITLES.filter(
       (role) => !usedTitles.has(role),
@@ -161,6 +251,36 @@ export function UsersClient() {
       const created = await Promise.all(
         missing.map((role) =>
           api.post<SignerProfileDto>('/signer-profiles', {
+            templateId: selectedTemplateId,
+            title: role,
+            name: '—',
+          }),
+        ),
+      );
+      setProfiles((prev) =>
+        [...prev, ...created].sort((a, b) =>
+          a.title.localeCompare(b.title, 'he'),
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.createFailed'));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function addAllTemplateRoles() {
+    if (!selectedTemplateId || roleOptions.length === 0) return;
+    const usedTitles = new Set(profiles.map((p) => p.title));
+    const missing = roleOptions.filter((role) => !usedTitles.has(role));
+    if (missing.length === 0) return;
+    setCreating(true);
+    setError(null);
+    try {
+      const created = await Promise.all(
+        missing.map((role) =>
+          api.post<SignerProfileDto>('/signer-profiles', {
+            templateId: selectedTemplateId,
             title: role,
             name: '—',
           }),
@@ -179,9 +299,7 @@ export function UsersClient() {
   }
 
   const usedTitles = new Set(profiles.map((p) => p.title));
-  const pendingRoles = MUNICIPAL_APPROVAL_SIGNER_TITLES.filter(
-    (role) => !usedTitles.has(role),
-  );
+  const pendingRoles = roleOptions.filter((role) => !usedTitles.has(role));
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 p-6">
@@ -197,67 +315,97 @@ export function UsersClient() {
       )}
 
       <div className="rounded-lg border border-gray-200 p-6">
-        <h2 className="mb-4 text-base font-medium">{t('users.addUser')}</h2>
-        <div className="flex flex-wrap gap-2">
-          <select
-            className="min-w-56 flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          >
-            <option value="">{t('newDocument.selectRolePlaceholder')}</option>
-            {MUNICIPAL_APPROVAL_SIGNER_TITLES.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-            <option value="__custom__">{t('newDocument.customRole')}</option>
-          </select>
-          {title === '__custom__' && (
+        <label className="mb-2 block text-sm font-medium text-gray-700">
+          {t('users.selectTemplate')}
+        </label>
+        <select
+          className="w-full max-w-md rounded border border-gray-300 px-3 py-2 text-sm"
+          value={selectedTemplateId}
+          onChange={(e) => {
+            setSelectedTemplateId(e.target.value);
+            setError(null);
+          }}
+          disabled={templatesLoading}
+        >
+          <option value="">{t('users.selectTemplatePlaceholder')}</option>
+          {templateOptions.map((template) => (
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedTemplateId && (
+        <div className="rounded-lg border border-gray-200 p-6">
+          <h2 className="mb-4 text-base font-medium">{t('users.addUser')}</h2>
+          <div className="flex flex-wrap gap-2">
+            <select
+              className="min-w-56 flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            >
+              <option value="">{t('newDocument.selectRolePlaceholder')}</option>
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+              <option value="__custom__">{t('newDocument.customRole')}</option>
+            </select>
+            {title === '__custom__' && (
+              <input
+                type="text"
+                placeholder={t('users.customTitlePlaceholder')}
+                className="w-48 rounded border border-gray-300 px-3 py-2 text-sm"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+              />
+            )}
             <input
               type="text"
-              placeholder={t('users.customTitlePlaceholder')}
-              className="w-48 rounded border border-gray-300 px-3 py-2 text-sm"
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
+              placeholder={t('users.namePlaceholder')}
+              className="w-40 rounded border border-gray-300 px-3 py-2 text-sm"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
+            <input
+              type="email"
+              placeholder={t('newDocument.emailPlaceholder')}
+              className="min-w-48 flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button
+              onClick={createProfile}
+              disabled={creating}
+              className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+            >
+              {creating ? t('common.saving') : t('common.add')}
+            </button>
+          </div>
+          {pendingRoles.length > 0 && (
+            <button
+              type="button"
+              onClick={
+                isHaknasotTemplate ? addAllApprovalRoles : addAllTemplateRoles
+              }
+              disabled={creating}
+              className="mt-3 text-xs text-blue-700 hover:underline disabled:opacity-50"
+            >
+              {t('newDocument.addAllApprovals')} ({pendingRoles.length})
+            </button>
           )}
-          <input
-            type="text"
-            placeholder={t('users.namePlaceholder')}
-            className="w-40 rounded border border-gray-300 px-3 py-2 text-sm"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            type="email"
-            placeholder={t('newDocument.emailPlaceholder')}
-            className="min-w-48 flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button
-            onClick={createProfile}
-            disabled={creating}
-            className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
-          >
-            {creating ? t('common.saving') : t('common.add')}
-          </button>
         </div>
-        {pendingRoles.length > 0 && (
-          <button
-            type="button"
-            onClick={addAllApprovalRoles}
-            disabled={creating}
-            className="mt-3 text-xs text-blue-700 hover:underline disabled:opacity-50"
-          >
-            {t('newDocument.addAllApprovals')} ({pendingRoles.length})
-          </button>
-        )}
-      </div>
+      )}
 
       <div>
         <h2 className="mb-3 text-base font-medium">{t('users.directory')}</h2>
-        {loading ? (
+        {!selectedTemplateId ? (
+          <p className="rounded-lg border border-dashed border-gray-300 py-12 text-center text-sm text-gray-400">
+            {t('users.selectTemplatePlaceholder')}
+          </p>
+        ) : loading ? (
           <p className="text-sm text-gray-500">{t('common.saving')}…</p>
         ) : profiles.length === 0 ? (
           <p className="rounded-lg border border-dashed border-gray-300 py-12 text-center text-sm text-gray-400">

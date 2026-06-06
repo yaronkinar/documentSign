@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
+import { access, mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { dirname, join, resolve, sep } from 'path';
 import { signStorageToken } from './storage.tokens';
 
@@ -35,6 +35,15 @@ export class LocalStorageBackend {
   async getDownloadUrl(key: string, expiresIn = DOWNLOAD_TTL): Promise<string> {
     const token = signStorageToken(key, 'download', expiresIn);
     return `${this.publicBase}/storage/local/download?token=${encodeURIComponent(token)}`;
+  }
+
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await access(this.resolvePath(key));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async downloadObject(key: string): Promise<Buffer> {

@@ -53,6 +53,17 @@ export class SupabaseStorageBackend {
     return data.signedUrl;
   }
 
+  async objectExists(key: string): Promise<boolean> {
+    const slash = key.lastIndexOf('/');
+    const folder = slash >= 0 ? key.slice(0, slash) : '';
+    const name = slash >= 0 ? key.slice(slash + 1) : key;
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .list(folder, { limit: 1, search: name });
+    if (error) return false;
+    return data?.some((item) => item.name === name) ?? false;
+  }
+
   async downloadObject(key: string): Promise<Buffer> {
     const { data, error } = await this.client.storage.from(this.bucket).download(key);
     if (error || !data) {

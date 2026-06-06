@@ -259,7 +259,7 @@ export class TemplatesService {
   private async toDto(template: PdfTemplateDocument): Promise<PdfTemplateDto> {
     let fileUrl: string | null = null;
     if (template.fileKey) {
-      fileUrl = await this.storageService.getDownloadUrl(template.fileKey);
+      fileUrl = await this.storageService.tryGetDownloadUrl(template.fileKey);
     }
     return {
       _id: template._id.toString(),

@@ -21,17 +21,45 @@ function readPackageVersion() {
   return match?.[1] ?? '0.1';
 }
 
+function isGitAvailable() {
+  try {
+    execSync('git rev-parse --is-inside-work-tree', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function parseCommits(limit = 40) {
-  const raw = execSync(
-    `git log --format=%H%x1f%s%x1f%cI --max-count=${limit}`,
-    { cwd: root, encoding: 'utf8' },
-  ).trim();
+  if (!isGitAvailable()) {
+    return null;
+  }
+
+  let raw = '';
+  try {
+    raw = execSync(
+      `git log --format=%H%x1f%s%x1f%cI --max-count=${limit}`,
+      { cwd: root, encoding: 'utf8' },
+    ).trim();
+  } catch {
+    return null;
+  }
 
   if (!raw) return [];
 
-  const total = Number(
-    execSync('git rev-list --count HEAD', { cwd: root, encoding: 'utf8' }).trim(),
-  );
+  let total = 0;
+  try {
+    total = Number(
+      execSync('git rev-list --count HEAD', { cwd: root, encoding: 'utf8' }).trim(),
+    );
+  } catch {
+    return null;
+  }
+
   const versionPrefix = readPackageVersion();
 
   return raw.split('\n').map((line, index) => {
@@ -74,6 +102,19 @@ export const siteVersions: SiteVersions = ${json} as const;
 
 function main() {
   const commits = parseCommits();
+  if (commits === null) {
+    if (fs.existsSync(outFile)) {
+      process.stdout.write('site-versions: git unavailable, keeping existing file\n');
+      return;
+    }
+
+    const next = buildFile([]);
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
+    fs.writeFileSync(outFile, next, 'utf8');
+    process.stdout.write('site-versions: git unavailable, wrote empty fallback\n');
+    return;
+  }
+
   const next = buildFile(commits);
 
   let previous = '';

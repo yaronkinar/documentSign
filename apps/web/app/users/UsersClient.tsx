@@ -42,6 +42,7 @@ export function UsersClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [deduping, setDeduping] = useState(false);
 
   const [title, setTitle] = useState('');
   const [customTitle, setCustomTitle] = useState('');
@@ -301,6 +302,39 @@ export function UsersClient() {
   const usedTitles = new Set(profiles.map((p) => p.title));
   const pendingRoles = roleOptions.filter((role) => !usedTitles.has(role));
 
+  const duplicateCount = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const p of profiles) {
+      const key = `${p.title} ${p.name} ${p.email ?? ''}`;
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+    let extra = 0;
+    for (const n of seen.values()) if (n > 1) extra += n - 1;
+    return extra;
+  }, [profiles]);
+
+  async function removeDuplicates() {
+    if (!selectedTemplateId || duplicateCount === 0) return;
+    if (!confirm(t('users.removeDuplicatesConfirm', { count: String(duplicateCount) }))) return;
+    setDeduping(true);
+    setError(null);
+    try {
+      const result = await api.post<{
+        removed: number;
+        profiles: SignerProfileDto[];
+      }>('/signer-profiles/dedupe', undefined, {
+        templateId: selectedTemplateId,
+      });
+      setProfiles(result.profiles);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('users.removeDuplicatesFailed'),
+      );
+    } finally {
+      setDeduping(false);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 p-6">
       <div>
@@ -400,7 +434,21 @@ export function UsersClient() {
       )}
 
       <div>
-        <h2 className="mb-3 text-base font-medium">{t('users.directory')}</h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-base font-medium">{t('users.directory')}</h2>
+          {duplicateCount > 0 && (
+            <button
+              type="button"
+              onClick={removeDuplicates}
+              disabled={deduping}
+              className="text-xs text-red-700 hover:underline disabled:opacity-50"
+            >
+              {deduping
+                ? t('common.saving')
+                : t('users.removeDuplicates', { count: String(duplicateCount) })}
+            </button>
+          )}
+        </div>
         {!selectedTemplateId ? (
           <p className="rounded-lg border border-dashed border-gray-300 py-12 text-center text-sm text-gray-400">
             {t('users.selectTemplatePlaceholder')}

@@ -348,6 +348,10 @@ export const en = {
     titleNameRequired: 'Select a role and enter a name',
     deleteConfirm: 'Remove this user from the directory?',
     removeSignatureConfirm: 'Remove this signature?',
+    removeDuplicates: 'Remove duplicates ({{count}})',
+    removeDuplicatesConfirm:
+      'Merge {{count}} duplicate entries? Rows with a signature will be kept.',
+    removeDuplicatesFailed: 'Failed to remove duplicates',
   },
   notifications: {
     title: 'Notifications',

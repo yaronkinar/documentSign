@@ -37,6 +37,28 @@ function addSignerForm(page: Page) {
   return page.locator('.border-dashed');
 }
 
+async function uploadPdf(page: Page, pdfPath: string) {
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByText('Drop a PDF here or click to upload').click(),
+  ]);
+  await fileChooser.setFiles(pdfPath);
+  await expect(page.getByText('Uploading...')).toBeVisible({ timeout: 15_000 });
+}
+
+async function reachDetailsStep(page: Page) {
+  await expect(
+    page.getByRole('heading', { name: 'Upload your PDF' }),
+  ).toBeHidden({ timeout: 90_000 });
+
+  const skipForm = page.getByRole('button', { name: 'Skip for now' });
+  if (await skipForm.isVisible().catch(() => false)) {
+    await skipForm.click();
+  }
+
+  await expect(page.getByLabel('Title')).toBeVisible({ timeout: 30_000 });
+}
+
 async function addSignerInWorkflowStep(
   page: Page,
   signer: { name: string; email: string },
@@ -72,9 +94,8 @@ test.describe('Create document with Gmail signer aliases', () => {
     await page.goto('/documents/new');
     await expect(page.getByRole('heading', { name: 'New Document' })).toBeVisible();
 
-    await page.locator('input[type="file"][accept*="pdf"]').setInputFiles(TINY_PDF);
-
-    await expect(page.getByLabel('Title')).toBeVisible({ timeout: 90_000 });
+    await uploadPdf(page, TINY_PDF);
+    await reachDetailsStep(page);
     await page.getByLabel('Title').fill(docTitle);
     await page.getByRole('button', { name: 'Next' }).click();
 

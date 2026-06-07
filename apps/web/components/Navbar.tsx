@@ -20,6 +20,10 @@ import {
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { cn } from '@/lib/utils';
 
+const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+const BYPASS_EMAIL =
+  process.env.NEXT_PUBLIC_BYPASS_AUTH_EMAIL ?? 'dev@local';
+
 function shouldHideNavbar(pathname: string) {
   return (
     pathname.startsWith('/sign-in') ||
@@ -77,55 +81,59 @@ export function Navbar() {
 
   if (!mounted || shouldHideNavbar(pathname)) return null;
 
-  return (
-    <SignedIn>
-      <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-8">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold tracking-tight text-fg hover:opacity-80"
-            >
-              {t('common.appName')}
-            </Link>
-            <nav className="hidden items-center gap-1 sm:flex">
-              {navLinks.map(({ href, label, match }) => {
-                const active = match(pathname);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                      active
-                        ? 'bg-surface-muted text-fg'
-                        : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
-                    )}
-                  >
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <NotificationBell />
-            <UserMenu />
-          </div>
+  const header = (
+    <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
+        <div className="flex items-center gap-8">
+          <Link
+            href="/dashboard"
+            className="text-lg font-semibold tracking-tight text-fg hover:opacity-80"
+          >
+            {t('common.appName')}
+          </Link>
+          <nav className="hidden items-center gap-1 sm:flex">
+            {navLinks.map(({ href, label, match }) => {
+              const active = match(pathname);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-surface-muted text-fg'
+                      : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
+                  )}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-      </header>
-    </SignedIn>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <NotificationBell />
+          <UserMenu bypassAuth={BYPASS_AUTH} />
+        </div>
+      </div>
+    </header>
   );
+
+  if (BYPASS_AUTH) return header;
+
+  return <SignedIn>{header}</SignedIn>;
 }
 
-function UserMenu() {
+function UserMenu({ bypassAuth }: { bypassAuth: boolean }) {
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useUser();
   const { signOut, openUserProfile } = useClerk();
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? '';
+  const email = bypassAuth
+    ? BYPASS_EMAIL
+    : (user?.primaryEmailAddress?.emailAddress ?? '');
   const initials = email ? email.charAt(0).toUpperCase() : '?';
 
   async function handleSignOut() {
@@ -159,15 +167,19 @@ function UserMenu() {
             {t('nav.settings')}
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openUserProfile()}>
-          <UserCog className="me-2 h-4 w-4" />
-          {t('nav.manageAccount')}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={handleSignOut}>
-          <LogOut className="me-2 h-4 w-4" />
-          {t('common.signOut')}
-        </DropdownMenuItem>
+        {!bypassAuth ? (
+          <>
+            <DropdownMenuItem onSelect={() => openUserProfile()}>
+              <UserCog className="me-2 h-4 w-4" />
+              {t('nav.manageAccount')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={handleSignOut}>
+              <LogOut className="me-2 h-4 w-4" />
+              {t('common.signOut')}
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -349,6 +349,10 @@ export const he: TranslationDict = {
     titleNameRequired: 'יש לבחור תפקיד ולהזין שם',
     deleteConfirm: 'למחוק משתמש זה מהרשימה?',
     removeSignatureConfirm: 'להסיר את החתימה?',
+    removeDuplicates: 'הסר כפילויות ({{count}})',
+    removeDuplicatesConfirm:
+      'למזג {{count}} רשומות כפולות? שורות עם חתימה יישמרו.',
+    removeDuplicatesFailed: 'הסרת הכפילויות נכשלה',
   },
   notifications: {
     title: 'התראות',

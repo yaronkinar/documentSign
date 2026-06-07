@@ -963,9 +963,10 @@ function DetailsStep({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <label className="block">
+      <label className="block" htmlFor="new-document-title">
         <span className="text-sm font-medium">{t('newDocument.titleLabel')}</span>
         <input
+          id="new-document-title"
           className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
           value={title}
           onChange={(e) => onTitle(e.target.value)}

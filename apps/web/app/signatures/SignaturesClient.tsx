@@ -4,13 +4,25 @@ import { useEffect, useRef, useState } from 'react';
 import type { SavedSignatureDto } from '@docflow/shared';
 
 import { useApiClient } from '@/lib/api-client';
-import { useTranslation } from '@/lib/i18n/LocaleProvider';
+import { useDateLocale, useTranslation } from '@/lib/i18n/LocaleProvider';
 
 type DrawMode = 'draw' | 'upload';
+
+function formatSignatureDate(isoOrDate: string | Date, dateLocale: string): string {
+  const date = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  const useUtc = typeof isoOrDate === 'string';
+  return date.toLocaleDateString(dateLocale, {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    ...(useUtc ? { timeZone: 'UTC' } : {}),
+  });
+}
 
 export function SignaturesClient() {
   const api = useApiClient();
   const { t } = useTranslation();
+  const dateLocale = useDateLocale();
   const [signatures, setSignatures] = useState<SavedSignatureDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<DrawMode>('draw');
@@ -130,7 +142,9 @@ export function SignaturesClient() {
             className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
           />
           <span className="text-xs text-gray-500">
-            {t('signatures.dateSaved', { date: new Date().toLocaleDateString() })}
+            {t('signatures.dateSaved', {
+              date: formatSignatureDate(new Date(), dateLocale),
+            })}
           </span>
         </div>
 
@@ -167,7 +181,7 @@ export function SignaturesClient() {
                 />
                 <p className="mt-1 truncate text-xs font-medium">{s.label}</p>
                 <p className="text-[11px] text-gray-400">
-                  {new Date(s.createdAt).toLocaleDateString()}
+                  {formatSignatureDate(s.createdAt, dateLocale)}
                 </p>
                 {signatures.length > 1 && !s.isDefault && (
                   <button

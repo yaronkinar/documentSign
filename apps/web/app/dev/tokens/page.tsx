@@ -1,6 +1,10 @@
+import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 
-import { PreviewClient } from './PreviewClient';
+const PreviewClient = dynamic(
+  () => import('./PreviewClient').then((m) => m.PreviewClient),
+  { ssr: false },
+);
 
 export const metadata = {
   title: 'Design Tokens — DocFlow',

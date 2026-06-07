@@ -12,6 +12,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@clerk/backend": "^1.10.0",
     "@docflow/shared": "*",
     "@nestjs/bullmq": "^10.2.0",

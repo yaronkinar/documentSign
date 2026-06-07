@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { cookies, headers } from 'next/headers';
 
 import { Navbar } from '@/components/Navbar';
+import { PageTransition } from '@/components/PageTransition';
 import { Toaster } from '@/components/ui/sonner';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import {
@@ -54,7 +55,7 @@ export default async function RootLayout({
           <LocaleProvider initialLocale={locale}>
             <ThemeProviderWithClerk initialTheme={initialTheme}>
               <Navbar />
-              <div className="flex flex-1 flex-col">{children}</div>
+              <PageTransition>{children}</PageTransition>
               <Toaster />
             </ThemeProviderWithClerk>
           </LocaleProvider>

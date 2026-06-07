@@ -2,19 +2,28 @@
 
 import type { ReactNode } from 'react';
 
+import { Logo } from '@/components/Logo';
+
 export function AuthCard({
   title,
   subtitle,
   children,
   footer,
+  showLogo = true,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  showLogo?: boolean;
 }) {
   return (
     <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      {showLogo ? (
+        <div className="mb-6 flex justify-center">
+          <Logo />
+        </div>
+      ) : null}
       <div className="mb-6 space-y-1 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {subtitle ? <p className="text-sm text-gray-600">{subtitle}</p> : null}

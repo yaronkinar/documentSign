@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { Logo } from '@/components/Logo';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Button } from '@/components/ui/button';
 import {
@@ -78,11 +79,8 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
         <div className="flex items-center gap-8">
-          <Link
-            href="/dashboard"
-            className="text-lg font-semibold tracking-tight text-fg hover:opacity-80"
-          >
-            {t('common.appName')}
+          <Link href="/dashboard" className="hover:opacity-80">
+            <Logo />
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
             {navLinks.map(({ href, label, match }) => {

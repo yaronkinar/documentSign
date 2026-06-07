@@ -38,6 +38,10 @@ function addSignerForm(page: Page) {
   return page.locator('.border-dashed');
 }
 
+function titleField(page: Page) {
+  return page.locator('#new-document-title');
+}
+
 async function uploadPdf(page: Page, pdfPath: string) {
   await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
 
@@ -45,7 +49,7 @@ async function uploadPdf(page: Page, pdfPath: string) {
   await expect(fileInput).toHaveCount(1, { timeout: 30_000 });
   await fileInput.setInputFiles(pdfPath);
   await expect(
-    page.getByText('Uploading...').or(page.getByLabel('Title')),
+    page.getByText('Uploading...').or(titleField(page)),
   ).toBeVisible({ timeout: 30_000 });
 }
 
@@ -63,7 +67,7 @@ async function reachDetailsStep(page: Page) {
     await skipForm.click();
   }
 
-  await expect(page.getByLabel('Title')).toBeVisible({ timeout: 30_000 });
+  await expect(titleField(page)).toBeVisible({ timeout: 30_000 });
 }
 
 async function addSignerInWorkflowStep(
@@ -103,7 +107,7 @@ test.describe('Create document with Gmail signer aliases', () => {
 
     await uploadPdf(page, TINY_PDF);
     await reachDetailsStep(page);
-    await page.getByLabel('Title').fill(docTitle);
+    await titleField(page).fill(docTitle);
     await page.getByRole('button', { name: 'Next' }).click();
 
     await expect(page.getByText('Add signer')).toBeVisible({ timeout: 30_000 });

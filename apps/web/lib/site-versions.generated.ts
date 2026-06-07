@@ -16,13 +16,27 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.47",
-    "hash": "a125d18",
-    "fullHash": "a125d1858c4f2c1db0b6c0226f0a54346b3c740c",
-    "date": "2026-06-07T17:05:20+03:00",
-    "message": "Fix E2E reliability and refresh Hebrew product demo."
+    "version": "0.1.49",
+    "hash": "ebfa019",
+    "fullHash": "ebfa019f10e1ef4ed066357ff1211003ba3165cd",
+    "date": "2026-06-07T17:20:23+03:00",
+    "message": "Fix CI Docker startup when git history is unavailable."
   },
   "history": [
+    {
+      "version": "0.1.49",
+      "hash": "ebfa019",
+      "fullHash": "ebfa019f10e1ef4ed066357ff1211003ba3165cd",
+      "date": "2026-06-07T17:20:23+03:00",
+      "message": "Fix CI Docker startup when git history is unavailable."
+    },
+    {
+      "version": "0.1.48",
+      "hash": "74a88cf",
+      "fullHash": "74a88cfa83743dc2cb03b3c8f622947fcce507cd",
+      "date": "2026-06-07T17:13:15+03:00",
+      "message": "Add footer release notes synced from git commits."
+    },
     {
       "version": "0.1.47",
       "hash": "a125d18",
@@ -288,20 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "7fd0cacf6455f58ca5abbc35211d746b4612279d",
       "date": "2026-06-06T14:11:46+03:00",
       "message": "Add Phase 1 implementation plan for UI design system."
-    },
-    {
-      "version": "0.1.9",
-      "hash": "f82efda",
-      "fullHash": "f82efdaecd19f48d3955984f83b13fceac122dca",
-      "date": "2026-06-06T13:27:52+03:00",
-      "message": "Add UI design system spec and gitignore brainstorm artifacts."
-    },
-    {
-      "version": "0.1.8",
-      "hash": "71a2e76",
-      "fullHash": "71a2e76dc2b28e427b18e4fa413b521f1c4aa8ee",
-      "date": "2026-06-06T10:11:29+03:00",
-      "message": "Fix locale flash on first load and improve dev email testing."
     }
   ]
 } as const;

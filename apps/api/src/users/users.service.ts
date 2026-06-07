@@ -55,6 +55,7 @@ export class UsersService {
           $setOnInsert: {
             role: 'member',
             savedSignatures: [],
+            onboardingStatus: 'pending',
           },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -274,5 +275,15 @@ export class UsersService {
     const user = await this.findByClerkId(clerkId);
     const sig = user.savedSignatures.id(signatureId);
     return sig ? sig.imageKey : null;
+  }
+
+  async updateOnboardingStatus(
+    clerkId: string,
+    status: 'completed' | 'skipped',
+  ): Promise<UserDocument> {
+    const user = await this.findByClerkId(clerkId);
+    user.onboardingStatus = status;
+    await user.save();
+    return user;
   }
 }

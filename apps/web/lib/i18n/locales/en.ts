@@ -83,13 +83,77 @@ export const en = {
   },
   settings: {
     title: 'Settings',
+    meta: {
+      title: 'Settings — DocFlow',
+    },
     appearance: {
       title: 'Appearance',
       description:
         'Choose how DocFlow looks for you. Your choice is saved on this device, and follows you to other devices when you’re signed in.',
       themeLabel: 'Theme',
     },
+    onboarding: {
+      title: 'Product tour',
+      description:
+        'Revisit the short walkthrough of how DocFlow works — upload documents, add signers, and track progress.',
+      viewTour: 'View product tour',
+    },
     saveFailed: 'Could not save your settings. Try again in a moment.',
+  },
+  onboarding: {
+    label: 'Getting started',
+    replayLabel: 'Product tour',
+    stepCounter: 'Step {{current}} of {{total}}',
+    skipForNow: 'Skip for now',
+    getStarted: 'Get started',
+    close: 'Close',
+    doneReplay: 'Done',
+    meta: {
+      title: 'Welcome — DocFlow',
+      replayTitle: 'Product tour — DocFlow',
+    },
+    steps: {
+      welcome: {
+        title: 'Welcome to DocFlow',
+        description:
+          'DocFlow helps you upload documents, route them through review and signing steps, and keep a complete audit trail.',
+        detail1: 'Upload PDFs and prepare them for signing in minutes.',
+        detail2: 'Route documents through review, approval, and signature steps.',
+        detail3: 'Every action is logged for compliance and peace of mind.',
+      },
+      demo: {
+        title: 'See DocFlow in action',
+        description:
+          'Watch a short walkthrough of creating a document, assigning signers, and completing the signing workflow.',
+        detail1: 'Follow along as a document moves from upload to signed PDF.',
+        detail2: 'Pause or replay anytime — use the player controls below.',
+        detail3: 'You can watch this again later from Settings or the Demo page.',
+      },
+      prepare: {
+        title: 'Prepare your document',
+        description:
+          'Start by uploading a PDF, then place signature and date fields where signers need to act.',
+        detail1: 'Upload from the New Document page or reuse a template.',
+        detail2: 'Drag signature fields onto the pages that need them.',
+        detail3: 'Save drafts anytime before sending to signers.',
+      },
+      signers: {
+        title: 'Add signers',
+        description:
+          'Invite people by email and choose whether they sign in order or all at once.',
+        detail1: 'Add one or more signers to each workflow step.',
+        detail2: 'Use sequential routing when order matters, or parallel when it does not.',
+        detail3: 'Signers receive email invites with a secure link to sign.',
+      },
+      track: {
+        title: 'Track and complete',
+        description:
+          'Follow progress from your dashboard, get notified when action is needed, and download the finished PDF.',
+        detail1: 'See document status at a glance on your dashboard.',
+        detail2: 'Get notified when someone signs, rejects, or comments.',
+        detail3: 'Download the completed, signed PDF when everyone is done.',
+      },
+    },
   },
   dashboard: {
     title: 'Documents',

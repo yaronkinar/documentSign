@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import type { SignatureType, UserRole } from '@docflow/shared';
+import type { OnboardingStatus, SignatureType, UserRole } from '@docflow/shared';
 
 @Schema({ _id: true, timestamps: { createdAt: true, updatedAt: false } })
 export class SavedSignature {
@@ -44,6 +44,13 @@ export class User {
 
   @Prop({ type: [SavedSignatureSchema], default: [] })
   savedSignatures!: Types.DocumentArray<SavedSignature>;
+
+  @Prop({
+    required: true,
+    enum: ['pending', 'completed', 'skipped'],
+    default: 'pending',
+  })
+  onboardingStatus!: OnboardingStatus;
 }
 
 export type UserDocument = HydratedDocument<User>;

@@ -6,39 +6,21 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
 } from 'react';
 
-import { en } from './locales/en';
-import { he } from './locales/he';
 import {
   LOCALE_STORAGE_KEY,
   parseLocale,
   persistLocale,
   type Locale,
 } from './locale';
+import { translate } from './translate';
 
 const LOCALE_CHANGE_EVENT = 'docflow-locale-change';
-const dictionaries = { en, he } as const;
 
 type InterpolationValues = Record<string, string | number>;
-
-function getNestedValue(obj: Record<string, unknown>, path: string): string {
-  const value = path.split('.').reduce<unknown>((acc, key) => {
-    if (acc && typeof acc === 'object' && key in acc) {
-      return (acc as Record<string, unknown>)[key];
-    }
-    return undefined;
-  }, obj);
-  return typeof value === 'string' ? value : path;
-}
-
-function interpolate(template: string, values?: InterpolationValues): string {
-  if (!values) return template;
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) =>
-    values[key] !== undefined ? String(values[key]) : `{{${key}}}`,
-  );
-}
 
 interface LocaleContextValue {
   locale: Locale;
@@ -72,11 +54,15 @@ export function LocaleProvider({
   children: React.ReactNode;
   initialLocale: Locale;
 }) {
-  const locale = useSyncExternalStore(
+  const [mounted, setMounted] = useState(false);
+  const storedLocale = useSyncExternalStore(
     subscribeToLocale,
     () => readClientLocale(initialLocale),
     () => initialLocale,
   );
+
+  // Match SSR on the first client render, then apply saved locale after mount.
+  const locale = mounted ? storedLocale : initialLocale;
 
   const setLocale = useCallback((next: Locale) => {
     persistLocale(next);
@@ -86,16 +72,18 @@ export function LocaleProvider({
   const dir: 'ltr' | 'rtl' = locale === 'he' ? 'rtl' : 'ltr';
 
   useEffect(() => {
+    const saved = parseLocale(window.localStorage.getItem(LOCALE_STORAGE_KEY));
+    if (saved) persistLocale(saved);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = dir;
   }, [locale, dir]);
 
   const t = useCallback(
-    (key: string, values?: InterpolationValues) => {
-      const dict = dictionaries[locale] as Record<string, unknown>;
-      const template = getNestedValue(dict, key);
-      return interpolate(template, values);
-    },
+    (key: string, values?: InterpolationValues) => translate(locale, key, values),
     [locale],
   );
 

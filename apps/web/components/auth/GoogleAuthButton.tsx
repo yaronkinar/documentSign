@@ -46,7 +46,7 @@ export function GoogleAuthButton({
   const afterUrl =
     mode === 'sign-in'
       ? (process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL ?? '/dashboard')
-      : (process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? '/dashboard');
+      : (process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? '/onboarding');
 
   async function handleGoogle() {
     setLoading(true);

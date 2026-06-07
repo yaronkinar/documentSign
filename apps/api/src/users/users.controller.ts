@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { SavedSignatureDto } from '@docflow/shared';
+import type { SavedSignatureDto, UserMeDto } from '@docflow/shared';
 
 import { ClerkAuthGuard } from '../auth/clerk.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/current-user.decorator';
@@ -17,6 +17,7 @@ import { UsersService } from './users.service';
 import {
   ConfirmSavedSignatureDto,
   GetSignatureUploadUrlDto,
+  UpdateOnboardingStatusDto,
   UpdateSavedSignatureLabelDto,
 } from './users.dto';
 
@@ -39,7 +40,7 @@ export class UsersController {
   }
 
   @Get('me')
-  async me(@CurrentUser() user: CurrentUserPayload) {
+  async me(@CurrentUser() user: CurrentUserPayload): Promise<UserMeDto> {
     const u = await this.ensureUser(user);
     return {
       _id: u._id.toString(),
@@ -48,6 +49,28 @@ export class UsersController {
       name: u.name ?? null,
       avatarUrl: u.avatarUrl ?? null,
       role: u.role,
+      onboardingStatus: u.onboardingStatus ?? 'completed',
+    };
+  }
+
+  @Patch('me/onboarding')
+  async updateOnboarding(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateOnboardingStatusDto,
+  ): Promise<UserMeDto> {
+    await this.ensureUser(user);
+    const u = await this.usersService.updateOnboardingStatus(
+      user.clerkId,
+      dto.status,
+    );
+    return {
+      _id: u._id.toString(),
+      clerkId: u.clerkId,
+      email: u.email,
+      name: u.name ?? null,
+      avatarUrl: u.avatarUrl ?? null,
+      role: u.role,
+      onboardingStatus: u.onboardingStatus,
     };
   }
 

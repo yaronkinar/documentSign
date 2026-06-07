@@ -27,7 +27,7 @@ export function EmailPasswordSignUp() {
   const [loading, setLoading] = useState(false);
 
   const afterSignUpUrl =
-    process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? '/dashboard';
+    process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? '/onboarding';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

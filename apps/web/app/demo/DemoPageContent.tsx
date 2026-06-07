@@ -2,20 +2,16 @@
 
 import Link from 'next/link';
 
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { PageLanguageSwitcher } from '@/components/PageLanguageSwitcher';
+import { ProductDemoVideo } from '@/components/ProductDemoVideo';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
-
-const DEMO_VIDEO_SRC = '/videos/product-demo.mp4';
 
 export function DemoPageContent() {
   const { t } = useTranslation();
 
   return (
     <main className="relative flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="absolute end-6 top-6">
-        <LanguageSwitcher />
-      </div>
-
+      <PageLanguageSwitcher />
       <section className="flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-8 text-center">
         <div className="space-y-4">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500">
@@ -29,18 +25,7 @@ export function DemoPageContent() {
           </p>
         </div>
 
-        <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-black shadow-2xl">
-          <video
-            aria-label={t('demo.videoLabel')}
-            className="aspect-video w-full"
-            controls
-            playsInline
-            preload="metadata"
-          >
-            <source src={DEMO_VIDEO_SRC} type="video/mp4" />
-            {t('demo.fallback')}
-          </video>
-        </div>
+        <ProductDemoVideo className="w-full shadow-2xl" />
 
         <Link
           href="/"

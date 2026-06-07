@@ -29,7 +29,8 @@
     "create:approved-haknasot": "node scripts/create-approved-haknasot.mjs",
     "generate:mock-signers-pdf": "node scripts/generate-mock-signers-pdf.mjs",
     "generate:mock-lease-pdf": "node scripts/generate-mock-signers-pdf.mjs --doc lease",
-    "test:extract-signers": "node scripts/test-extract-signers.mjs"
+    "test:extract-signers": "node scripts/test-extract-signers.mjs",
+    "record:demo": "node scripts/record-product-demo.mjs"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.49",
-    "hash": "ebfa019",
-    "fullHash": "ebfa019f10e1ef4ed066357ff1211003ba3165cd",
-    "date": "2026-06-07T17:20:23+03:00",
-    "message": "Fix CI Docker startup when git history is unavailable."
+    "version": "0.1.50",
+    "hash": "f7ecdbf",
+    "fullHash": "f7ecdbf2f9c9be3a851023f0ccc76070a750cfe4",
+    "date": "2026-06-07T17:21:30+03:00",
+    "message": "Refresh release notes and stabilize Gmail signer E2E selectors."
   },
   "history": [
+    {
+      "version": "0.1.50",
+      "hash": "f7ecdbf",
+      "fullHash": "f7ecdbf2f9c9be3a851023f0ccc76070a750cfe4",
+      "date": "2026-06-07T17:21:30+03:00",
+      "message": "Refresh release notes and stabilize Gmail signer E2E selectors."
+    },
     {
       "version": "0.1.49",
       "hash": "ebfa019",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "8a5753184072ecf41edb046ad73b52954a6f9f3e",
       "date": "2026-06-06T14:36:33+03:00",
       "message": "Add shadcn/ui runtime dependencies for design system."
-    },
-    {
-      "version": "0.1.10",
-      "hash": "7fd0cac",
-      "fullHash": "7fd0cacf6455f58ca5abbc35211d746b4612279d",
-      "date": "2026-06-06T14:11:46+03:00",
-      "message": "Add Phase 1 implementation plan for UI design system."
     }
   ]
 } as const;

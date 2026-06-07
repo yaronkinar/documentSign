@@ -49,7 +49,27 @@
       "Bash(powershell \"Stop-Process -Id 8436 -Force\")",
       "Bash(docker compose *)",
       "Bash(findstr \":3000 \")",
-      "Bash(powershell Get-Process -Id 76980 | Select-Object Name, Id *)"
+      "Bash(powershell Get-Process -Id 76980 | Select-Object Name, Id *)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(pkill -9 -f \"node\")",
+      "Bash(PLAYWRIGHT_BASE_URL=http://localhost:3200 PORT=3200 npx playwright test tests/e2e/dev-tokens.spec.ts --reporter=list)",
+      "Bash(npx next *)",
+      "Bash(echo '{}')",
+      "Bash(rm .eslintrc.json)",
+      "Bash(git *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(taskkill //F //IM node.exe //FI \"WINDOWTITLE eq *next dev*\")",
+      "Bash(taskkill *)",
+      "Bash(grep -oE 'theme-[a-z]+|class=\"[^\"]{0,40}\"')",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "mcp__ide__getDiagnostics",
+      "Bash(ps -W)",
+      "Bash(npm start *)",
+      "Bash(PORT=3002 npm run dev)"
     ]
   }
 }

@@ -2,6 +2,8 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { gotoApp } from './helpers/navigation';
+
 type ApiCall = {
   method: string;
   pathname: string;
@@ -35,7 +37,21 @@ async function fulfillJson(route: Route, data: unknown, status = 200) {
   await route.fulfill({
     status,
     contentType: 'application/json',
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
     body: JSON.stringify(data),
+  });
+}
+
+async function fulfillCorsPreflight(route: Route) {
+  await route.fulfill({
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    },
   });
 }
 
@@ -80,6 +96,11 @@ async function installPdfMock(page: Page) {
 async function installApiMocks(page: Page, calls: ApiCall[]) {
   await page.route(/http:\/\/(127\.0\.0\.1|localhost):3001\/.*/, async (route) => {
     const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await fulfillCorsPreflight(route);
+      return;
+    }
+
     const url = new URL(request.url());
     const postData = request.postData();
     let body: unknown;
@@ -99,6 +120,16 @@ async function installApiMocks(page: Page, calls: ApiCall[]) {
         email: 'owner@example.com',
         name: 'Owner User',
       });
+      return;
+    }
+
+    if (request.method() === 'GET' && url.pathname === '/templates') {
+      await fulfillJson(route, []);
+      return;
+    }
+
+    if (request.method() === 'GET' && url.pathname === '/signer-profiles') {
+      await fulfillJson(route, []);
       return;
     }
 
@@ -160,6 +191,23 @@ test('loads Haknasot template preview via JSON API without errors', async ({
     window.localStorage.setItem('docflow-locale', 'en');
   });
 
+  await page.route(/http:\/\/(127\.0\.0\.1|localhost):3001\/.*/, async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await fulfillCorsPreflight(route);
+      return;
+    }
+    const url = new URL(route.request().url());
+    if (route.request().method() === 'GET' && url.pathname === '/users/me') {
+      await fulfillJson(route, { email: 'owner@example.com', name: 'Owner User' });
+      return;
+    }
+    if (route.request().method() === 'GET' && url.pathname === '/templates') {
+      await fulfillJson(route, []);
+      return;
+    }
+    await route.continue();
+  });
+
   await page.route('**/api/template-pdf/haknasot', async (route) => {
     const tinyPdf = Buffer.from(
       'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9G',
@@ -183,7 +231,7 @@ test('loads Haknasot template preview via JSON API without errors', async ({
     });
   });
 
-  await page.goto('/documents/new');
+  await gotoApp(page, '/documents/new');
 
   await expect(page.getByRole('heading', { name: 'New Document' })).toBeVisible();
   await expect(
@@ -218,14 +266,33 @@ test('creates a Haknasot document through the mocked wizard flow', async ({
   await installPdfMock(page);
   await installApiMocks(page, apiCalls);
 
-  await page.goto('/documents/new');
+  await gotoApp(page, '/documents/new');
 
   await expect(page.getByRole('heading', { name: 'New Document' })).toBeVisible();
-  await page.getByRole('button', { name: 'Start form' }).click();
+  await expect(page.getByRole('button', { name: 'Start form' })).toBeEnabled();
+  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
+
+  // PDF preview can overlap the template column; force ensures the handler runs.
+  await page.getByRole('button', { name: 'Start form' }).click({ force: true });
+
+  await expect
+    .poll(
+      () =>
+        apiCalls.some(
+          (call) => call.method === 'POST' && call.pathname === '/documents',
+        ),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+
+  const startError = page.locator('.border-red-300');
+  if (await startError.isVisible().catch(() => false)) {
+    throw new Error(`Start form failed: ${await startError.innerText()}`);
+  }
 
   await expect(
     page.getByRole('button', { name: 'Fill automatically' }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Fill automatically' }).click();
   await page.getByRole('button', { name: 'Next' }).click();
 

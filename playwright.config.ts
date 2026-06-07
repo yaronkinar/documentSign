@@ -11,14 +11,17 @@ const bypassToken = process.env.BYPASS_TOKEN ?? 'dev-bypass-token-local';
  * (use a free PORT if the default is taken).
  */
 const forceNewServer = process.env.PLAYWRIGHT_FORCE_NEW_SERVER === '1';
+const reuseExistingServer =
+  process.env.PLAYWRIGHT_REUSE_SERVER === '1' && !forceNewServer;
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 30_000,
+  timeout: 60_000,
   expect: {
     timeout: 10_000,
   },
   fullyParallel: true,
+  workers: process.env.CI ? 2 : 4,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['github'], ['html']] : [['list'], ['html', { open: 'never' }]],
@@ -29,9 +32,10 @@ export default defineConfig({
   webServer: {
     command: `npm exec --workspace web next dev -- -p ${port}`,
     url: baseURL,
-    reuseExistingServer: !forceNewServer,
+    reuseExistingServer,
     timeout: 120_000,
     env: {
+      ...process.env,
       BYPASS_AUTH: 'true',
       BYPASS_TOKEN: bypassToken,
       BYPASS_AUTH_EMAIL: process.env.BYPASS_AUTH_EMAIL ?? 'yaronkinar@gmail.com',

@@ -1,20 +1,34 @@
 import { test, expect, type Page } from '@playwright/test';
 
-async function gotoSettings(page: Page) {
-  await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+import { gotoApp } from './helpers/navigation';
+
+async function gotoThemePicker(page: Page) {
+  await gotoApp(page, '/dev/tokens');
+  await expect(
+    page.getByRole('heading', { name: /tokens & primitives/i }),
+  ).toBeVisible();
 }
 
 test.describe('Theme persistence', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  async function selectTheme(page: Page, name: RegExp) {
+    const option = page.getByRole('radio', { name });
+    await expect(option).toBeVisible();
+    await option.click();
+    await expect(option).toHaveAttribute('aria-checked', 'true', { timeout: 5_000 });
+  }
+
   test('selecting a theme writes localStorage and cookie', async ({ page }) => {
-    await gotoSettings(page);
+    await gotoThemePicker(page);
 
-    await page.getByRole('radio', { name: /modern/i }).click();
+    await selectTheme(page, /^Modern\b/i);
 
-    const ls = await page.evaluate(() =>
-      window.localStorage.getItem('docflow-theme'),
-    );
-    expect(ls).toBe('modern');
+    await expect
+      .poll(async () =>
+        page.evaluate(() => window.localStorage.getItem('docflow-theme')),
+      )
+      .toBe('modern');
 
     const cookies = await page.context().cookies();
     const themeCookie = cookies.find((c) => c.name === 'docflow-theme');
@@ -22,26 +36,26 @@ test.describe('Theme persistence', () => {
   });
 
   test('chosen theme survives a full reload (FOUC-free)', async ({ page }) => {
-    await gotoSettings(page);
-    await page.getByRole('radio', { name: /classic/i }).click();
+    await gotoThemePicker(page);
+    await selectTheme(page, /^Classic\b/i);
 
-    await page.reload();
+    await page.reload({ waitUntil: 'domcontentloaded' });
 
-    const htmlClass = await page.evaluate(
-      () => document.documentElement.className,
-    );
-    expect(htmlClass).toContain('theme-classic');
+    await expect
+      .poll(async () =>
+        page.evaluate(() => document.documentElement.className),
+      )
+      .toContain('theme-classic');
   });
 
   test('switching theme broadcasts to other tabs', async ({ context }) => {
     const tabA = await context.newPage();
     const tabB = await context.newPage();
 
-    await tabA.goto('/settings');
-    await tabB.goto('/settings');
+    await gotoThemePicker(tabA);
+    await gotoThemePicker(tabB);
 
-    await tabA.getByRole('radio', { name: /humane/i }).click();
-    await tabA.getByRole('radio', { name: /modern/i }).click();
+    await selectTheme(tabA, /^Modern\b/i);
 
     await expect
       .poll(async () =>

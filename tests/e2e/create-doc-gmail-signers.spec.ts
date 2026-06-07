@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 
 import { GMAIL_TEST_SIGNERS } from './helpers/gmail-signers';
+import { gotoApp } from './helpers/navigation';
 
 const API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:3001';
 const TINY_PDF = path.join(__dirname, '..', 'fixtures', 'tiny.pdf');
@@ -38,18 +39,24 @@ function addSignerForm(page: Page) {
 }
 
 async function uploadPdf(page: Page, pdfPath: string) {
-  const [fileChooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByText('Drop a PDF here or click to upload').click(),
-  ]);
-  await fileChooser.setFiles(pdfPath);
-  await expect(page.getByText('Uploading...')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
+
+  const fileInput = page.locator('input[type="file"][accept*="pdf"]');
+  await expect(fileInput).toHaveCount(1, { timeout: 30_000 });
+  await fileInput.setInputFiles(pdfPath);
+  await expect(
+    page.getByText('Uploading...').or(page.getByLabel('Title')),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
 async function reachDetailsStep(page: Page) {
+  const uploadError = page.locator('.border-red-300');
   await expect(
     page.getByRole('heading', { name: 'Upload your PDF' }),
   ).toBeHidden({ timeout: 90_000 });
+  if (await uploadError.isVisible().catch(() => false)) {
+    throw new Error(`Upload failed: ${await uploadError.innerText()}`);
+  }
 
   const skipForm = page.getByRole('button', { name: 'Skip for now' });
   if (await skipForm.isVisible().catch(() => false)) {
@@ -91,7 +98,7 @@ test.describe('Create document with Gmail signer aliases', () => {
   }) => {
     const docTitle = `Gmail alias test ${Date.now()}`;
 
-    await page.goto('/documents/new');
+    await gotoApp(page, '/documents/new');
     await expect(page.getByRole('heading', { name: 'New Document' })).toBeVisible();
 
     await uploadPdf(page, TINY_PDF);

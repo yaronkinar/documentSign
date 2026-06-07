@@ -8,12 +8,31 @@ apps/web/public/videos/
   .recording/               # source recordings (not required in production)
 ```
 
-To refresh the demo video after UI changes:
+The demo video shows a **Hebrew (RTL) haknasot workflow**: fill the municipal income form, assign all 11 municipal approval signers with Hebrew role titles, review, and send for signature.
+
+### Prerequisites
+
+1. Dev servers running: `npm run dev` (web + API)
+2. Bypass auth enabled in `apps/web/.env.local` and `apps/api/.env.local`:
+   - `BYPASS_AUTH=true`
+   - `BYPASS_TOKEN=dev-bypass-token-local`
+   - `NEXT_PUBLIC_BYPASS_AUTH=true`
+   - `NEXT_PUBLIC_BYPASS_TOKEN=dev-bypass-token-local`
+
+### Record / refresh
 
 ```bash
-npm run dev          # in one terminal (web + API)
-npm run record:demo  # records tour, dashboard, new doc, settings, demo page
+npm run dev              # terminal 1
+npm run record:demo      # terminal 2 — seeds signers + records Hebrew flow
 ```
+
+Seed signer profiles only (no recording):
+
+```bash
+npm run seed:demo-signers
+```
+
+Signer data lives in `scripts/demo-hebrew-signers.json`.
 
 Manual re-encode from an existing WebM source:
 
@@ -24,7 +43,7 @@ ffmpeg -y -i apps/web/public/videos/.recording/product-demo.webm \
 
 cp apps/web/public/videos/.recording/product-demo.webm apps/web/public/videos/product-demo.webm
 
-ffmpeg -y -i apps/web/public/videos/product-demo.mp4 -ss 00:00:01 -vframes 1 \
+ffmpeg -y -i apps/web/public/videos/product-demo.mp4 -ss 00:00:04 -vframes 1 \
   apps/web/public/videos/product-demo-poster.jpg
 ```
 

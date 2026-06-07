@@ -30,7 +30,9 @@
     "generate:mock-signers-pdf": "node scripts/generate-mock-signers-pdf.mjs",
     "generate:mock-lease-pdf": "node scripts/generate-mock-signers-pdf.mjs --doc lease",
     "test:extract-signers": "node scripts/test-extract-signers.mjs",
-    "record:demo": "node scripts/record-product-demo.mjs"
+    "generate:site-versions": "node scripts/generate-site-versions.mjs",
+    "record:demo": "node scripts/record-product-demo.mjs",
+    "seed:demo-signers": "node scripts/seed-demo-hebrew-signers.mjs"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

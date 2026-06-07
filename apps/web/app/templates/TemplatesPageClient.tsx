@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import type { PdfTemplateDto } from '@docflow/shared';
 
 import { useApiClient } from '@/lib/api-client';
+import { pdfjsLib } from '@/lib/pdfjs-client';
 
 interface Props {
   initialTemplates: PdfTemplateDto[];
@@ -37,9 +38,7 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
       let pageCount = 1;
       try {
         const buf = await newFile.arrayBuffer();
-        const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-        const doc = await pdfjs.getDocument({ data: buf }).promise;
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
         pageCount = doc.numPages;
         await doc.destroy();
       } catch { /* best-effort */ }

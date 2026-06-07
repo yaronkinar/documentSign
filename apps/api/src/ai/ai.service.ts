@@ -4,6 +4,11 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PDFParse } from 'pdf-parse';
+import {
+  anthropicCompleteText,
+  anthropicVisionExtract,
+  preferAnthropic,
+} from './anthropic-llm';
 
 const MAX_TEXT_CHARS = 12_000;
 const MAX_TEMPLATE_FIELD_PAGES = 8;
@@ -201,13 +206,6 @@ export class AiService {
     text: string,
     ctx: SummarizeContext = {},
   ): Promise<string> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new ServiceUnavailableException(
-        'AI summarization is not configured (missing OPENAI_API_KEY)',
-      );
-    }
-
     const trimmed = text.slice(0, MAX_TEXT_CHARS);
     const hasStructured =
       (ctx.formValues &&
@@ -222,6 +220,29 @@ export class AiService {
     }
 
     const userMessage = buildSummarizeUserMessage(trimmed, ctx);
+
+    if (preferAnthropic()) {
+      try {
+        return await anthropicCompleteText({
+          label: 'summarize',
+          system:
+            'You summarize documents for a signing workflow. Write 2-4 concise sentences covering: document type, parties involved, key terms or obligations, and anything signers should notice. Use BOTH the extracted PDF text AND the structured form values and signer list when present — these are authoritative and may contain details (amounts, dates, parties) that are clearer than the PDF text. Use the same language as the document (Hebrew if the document is in Hebrew). Do not invent facts not present in the inputs.',
+          user: userMessage,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new InternalServerErrorException(
+          `AI summarization failed (Claude): ${message.slice(0, 200)}`,
+        );
+      }
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new ServiceUnavailableException(
+        'AI summarization is not configured (set OPENAI_API_KEY or AI_PROVIDER=anthropic with ANTHROPIC_API_KEY)',
+      );
+    }
 
     const baseUrl =
       process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
@@ -267,15 +288,46 @@ export class AiService {
   }
 
   async extractSignerRoles(text: string): Promise<string[]> {
+    const trimmed = text.slice(0, MAX_TEXT_CHARS);
+    if (!trimmed) return [];
+
+    if (preferAnthropic()) {
+      try {
+        const raw = await anthropicCompleteText({
+          label: 'signer-roles',
+          system:
+            'You extract the list of signer/approver roles from a document. ' +
+            'Look for signature blocks, approval lines, or signatory sections. ' +
+            'Return ONLY a JSON object with a single key "signers" whose value is an array of role/title strings. ' +
+            'Keep the original language of the document. Remove duplicates. ' +
+            'Example: {"signers": ["מנהל האגף", "יועץ משפטי", "גזבר העירייה"]}',
+          user: `Document text:\n${trimmed}`,
+        });
+        try {
+          const parsed = JSON.parse(raw) as { signers?: unknown };
+          if (Array.isArray(parsed.signers)) {
+            return (parsed.signers as unknown[])
+              .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+              .map((s) => s.trim());
+          }
+        } catch {
+          // fall through
+        }
+        return [];
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new InternalServerErrorException(
+          `AI signer extraction failed (Claude): ${message.slice(0, 200)}`,
+        );
+      }
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       throw new ServiceUnavailableException(
-        'AI summarization is not configured (missing OPENAI_API_KEY)',
+        'AI summarization is not configured (set OPENAI_API_KEY or AI_PROVIDER=anthropic with ANTHROPIC_API_KEY)',
       );
     }
-
-    const trimmed = text.slice(0, MAX_TEXT_CHARS);
-    if (!trimmed) return [];
 
     const baseUrl =
       process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
@@ -340,10 +392,11 @@ export class AiService {
     signerHints: TemplateSignerHint[] = [],
     context: PdfFieldExtractionContext = 'saved_template',
   ): Promise<ExtractedTemplateField[]> {
+    const useClaude = preferAnthropic();
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!useClaude && !apiKey) {
       throw new ServiceUnavailableException(
-        'AI field extraction is not configured (missing OPENAI_API_KEY)',
+        'AI field extraction is not configured (set OPENAI_API_KEY or AI_PROVIDER=anthropic with ANTHROPIC_API_KEY)',
       );
     }
 
@@ -373,73 +426,97 @@ export class AiService {
       throw new InternalServerErrorException('Could not render PDF pages');
     }
 
-    const baseUrl =
-      process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
-    const model =
-      process.env.OPENAI_VISION_MODEL ??
-      process.env.OPENAI_MODEL ??
-      'gpt-4o-mini';
     const signerHintsText = buildTemplateSignerHintsText(signerHints, context);
     const totalPages = pageCount ?? screenshots.at(-1)?.pageNumber ?? screenshots.length;
     const userIntro =
       context === 'uploaded_document'
         ? 'Extract every visible signature, date, initials, or fill-in blank from these uploaded document pages.'
         : 'Extract every visible signature, approval, date, initials, or fill-in field from these PDF template pages.';
-    const pageBlocks = screenshots.flatMap((page) => {
-      const n = page.pageNumber;
-      return [
-        {
-          type: 'text' as const,
-          text:
-            `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
-            'x,y,width,height are percents (0–100) of this page, origin top-left, box on the blank/sign line.',
-        },
-        {
-          type: 'image_url' as const,
-          image_url: { url: page.dataUrl, detail: 'high' as const },
-        },
-      ];
-    });
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: fieldExtractionSystemPrompt(context),
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: [userIntro, signerHintsText].filter(Boolean).join('\n\n'),
-              },
-              ...pageBlocks,
-            ],
-          },
-        ],
-      }),
-    });
+    const systemPrompt = fieldExtractionSystemPrompt(context);
+    const userPrompt = [userIntro, signerHintsText].filter(Boolean).join('\n\n');
 
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new InternalServerErrorException(
-        `AI field extraction failed (${res.status}): ${errBody.slice(0, 200)}`,
-      );
+    let raw: string | undefined;
+    if (useClaude) {
+      try {
+        raw = await anthropicVisionExtract({
+          label: 'template-fields',
+          system: systemPrompt,
+          userIntro: userPrompt,
+          pages: screenshots.map((page) => ({
+            pageNumber: page.pageNumber,
+            totalPages,
+            dataUrl: page.dataUrl,
+          })),
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new InternalServerErrorException(
+          `AI field extraction failed (Claude): ${message.slice(0, 200)}`,
+        );
+      }
+    } else {
+      const baseUrl =
+        process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
+      const model =
+        process.env.OPENAI_VISION_MODEL ??
+        process.env.OPENAI_MODEL ??
+        'gpt-4o-mini';
+      const pageBlocks = screenshots.flatMap((page) => {
+        const n = page.pageNumber;
+        return [
+          {
+            type: 'text' as const,
+            text:
+              `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
+              'x,y,width,height are percents (0–100) of this page, origin top-left, box on the blank/sign line.',
+          },
+          {
+            type: 'image_url' as const,
+            image_url: { url: page.dataUrl, detail: 'high' as const },
+          },
+        ];
+      });
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0,
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: userPrompt,
+                },
+                ...pageBlocks,
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        throw new InternalServerErrorException(
+          `AI field extraction failed (${res.status}): ${errBody.slice(0, 200)}`,
+        );
+      }
+
+      const data = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      raw = data.choices?.[0]?.message?.content?.trim();
     }
-
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const raw = data.choices?.[0]?.message?.content?.trim();
     const maxPage = pageCount ?? pagesToInspect.at(-1) ?? MAX_TEMPLATE_FIELD_PAGES;
 
     if (raw) {

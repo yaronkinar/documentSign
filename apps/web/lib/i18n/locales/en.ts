@@ -20,6 +20,7 @@ export const en = {
     downloading: 'Downloading…',
     signIn: 'Sign in',
     signUp: 'Sign up',
+    signOut: 'Sign out',
     downloadPdf: 'Download PDF',
     language: 'Language',
     english: 'English',
@@ -32,6 +33,8 @@ export const en = {
     templates: 'Templates',
     demo: 'Demo',
     users: 'Users',
+    settings: 'Settings',
+    manageAccount: 'Manage account',
   },
   home: {
     tagline: 'Upload, route, and sign documents with a full audit trail.',
@@ -77,6 +80,16 @@ export const en = {
   },
   meta: {
     description: 'Document signing and workflow platform',
+  },
+  settings: {
+    title: 'Settings',
+    appearance: {
+      title: 'Appearance',
+      description:
+        'Choose how DocFlow looks for you. Your choice is saved on this device, and follows you to other devices when you’re signed in.',
+      themeLabel: 'Theme',
+    },
+    saveFailed: 'Could not save your settings. Try again in a moment.',
   },
   dashboard: {
     title: 'Documents',
@@ -335,6 +348,10 @@ export const en = {
     titleNameRequired: 'Select a role and enter a name',
     deleteConfirm: 'Remove this user from the directory?',
     removeSignatureConfirm: 'Remove this signature?',
+    removeDuplicates: 'Remove duplicates ({{count}})',
+    removeDuplicatesConfirm:
+      'Merge {{count}} duplicate entries? Rows with a signature will be kept.',
+    removeDuplicatesFailed: 'Failed to remove duplicates',
   },
   notifications: {
     title: 'Notifications',

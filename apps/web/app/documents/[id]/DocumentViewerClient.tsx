@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { Download, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   CommentDto,
@@ -25,9 +26,12 @@ import {
   draftWorkflowFallbackRoles,
 } from '@/components/documents/DraftWorkflowSetup';
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
+import { PdfLoadingSkeleton } from '@/components/pdf/PdfLoadingSkeleton';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
 import { SignaturePad } from '@/components/pdf/SignaturePad';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { useDocumentSocket } from '@/lib/socket';
@@ -39,6 +43,7 @@ import {
   listSignatureSigners,
   signersMissingFields,
 } from '@/lib/signature-field-mapping';
+import { cn } from '@/lib/utils';
 
 interface Props {
   doc: DocumentDto;
@@ -732,13 +737,13 @@ export function DocumentViewerClient({
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-3">
+      <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
         <div>
-          <h1 className="text-lg font-semibold">{doc.title}</h1>
+          <h1 className="text-lg font-semibold text-fg">{doc.title}</h1>
           <div className="mt-0.5 flex items-center gap-2 text-xs">
             <StatusBadge status={doc.status} />
             {activeStep && (
-              <span className="text-gray-500">
+              <span className="text-fg-muted">
                 {t('document.currentStep', { label: activeStep.label })}
               </span>
             )}
@@ -746,80 +751,84 @@ export function DocumentViewerClient({
         </div>
         <div className="flex items-center gap-2">
           {canSaveAsTemplate && (
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="outline"
               onClick={() => void saveAsTemplate()}
               disabled={saveTemplateBusy}
-              className="rounded border border-violet-300 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+              className="border-violet-300 text-violet-900 hover:bg-violet-50"
             >
               {saveTemplateBusy ? t('common.saving') : t('document.saveAsTemplate')}
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             onClick={downloadCurrentPdf}
             disabled={!viewerPdfUrl || viewerLoading || downloadBusy}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
+            <Download className="me-1.5 h-3.5 w-3.5" />
             {downloadBusy ? t('common.downloading') : t('common.downloadPdf')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             onClick={deleteDocument}
             disabled={deleteBusy}
-            className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+            className="border-danger/30 text-danger hover:bg-danger/5 hover:text-danger"
           >
+            <Trash2 className="me-1.5 h-3.5 w-3.5" />
             {deleteBusy ? t('common.deleting') : t('document.deleteDocument')}
-          </button>
+          </Button>
         </div>
       </header>
 
       {error && (
-        <div className="border-b border-red-300 bg-red-50 px-6 py-2 text-sm text-red-700">
+        <div className="border-b border-danger/30 bg-danger/5 px-6 py-2 text-sm text-danger">
           {error}
         </div>
       )}
 
       {doc.description ? (
-        <div className="border-b bg-gray-50 px-6 py-3 text-sm text-gray-700">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="border-b border-border bg-surface-muted px-6 py-3 text-sm text-fg">
+          <p className="text-xs font-medium uppercase tracking-wide text-fg-muted">
             {t('document.summary')}
           </p>
           <p className="mt-1 whitespace-pre-wrap leading-relaxed">{doc.description}</p>
         </div>
       ) : isOwner ? (
-        <div className="border-b bg-gray-50 px-6 py-3 text-sm">
-          <button
+        <div className="border-b border-border bg-surface-muted px-6 py-3 text-sm">
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             onClick={generateSummary}
             disabled={summaryBusy}
-            className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-50"
           >
             {summaryBusy ? t('newDocument.summarizing') : t('document.generateSummary')}
-          </button>
+          </Button>
         </div>
       ) : null}
 
       {isOwner && isDraft && !isTemplateDoc && (
-        <div className="border-b border-blue-200 bg-blue-50 px-6 py-3 text-sm text-blue-900">
+        <div className="border-b border-info/30 bg-info/5 px-6 py-3 text-sm text-fg">
           <strong>{t('document.mapBeforeSendTitle')}</strong>{' '}
           {t('document.mapBeforeSendBody')}
         </div>
       )}
 
       {isOwner && isDraft && isTemplateDoc && (
-        <div className="border-b border-emerald-200 bg-emerald-50 px-6 py-3 text-sm text-emerald-900">
+        <div className="border-b border-success/30 bg-success/5 px-6 py-3 text-sm text-fg">
           {t('document.templateSignersReady')}
         </div>
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        <section className="flex-1 overflow-auto bg-gray-50 p-4">
-          {viewerLoading && !viewerPdfUrl && (
-            <p className="py-16 text-center text-sm text-gray-500">
-              {t('pdf.loading')}
-            </p>
-          )}
+        <section className="flex-1 overflow-auto bg-bg p-4 md:p-6">
+          {viewerLoading && !viewerPdfUrl && <PdfLoadingSkeleton />}
           {viewerPdfUrl && (
             <PDFViewer
               pdfUrl={viewerPdfUrl}
@@ -852,28 +861,29 @@ export function DocumentViewerClient({
             />
           )}
           {!isTemplateDoc && (fieldPlacementMode || isDraft) && (
-            <div className="mx-auto mt-4 max-w-3xl rounded border border-gray-200 bg-white p-3 text-sm">
-              <div className="mb-2 font-medium">{t('document.signerMapping')}</div>
+            <div className="mx-auto mt-4 max-w-3xl rounded-lg border border-border bg-surface p-4 text-sm shadow-sm">
+              <div className="mb-2 font-medium text-fg">{t('document.signerMapping')}</div>
               {isDraft && isOwner && signatureFields.length > 0 && (
-                <p className="mb-2 text-xs text-gray-500">
+                <p className="mb-2 text-xs text-fg-muted">
                   {t('document.dragToMoveField')}
                 </p>
               )}
               {canSaveAsTemplate && (
                 <div className="mb-3">
-                  <p className="mb-2 text-xs text-gray-500">
+                  <p className="mb-2 text-xs text-fg-muted">
                     {t('document.saveAsTemplateHint')}
                   </p>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => void saveAsTemplate()}
                     disabled={saveTemplateBusy}
-                    className="w-full rounded border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50"
+                    className="w-full border-violet-300 text-violet-900 hover:bg-violet-50"
                   >
                     {saveTemplateBusy
                       ? t('common.saving')
                       : t('document.saveAsTemplate')}
-                  </button>
+                  </Button>
                 </div>
               )}
               <ul className="mb-3 space-y-1">
@@ -886,14 +896,14 @@ export function DocumentViewerClient({
                   return (
                     <li
                       key={`${signer.stepId}:${signer.signerId}`}
-                      className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs"
+                      className="flex items-center justify-between rounded-md bg-surface-muted px-2 py-1 text-xs"
                     >
                       <span>
                         {mapped ? '✓' : '○'}{' '}
                         {signer.name ?? signer.email}{' '}
-                        <span className="text-gray-500">({signer.stepLabel})</span>
+                        <span className="text-fg-muted">({signer.stepLabel})</span>
                       </span>
-                      <span className={mapped ? 'text-green-600' : 'text-amber-600'}>
+                      <span className={mapped ? 'text-success' : 'text-warning'}>
                         {mapped ? t('document.mapped') : t('document.notMapped')}
                       </span>
                     </li>
@@ -902,30 +912,32 @@ export function DocumentViewerClient({
               </ul>
               {signatureFields.length > 0 && (
                 <>
-                  <div className="mb-2 font-medium">{t('document.placedFields')}</div>
+                  <div className="mb-2 font-medium text-fg">{t('document.placedFields')}</div>
                   <ul className="space-y-1">
                     {signatureFields.map((field) => (
                       <li
                         key={field._id}
-                        className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs"
+                        className="flex items-center justify-between rounded-md bg-surface-muted px-2 py-1 text-xs"
                       >
                         <span>
                           {t('document.page', { n: field.pageNumber })}:{' '}
                           {field.signerName ?? field.signerEmail}
                           {field.signed && (
-                            <span className="ms-2 text-green-600">
+                            <span className="ms-2 text-success">
                               {t('document.signed')}
                             </span>
                           )}
                         </span>
                         {isDraft && isOwner && !field.signed && (
-                          <button
+                          <Button
                             type="button"
+                            variant="link"
+                            size="sm"
                             onClick={() => removeField(field._id)}
-                            className="text-red-600 hover:underline"
+                            className="h-auto px-0 text-xs text-danger"
                           >
                             {t('common.remove')}
-                          </button>
+                          </Button>
                         )}
                       </li>
                     ))}
@@ -934,27 +946,32 @@ export function DocumentViewerClient({
               )}
             </div>
           )}
-          <div className="sticky bottom-4 mt-4 flex flex-wrap justify-center gap-2">
+          <div className="sticky bottom-4 mx-auto mt-4 flex max-w-4xl flex-wrap justify-center gap-2 rounded-lg border border-border bg-surface/95 p-2 shadow-sm backdrop-blur">
             {isOwner && isDraft && !fieldPlacementMode && (
               <>
                 {!isTemplateDoc && (
                   <>
-                    <button
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={autoMapSignersFromTemplate}
                       disabled={autoMapBusy || allSignersMapped}
-                      className="rounded border border-emerald-600 bg-emerald-50 px-5 py-2 text-sm font-medium text-emerald-800 shadow disabled:opacity-50"
+                      className="border-success/40 text-success hover:bg-success/5"
                     >
                       {autoMapBusy ? t('common.mapping') : t('document.autoMapSigners')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={startFieldAssignment}
-                      className="rounded border border-blue-600 bg-white px-5 py-2 text-sm font-medium text-blue-700 shadow"
+                      className="border-info/40 text-info hover:bg-info/5"
                     >
                       {t('document.assignManually')}
-                    </button>
+                    </Button>
                   </>
                 )}
-                <button
+                <Button
+                  type="button"
                   onClick={submitDocument}
                   disabled={
                     submitBusy ||
@@ -964,18 +981,17 @@ export function DocumentViewerClient({
                   title={
                     !canSubmitDraft ? t('document.setupWorkflowHint') : undefined
                   }
-                  className="rounded bg-black px-5 py-2 text-sm font-medium text-white shadow disabled:opacity-50"
                 >
                   {submitBusy ? t('common.sending') : t('document.sendToSigners')}
-                </button>
+                </Button>
               </>
             )}
             {!isTemplateDoc && fieldPlacementMode && (
-              <div className="flex flex-wrap items-center justify-center gap-2 rounded bg-white px-4 py-2 shadow">
-                <label className="text-sm text-gray-600">
+              <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2">
+                <label className="text-sm text-fg-muted">
                   {t('document.assignTo')}
                   <select
-                    className="ml-2 rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="ms-2 rounded-md border border-input bg-background px-2 py-1 text-sm text-fg"
                     value={selectedSignerKey}
                     onChange={(e) => setSelectedSignerKey(e.target.value)}
                   >
@@ -986,52 +1002,54 @@ export function DocumentViewerClient({
                     ))}
                   </select>
                 </label>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-fg-muted">
                   {t('document.clickToPlaceField')} · {t('document.dragToMoveField')}
                 </span>
-                <button
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setFieldPlacementMode(false)}
-                  className="rounded bg-gray-200 px-4 py-1 text-sm"
                 >
                   {t('common.done')}
-                </button>
+                </Button>
               </div>
             )}
             {canSign && usesAssignedFields && (
-              <button
-                onClick={() => startSign()}
-                className="rounded bg-black px-6 py-2 text-sm font-medium text-white shadow hover:bg-gray-800"
-              >
+              <Button type="button" onClick={() => startSign()}>
                 ✍ {t('document.signDocument')}
-              </button>
+              </Button>
             )}
             {canSign && !usesAssignedFields && !placementMode && (
-              <button
-                onClick={() => setPlacementMode(true)}
-                className="rounded bg-black px-6 py-2 text-sm font-medium text-white shadow hover:bg-gray-800"
-              >
+              <Button type="button" onClick={() => setPlacementMode(true)}>
                 ✍ {t('document.signDocument')}
-              </button>
+              </Button>
             )}
             {!usesAssignedFields && placementMode && (
-              <div className="flex items-center gap-2 rounded bg-blue-50 px-4 py-2 text-sm text-blue-800 shadow">
+              <div className="flex items-center gap-2 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-sm text-fg">
                 <span>{t('document.clickToPlaceSignature')}</span>
-                <button
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setPlacementMode(false)}
-                  className="rounded bg-gray-200 px-3 py-1 text-xs text-gray-700"
                 >
                   {t('document.cancelPlacement')}
-                </button>
+                </Button>
               </div>
             )}
-            <button
+            <Button
+              type="button"
+              variant="outline"
               onClick={downloadCurrentPdf}
               disabled={!viewerPdfUrl || viewerLoading || downloadBusy}
-              className="rounded border bg-white px-5 py-2 text-sm shadow disabled:opacity-50"
             >
+              <Download className="me-1.5 h-3.5 w-3.5" />
               {downloadBusy ? t('common.downloading') : t('common.downloadPdf')}
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant={commentMode ? 'default' : 'outline'}
               onClick={() => {
                 setCommentMode((v) => !v);
                 setSidebarTab('comments');
@@ -1039,38 +1057,36 @@ export function DocumentViewerClient({
                 setPlacementMode(false);
                 setFieldPlacementMode(false);
               }}
-              className={`rounded px-5 py-2 text-sm shadow ${
-                commentMode ? 'bg-amber-500 text-white' : 'bg-white border'
-              }`}
+              className={cn(commentMode && 'bg-warning text-accent-fg hover:bg-warning/90')}
             >
+              <MessageSquarePlus className="me-1.5 h-3.5 w-3.5" />
               {commentMode ? t('document.cancelComment') : t('document.addComment')}
-            </button>
+            </Button>
           </div>
         </section>
 
-        <aside className="w-[360px] overflow-auto border-l bg-white">
-          <div className="flex border-b text-sm">
-            <TabButton
-              active={sidebarTab === 'workflow'}
-              onClick={() => setSidebarTab('workflow')}
-            >
-              {t('document.workflow')}
-            </TabButton>
-            {hasForm && (
-              <TabButton
-                active={sidebarTab === 'form'}
-                onClick={() => setSidebarTab('form')}
-              >
-                {t('document.formTab')}
-              </TabButton>
-            )}
-            <TabButton
-              active={sidebarTab === 'comments'}
-              onClick={() => setSidebarTab('comments')}
-            >
-              {t('document.comments')}
-            </TabButton>
-          </div>
+        <aside className="flex w-[360px] shrink-0 flex-col overflow-hidden border-l border-border bg-surface">
+          <Tabs
+            value={sidebarTab}
+            onValueChange={(v) =>
+              setSidebarTab(v as 'workflow' | 'comments' | 'form')
+            }
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <TabsList className="h-auto w-full shrink-0 rounded-none border-b border-border bg-surface-muted p-1">
+              <TabsTrigger value="workflow" className="flex-1">
+                {t('document.workflow')}
+              </TabsTrigger>
+              {hasForm && (
+                <TabsTrigger value="form" className="flex-1">
+                  {t('document.formTab')}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="comments" className="flex-1">
+                {t('document.comments')}
+              </TabsTrigger>
+            </TabsList>
+            <div className="min-h-0 flex-1 overflow-auto">
           {sidebarTab === 'form' && hasForm && (
             <div className="p-4">
               <DocumentFormFillPanel
@@ -1151,6 +1167,8 @@ export function DocumentViewerClient({
               await refreshComments();
             }}
           />
+            </div>
+          </Tabs>
         </aside>
       </div>
 
@@ -1174,27 +1192,6 @@ export function DocumentViewerClient({
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 px-4 py-2 ${
-        active ? 'border-b-2 border-black font-medium' : 'text-gray-500'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function WorkflowSidebar({
   doc,
   isOwner,
@@ -1211,12 +1208,12 @@ function WorkflowSidebar({
   const { t } = useTranslation();
 
   return (
-    <ol className="space-y-4 p-4">
+    <ol className="space-y-4 overflow-auto p-4">
       {doc.workflowSteps.map((step) => (
-        <li key={step._id} className="rounded border border-gray-200 p-3">
-          <div className="mb-2 flex items-center justify-between text-sm font-medium">
+        <li key={step._id} className="rounded-lg border border-border bg-surface p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between text-sm font-medium text-fg">
             <span>{step.label}</span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-fg-muted">
               {t(`workflowStepStatus.${step.status}`)}
             </span>
           </div>
@@ -1265,28 +1262,32 @@ function SignerRow({
     }
   })();
   return (
-    <li className="flex items-center justify-between rounded bg-gray-50 px-2 py-1">
+    <li className="flex items-center justify-between rounded-md bg-surface-muted px-2 py-1">
       <span title={t(`signerStatus.${signer.status}`)}>
-        <span className="mr-1">{icon}</span>
+        <span className="me-1">{icon}</span>
         {signer.email}
       </span>
       {showOwnerControls && (
         <span className="flex gap-1">
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="sm"
             onClick={onResend}
             disabled={resendLoading}
-            className="text-blue-600 hover:underline disabled:opacity-50"
+            className="h-auto px-1 text-xs text-info"
           >
             {resendLoading ? t('common.sending') : t('common.resend')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="link"
+            size="sm"
             onClick={onSkip}
-            className="text-gray-600 hover:underline"
+            className="h-auto px-1 text-xs text-fg-muted"
           >
             {t('common.skip')}
-          </button>
+          </Button>
         </span>
       )}
     </li>
@@ -1339,17 +1340,19 @@ function CommentsSidebar({
           />
         ))}
       </ul>
-      <div className="border-t p-3">
+      <div className="border-t border-border p-3">
         {pendingTarget && (
-          <div className="mb-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+          <div className="mb-2 rounded-md border border-warning/30 bg-pill-bg px-2 py-1.5 text-xs text-pill-fg">
             {t('document.commentOnPage', { n: String(pendingTarget.page) })}
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={onCancelTarget}
-              className="ms-2 text-amber-900 underline"
+              className="ms-2 h-auto px-0 text-xs text-pill-fg underline"
             >
               {t('common.cancel')}
-            </button>
+            </Button>
           </div>
         )}
         <CommentComposer
@@ -1415,29 +1418,35 @@ function CommentNode({
   return (
     <li
       ref={itemRef}
-      className={`rounded border p-2 ${
-        selected ? 'border-amber-400 bg-amber-50' : 'border-gray-200'
-      }`}
+      className={cn(
+        'rounded-lg border p-2',
+        selected
+          ? 'border-warning/50 bg-pill-bg'
+          : 'border-border bg-surface',
+      )}
     >
-      <div className="text-xs text-gray-500">
-        <span className="font-medium text-gray-700">{authorLabel}</span>
+      <div className="text-xs text-fg-muted">
+        <span className="font-medium text-fg">{authorLabel}</span>
         {comment.authorName?.trim() && (
-          <span className="ms-1 text-gray-400">{comment.authorEmail}</span>
+          <span className="ms-1 text-fg-subtle">{comment.authorEmail}</span>
         )}
         {comment.resolved && (
-          <span className="ms-2 text-green-600">{t('document.resolved')}</span>
+          <span className="ms-2 text-success">{t('document.resolved')}</span>
         )}
       </div>
       <div className="mt-1">
         <CommentContent content={comment.content} signers={signers} />
       </div>
       {!comment.resolved && (
-        <button
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
           onClick={() => onResolve(comment._id)}
-          className="mt-1 text-xs text-gray-600 hover:underline"
+          className="mt-1 h-auto px-0 text-xs text-fg-muted"
         >
           {t('common.resolve')}
-        </button>
+        </Button>
       )}
       {comment.children.length > 0 && (
         <ul className="ms-3 mt-2 space-y-2 border-s ps-3">

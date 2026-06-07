@@ -2,16 +2,153 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground: #111;
-  --background: #fff;
+/* ============================================================
+   DocFlow design tokens
+   Default theme = Humane. Apply `.theme-classic` or `.theme-modern`
+   on <html> to override.
+   ============================================================ */
+
+:root,
+.theme-humane {
+  /* Surfaces */
+  --color-bg: #FBFAF7;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F5F4EE;
+  --color-border: #E8E5DD;
+  --color-border-strong: #D5D1C5;
+
+  /* Text */
+  --color-fg: #1E2548;
+  --color-fg-muted: #4B5266;
+  --color-fg-subtle: #807A6C;
+
+  /* Brand */
+  --color-primary: #1E2548;
+  --color-primary-fg: #FFFFFF;
+  --color-accent: #F59E0B;
+  --color-accent-fg: #1E2548;
+
+  /* Status */
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+
+  /* Pill (theme-specific accent) */
+  --color-pill-bg: #FEF3C7;
+  --color-pill-fg: #92400E;
+
+  /* Geometry */
+  --radius: 0.5rem;
+
+  /* ---- shadcn variable aliases (so shadcn components re-skin) ---- */
+  --background: var(--color-bg);
+  --foreground: var(--color-fg);
+
+  --card: var(--color-surface);
+  --card-foreground: var(--color-fg);
+
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-fg);
+
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-primary-fg);
+
+  --secondary: var(--color-surface-muted);
+  --secondary-foreground: var(--color-fg);
+
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-fg-muted);
+
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-accent-fg);
+
+  --destructive: var(--color-danger);
+  --destructive-foreground: #FFFFFF;
+
+  --border: var(--color-border);
+  --input: var(--color-border-strong);
+  --ring: var(--color-primary);
 }
 
-html, body {
-  background: var(--background);
-  color: var(--foreground);
+.theme-classic {
+  --color-bg: #F6F8FC;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #EEF2F7;
+  --color-border: #D9E2F0;
+  --color-border-strong: #B7C5DD;
+  --color-fg: #0B2545;
+  --color-fg-muted: #3A4A63;
+  --color-fg-subtle: #6B7A93;
+  --color-primary: #0B2545;
+  --color-primary-fg: #FFFFFF;
+  --color-accent: #F5B700;
+  --color-accent-fg: #0B2545;
+  --color-success: #16A34A;
+  --color-warning: #F5B700;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+  --color-pill-bg: #FEF3C7;
+  --color-pill-fg: #8A6300;
 }
 
+.theme-modern {
+  --color-bg: #F7F9FB;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F1F5F9;
+  --color-border: #E1E8EF;
+  --color-border-strong: #C4D0DD;
+  --color-fg: #0F1F33;
+  --color-fg-muted: #475569;
+  --color-fg-subtle: #64748B;
+  --color-primary: #0F1F33;
+  --color-primary-fg: #FFFFFF;
+  --color-accent: #0D9488;
+  --color-accent-fg: #FFFFFF;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+  --color-pill-bg: #CCFBF1;
+  --color-pill-fg: #115E59;
+}
+
+/* ============================================================
+   Base layer
+   ============================================================ */
+
+@layer base {
+  html, body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  /*
+   * Smooth theme transitions. When the theme class on <html> changes,
+   * every element fades its background, border, text, and SVG fill/stroke
+   * over 200ms. Tailwind's own `transition-colors` utility (150ms) still
+   * wins on elements that opt into it for hover/active states.
+   */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke, outline-color;
+    transition-duration: 200ms;
+    transition-timing-function: ease-out;
+  }
+
+  /* Headings: tracking-tight + semibold, never bold. */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+
+  /* Focus ring: 2px primary at 40% alpha, 2px offset on all interactive elements. */
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+/* RTL utility kept from previous globals.css */
 [dir="rtl"] .rtl-flip {
   transform: scaleX(-1);
 }

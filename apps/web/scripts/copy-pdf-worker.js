@@ -2,7 +2,7 @@ const { copyFileSync, existsSync, mkdirSync, statSync } = require('fs');
 const { dirname, join } = require('path');
 
 const pkgPath = require.resolve('pdfjs-dist/package.json');
-const workerSrc = join(dirname(pkgPath), 'build', 'pdf.worker.min.mjs');
+const workerSrc = join(dirname(pkgPath), 'legacy', 'build', 'pdf.worker.min.mjs');
 const destDir = join(__dirname, '..', 'public');
 const dest = join(destDir, 'pdf.worker.min.mjs');
 

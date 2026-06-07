@@ -22,6 +22,7 @@ export const he: TranslationDict = {
     downloading: 'מוריד…',
     signIn: 'התחברות',
     signUp: 'הרשמה',
+    signOut: 'התנתק',
     downloadPdf: 'הורד PDF',
     language: 'שפה',
     english: 'English',
@@ -34,6 +35,8 @@ export const he: TranslationDict = {
     templates: 'תבניות',
     demo: 'דמו',
     users: 'משתמשים',
+    settings: 'הגדרות',
+    manageAccount: 'נהל חשבון',
   },
   home: {
     tagline: 'העלאה, ניתוב וחתימה על מסמכים עם מעקב מלא.',
@@ -79,6 +82,16 @@ export const he: TranslationDict = {
   },
   meta: {
     description: 'פלטפורמת חתימה וניהול תהליכי מסמכים',
+  },
+  settings: {
+    title: 'הגדרות',
+    appearance: {
+      title: 'מראה',
+      description:
+        'בחר איך DocFlow ייראה אצלך. הבחירה נשמרת במכשיר הזה, ומתעדכנת גם במכשירים אחרים כשאתה מחובר.',
+      themeLabel: 'ערכת נושא',
+    },
+    saveFailed: 'לא הצלחנו לשמור את ההגדרות. נסה שוב בעוד רגע.',
   },
   dashboard: {
     title: 'מסמכים',
@@ -336,6 +349,10 @@ export const he: TranslationDict = {
     titleNameRequired: 'יש לבחור תפקיד ולהזין שם',
     deleteConfirm: 'למחוק משתמש זה מהרשימה?',
     removeSignatureConfirm: 'להסיר את החתימה?',
+    removeDuplicates: 'הסר כפילויות ({{count}})',
+    removeDuplicatesConfirm:
+      'למזג {{count}} רשומות כפולות? שורות עם חתימה יישמרו.',
+    removeDuplicatesFailed: 'הסרת הכפילויות נכשלה',
   },
   notifications: {
     title: 'התראות',

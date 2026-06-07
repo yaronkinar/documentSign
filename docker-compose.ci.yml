@@ -1,0 +1,42 @@
+# CI overrides for `docker compose -f docker-compose.yml -f docker-compose.ci.yml up`.
+# Enables auth bypass and health checks so GitHub Actions can wait for readiness.
+services:
+  api:
+    environment:
+      BYPASS_AUTH: "true"
+      BYPASS_TOKEN: ${BYPASS_TOKEN:-ci-bypass-token}
+      BYPASS_AUTH_EMAIL: ${BYPASS_AUTH_EMAIL:-test@example.com}
+      CLERK_SECRET_KEY: sk_test_playwrightMocksDoNotUseOutsideTests
+      INVITE_TOKEN_SECRET: ci-invite-secret-for-tests-only
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 90s
+
+  web:
+    environment:
+      BYPASS_AUTH: "true"
+      BYPASS_TOKEN: ${BYPASS_TOKEN:-ci-bypass-token}
+      BYPASS_AUTH_EMAIL: ${BYPASS_AUTH_EMAIL:-test@example.com}
+      NEXT_PUBLIC_BYPASS_AUTH: "true"
+      NEXT_PUBLIC_BYPASS_TOKEN: ${BYPASS_TOKEN:-ci-bypass-token}
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      CLERK_SECRET_KEY: sk_test_playwrightMocksDoNotUseOutsideTests
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_c3Rlcmxpbmctc3RhcmZpc2gtNzkuY2xlcmsuYWNjb3VudHMuZGV2JA
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 120s

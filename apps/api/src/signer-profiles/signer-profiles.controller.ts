@@ -45,6 +45,17 @@ export class SignerProfilesController {
     return this.signerProfilesService.create(user.clerkId, dto);
   }
 
+  @Post('dedupe')
+  dedupe(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('templateId') templateId?: string,
+  ): Promise<{ removed: number; profiles: SignerProfileDto[] }> {
+    if (!templateId?.trim()) {
+      throw new BadRequestException('templateId query parameter is required');
+    }
+    return this.signerProfilesService.dedupe(user.clerkId, templateId.trim());
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: CurrentUserPayload,

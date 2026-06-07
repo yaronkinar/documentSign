@@ -1,10 +1,26 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { access, mkdir, readFile, unlink, writeFile } from 'fs/promises';
-import { dirname, join, resolve, sep } from 'path';
+import { dirname, isAbsolute, join, resolve, sep } from 'path';
 import { signStorageToken } from './storage.tokens';
 
 const UPLOAD_TTL = 15 * 60;
 const DOWNLOAD_TTL = 15 * 60;
+
+/** apps/api — stable anchor regardless of src/ vs dist/ runtime. */
+function apiPackageRoot(): string {
+  return resolve(__dirname, '..', '..');
+}
+
+function resolveStorageRoot(): string {
+  const configured = process.env.LOCAL_STORAGE_PATH?.trim();
+  if (!configured) {
+    return resolve(apiPackageRoot(), '..', '..', '.local-storage');
+  }
+  if (isAbsolute(configured)) {
+    return configured;
+  }
+  return resolve(apiPackageRoot(), configured);
+}
 
 @Injectable()
 export class LocalStorageBackend {
@@ -12,7 +28,7 @@ export class LocalStorageBackend {
   private readonly publicBase: string;
 
   constructor() {
-    this.root = process.env.LOCAL_STORAGE_PATH ?? join(process.cwd(), '.local-storage');
+    this.root = resolveStorageRoot();
     const port = process.env.PORT ?? '3001';
     this.publicBase =
       process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? `http://localhost:${port}`;
@@ -50,9 +66,7 @@ export class LocalStorageBackend {
     try {
       return await readFile(this.resolvePath(key));
     } catch {
-      throw new InternalServerErrorException(
-        `[storage] failed to download object: file not found`,
-      );
+      throw new NotFoundException(`[storage] object not found: ${key}`);
     }
   }
 

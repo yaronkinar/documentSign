@@ -6,6 +6,10 @@ import type { CommentDto, PdfFormFieldTemplate, SignatureDto, SignatureFieldDto 
 
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
+import { PdfLoadingSkeleton } from '@/components/pdf/PdfLoadingSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
+import { pdfjsLib } from '@/lib/pdfjs-client';
+
 export interface TemplateEditField {
   id: string;
   label: string;
@@ -63,18 +67,6 @@ export interface PDFViewerProps {
   onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }
 
-let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
-
-function loadPdfJs() {
-  if (!pdfjsPromise) {
-    pdfjsPromise = import('pdfjs-dist').then((lib) => {
-      lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      return lib;
-    });
-  }
-  return pdfjsPromise;
-}
-
 function computeScale(containerWidth: number, pageWidth: number) {
   const available = Math.max(containerWidth - 32, 100);
   return Math.min(1.5, Math.max(0.4, available / pageWidth));
@@ -107,7 +99,6 @@ export function PDFViewer(props: PDFViewerProps) {
 
     (async () => {
       try {
-        const pdfjsLib = await loadPdfJs();
         loadingTask = pdfjsLib.getDocument({
           url: props.pdfUrl,
           disableAutoFetch: false,
@@ -148,13 +139,9 @@ export function PDFViewer(props: PDFViewerProps) {
       dir="ltr"
       style={{ direction: 'ltr', unicodeBidi: 'isolate' }}
     >
-      {loading && (
-        <div className="py-16 text-center text-sm text-gray-500">
-          {t('pdf.loading')}
-        </div>
-      )}
+      {loading && <PdfLoadingSkeleton />}
       {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
           {error}
         </div>
       )}
@@ -630,7 +617,7 @@ function LazyPDFPage({
       ref={wrapperRef}
       data-page-number={pageNumber}
       dir="ltr"
-      className="relative mx-auto mb-4 border border-gray-200 bg-white shadow-sm"
+      className="relative mx-auto mb-6 overflow-hidden rounded-lg border border-border bg-surface shadow-md"
       style={{
         width: dimensions?.width,
         minHeight: dimensions?.height,
@@ -639,12 +626,10 @@ function LazyPDFPage({
       }}
     >
       {!rendered && dimensions && (
-        <div
-          className="flex items-center justify-center bg-gray-100 text-xs text-gray-400"
+        <Skeleton
+          className="rounded-none"
           style={{ width: dimensions.width, height: dimensions.height }}
-        >
-          Loading page {pageNumber}...
-        </div>
+        />
       )}
       <canvas
         ref={canvasRef}

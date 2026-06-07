@@ -182,6 +182,14 @@ export class DocumentsService {
     dto: ConfirmUploadDto,
   ): Promise<DocumentDto> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
+    if (!doc.fileKey) {
+      throw new BadRequestException('Document has no storage key');
+    }
+    if (!(await this.storageService.objectExists(doc.fileKey))) {
+      throw new BadRequestException(
+        'PDF upload was not found in storage. Please upload the file again.',
+      );
+    }
     doc.fileSize = dto.fileSize;
     doc.pageCount = dto.pageCount;
     await doc.save();
@@ -194,7 +202,8 @@ export class DocumentsService {
       metadata: { fileSize: dto.fileSize, pageCount: dto.pageCount },
     });
 
-    return toDocumentDto(doc);
+    const fileUrl = await this.storageService.getDownloadUrl(doc.fileKey);
+    return toDocumentDto(doc, { fileUrl });
   }
 
   async summarizeDocument(
@@ -382,13 +391,18 @@ export class DocumentsService {
     if (!isParticipant) throw new ForbiddenException();
 
     let fileUrl: string | undefined;
-    if (doc.fileKey) {
+    if (doc.fileKey && (await this.storageService.objectExists(doc.fileKey))) {
       try {
         fileUrl = await this.storageService.getDownloadUrl(doc.fileKey);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('[documents] failed to sign PDF download URL', err);
       }
+    } else if (doc.fileKey) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[documents] PDF missing in storage for document ${documentId} (${doc.fileKey})`,
+      );
     }
 
     this.auditService.log({

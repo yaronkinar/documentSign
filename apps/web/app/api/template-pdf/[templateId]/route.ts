@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 
 import {
   HAKNASOT_FORM_TEMPLATE_ID,
   HEBREW_SAMPLE_PDF_FILENAME,
 } from '@docflow/shared';
 import { NextResponse } from 'next/server';
+
+import { resolvePublicSamplePath } from '@/lib/resolve-public-sample';
 
 const TEMPLATE_FILES: Record<string, string> = {
   [HAKNASOT_FORM_TEMPLATE_ID]: HEBREW_SAMPLE_PDF_FILENAME,
@@ -20,18 +21,28 @@ export async function GET(
     return NextResponse.json({ error: 'Unknown template' }, { status: 404 });
   }
 
-  const filePath = path.join(
-    process.cwd(),
-    'public',
-    'samples',
-    filename,
-  );
+  const filePath = resolvePublicSamplePath(filename);
+  if (!filePath) {
+    return NextResponse.json(
+      {
+        error:
+          'Template PDF not found. Run: npm run generate:haknasot-pdf',
+      },
+      { status: 404 },
+    );
+  }
 
   let bytes: Buffer;
   try {
     bytes = await readFile(filePath);
   } catch {
-    return NextResponse.json({ error: 'Template PDF not found' }, { status: 404 });
+    return NextResponse.json(
+      {
+        error:
+          'Template PDF not found. Run: npm run generate:haknasot-pdf',
+      },
+      { status: 404 },
+    );
   }
 
   if (bytes.length === 0) {

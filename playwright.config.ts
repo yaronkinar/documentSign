@@ -5,6 +5,13 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${port}`;
 
 const bypassToken = process.env.BYPASS_TOKEN ?? 'dev-bypass-token-local';
 
+/**
+ * Reuse an existing dev server on the target URL when possible.
+ * Set PLAYWRIGHT_FORCE_NEW_SERVER=1 to always start a fresh Next dev server
+ * (use a free PORT if the default is taken).
+ */
+const forceNewServer = process.env.PLAYWRIGHT_FORCE_NEW_SERVER === '1';
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -22,7 +29,7 @@ export default defineConfig({
   webServer: {
     command: `npm exec --workspace web next dev -- -p ${port}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !forceNewServer,
     timeout: 120_000,
     env: {
       BYPASS_AUTH: 'true',

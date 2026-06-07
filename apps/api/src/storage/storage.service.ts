@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { LocalStorageBackend } from './local-storage.backend';
 import { SupabaseStorageBackend } from './supabase-storage.backend';
 
@@ -53,6 +57,7 @@ export class StorageService {
   }
 
   private static isMissingObjectError(err: unknown): boolean {
+    if (err instanceof NotFoundException) return true;
     const message =
       err instanceof InternalServerErrorException
         ? err.message

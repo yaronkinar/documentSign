@@ -43,6 +43,18 @@ export type CommentType =
 
 export type UserRole = 'admin' | 'member' | 'guest';
 
+export type OnboardingStatus = 'pending' | 'completed' | 'skipped';
+
+export interface UserMeDto {
+  _id: string;
+  clerkId: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  role: UserRole;
+  onboardingStatus: OnboardingStatus;
+}
+
 export type ExecutionMode = 'sequential' | 'parallel';
 
 // ---------------------------------------------------------------------------

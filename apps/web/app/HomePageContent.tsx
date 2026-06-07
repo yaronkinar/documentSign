@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { PageLanguageSwitcher } from '@/components/PageLanguageSwitcher';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 export function HomePageContent() {
@@ -10,9 +10,7 @@ export function HomePageContent() {
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center gap-6 px-6 py-24 text-center">
-      <div className="absolute end-6 top-6">
-        <LanguageSwitcher />
-      </div>
+      <PageLanguageSwitcher />
       <h1 className="text-4xl font-bold tracking-tight">{t('common.appName')}</h1>
       <p className="max-w-md text-lg text-gray-600">{t('home.tagline')}</p>
       <div className="flex gap-3">

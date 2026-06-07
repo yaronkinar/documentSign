@@ -7,7 +7,7 @@ import { getServerAuth } from '@/lib/server-auth';
 export default async function SignUpPage() {
   const { userId } = await getServerAuth();
   if (userId) {
-    redirect(process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? '/dashboard');
+    redirect(process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? '/onboarding');
   }
 
   return (

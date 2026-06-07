@@ -18,19 +18,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
+import { shouldHideNavbar } from '@/lib/navbar-visibility';
 import { cn } from '@/lib/utils';
 
 const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
 const BYPASS_EMAIL =
   process.env.NEXT_PUBLIC_BYPASS_AUTH_EMAIL ?? 'dev@local';
-
-function shouldHideNavbar(pathname: string) {
-  return (
-    pathname.startsWith('/sign-in') ||
-    pathname.startsWith('/sign-up') ||
-    pathname.startsWith('/sign/')
-  );
-}
 
 export function Navbar() {
   const pathname = usePathname();

@@ -23,3 +23,8 @@ export class UpdateSavedSignatureLabelDto {
   @MaxLength(80)
   label!: string;
 }
+
+export class UpdateOnboardingStatusDto {
+  @IsEnum(['completed', 'skipped'])
+  status!: 'completed' | 'skipped';
+}

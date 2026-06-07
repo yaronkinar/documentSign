@@ -16,47 +16,103 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.50",
-    "hash": "f7ecdbf",
-    "fullHash": "f7ecdbf2f9c9be3a851023f0ccc76070a750cfe4",
-    "date": "2026-06-07T17:21:30+03:00",
-    "message": "Refresh release notes and stabilize Gmail signer E2E selectors."
+    "version": "0.1.58",
+    "hash": "5faf32f",
+    "fullHash": "5faf32fb423344820df70584a327c22b7169e5a6",
+    "date": "2026-06-07T18:28:13+03:00",
+    "message": "Add DocFlow logo, favicon, and navbar branding."
   },
   "history": [
     {
-      "version": "0.1.50",
+      "version": "0.1.58",
+      "hash": "5faf32f",
+      "fullHash": "5faf32fb423344820df70584a327c22b7169e5a6",
+      "date": "2026-06-07T18:28:13+03:00",
+      "message": "Add DocFlow logo, favicon, and navbar branding."
+    },
+    {
+      "version": "0.1.57",
+      "hash": "e015d11",
+      "fullHash": "e015d11801975ea9023fb7791a9b85e9bbf757d2",
+      "date": "2026-06-07T17:46:27+03:00",
+      "message": "Merge pull request #6 from yaronkinar/feature/ui-design-system"
+    },
+    {
+      "version": "0.1.56",
+      "hash": "1666d3b",
+      "fullHash": "1666d3b984af0cccb1c5fc4e81fc3ea4bcd2c195",
+      "date": "2026-06-07T17:36:00+03:00",
+      "message": "Sync release notes and add local dev artifacts."
+    },
+    {
+      "version": "0.1.55",
       "hash": "f7ecdbf",
       "fullHash": "f7ecdbf2f9c9be3a851023f0ccc76070a750cfe4",
       "date": "2026-06-07T17:21:30+03:00",
       "message": "Refresh release notes and stabilize Gmail signer E2E selectors."
     },
     {
-      "version": "0.1.49",
+      "version": "0.1.54",
       "hash": "ebfa019",
       "fullHash": "ebfa019f10e1ef4ed066357ff1211003ba3165cd",
       "date": "2026-06-07T17:20:23+03:00",
       "message": "Fix CI Docker startup when git history is unavailable."
     },
     {
-      "version": "0.1.48",
+      "version": "0.1.53",
+      "hash": "1365a54",
+      "fullHash": "1365a545bce7c25f7a47c9bc66a2986595ac3f48",
+      "date": "2026-06-07T17:15:09+03:00",
+      "message": "Merge pull request #5 from yaronkinar/feature/ui-design-system"
+    },
+    {
+      "version": "0.1.52",
       "hash": "74a88cf",
       "fullHash": "74a88cfa83743dc2cb03b3c8f622947fcce507cd",
       "date": "2026-06-07T17:13:15+03:00",
       "message": "Add footer release notes synced from git commits."
     },
     {
-      "version": "0.1.47",
+      "version": "0.1.51",
       "hash": "a125d18",
       "fullHash": "a125d1858c4f2c1db0b6c0226f0a54346b3c740c",
       "date": "2026-06-07T17:05:20+03:00",
       "message": "Fix E2E reliability and refresh Hebrew product demo."
     },
     {
-      "version": "0.1.46",
+      "version": "0.1.50",
+      "hash": "29bbe97",
+      "fullHash": "29bbe97e1fb9fb39bc6ca9ddb4a8816a15998ece",
+      "date": "2026-06-07T15:54:48+03:00",
+      "message": "Merge pull request #4 from yaronkinar/feature/ui-design-system"
+    },
+    {
+      "version": "0.1.49",
       "hash": "c69f23c",
       "fullHash": "c69f23cc69b3686de2b9d8b6f35ec47b46dc6354",
       "date": "2026-06-07T15:53:36+03:00",
       "message": "Add skippable onboarding tour with embedded demo video."
+    },
+    {
+      "version": "0.1.48",
+      "hash": "bfe8d01",
+      "fullHash": "bfe8d01431c9766a610954cdfe6af57d98d6e32a",
+      "date": "2026-06-07T14:19:01+03:00",
+      "message": "Merge pull request #3 from yaronkinar/railway/fix-deploy-9afc86"
+    },
+    {
+      "version": "0.1.47",
+      "hash": "d69927f",
+      "fullHash": "d69927f3819d814afdf28a932ad2e3e46d2d625f",
+      "date": "2026-06-07T11:10:05Z",
+      "message": "fix: remove invalid disableWorker property from pdfjsLib.getDocument call"
+    },
+    {
+      "version": "0.1.46",
+      "hash": "0a390c8",
+      "fullHash": "0a390c8f8f773129ef27b20aab1b7cc3f25f9f24",
+      "date": "2026-06-07T14:05:10+03:00",
+      "message": "Merge pull request #2 from yaronkinar/feature/ui-design-system"
     },
     {
       "version": "0.1.45",
@@ -246,62 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "ffc031edc86374a367bb6f80f443cb6b6aae4186",
       "date": "2026-06-06T15:30:23+03:00",
       "message": "Drop next-themes from sonner Toaster (project is light-only in v1)."
-    },
-    {
-      "version": "0.1.18",
-      "hash": "08c9123",
-      "fullHash": "08c912398e157781d2ff75726e5796d7eec80ee1",
-      "date": "2026-06-06T15:19:31+03:00",
-      "message": "Install 14 shadcn primitives and mount Sonner Toaster in root layout."
-    },
-    {
-      "version": "0.1.17",
-      "hash": "58dc890",
-      "fullHash": "58dc890e73ca1d10dbccb99979e29f72fc85b529",
-      "date": "2026-06-06T14:51:10+03:00",
-      "message": "Wire ThemeProvider and theme bootstrap script into root layout."
-    },
-    {
-      "version": "0.1.16",
-      "hash": "2e37254",
-      "fullHash": "2e37254afde95193b148d5e29186c443ea1598ae",
-      "date": "2026-06-06T14:48:53+03:00",
-      "message": "Add ThemeProvider with useSyncExternalStore + cross-tab sync."
-    },
-    {
-      "version": "0.1.15",
-      "hash": "66a348d",
-      "fullHash": "66a348de3d78dc13a9ec7db262547c8300739f60",
-      "date": "2026-06-06T14:46:37+03:00",
-      "message": "Add theme module: constants, parser, persister, bootstrap script."
-    },
-    {
-      "version": "0.1.14",
-      "hash": "f1705f6",
-      "fullHash": "f1705f6cbf5d3582932431bce9a6a98c6b43dad6",
-      "date": "2026-06-06T14:44:32+03:00",
-      "message": "Wire Tailwind utilities to design tokens via CSS variables."
-    },
-    {
-      "version": "0.1.13",
-      "hash": "9ba2b88",
-      "fullHash": "9ba2b88ada046f78d1cc6d34d529fbc967d9a930",
-      "date": "2026-06-06T14:41:03+03:00",
-      "message": "Define design tokens for Humane, Classic, and Modern themes."
-    },
-    {
-      "version": "0.1.12",
-      "hash": "421dcbb",
-      "fullHash": "421dcbb17343729a3906243db983e016ab1a8548",
-      "date": "2026-06-06T14:39:01+03:00",
-      "message": "Add shadcn components.json and cn() utility helper."
-    },
-    {
-      "version": "0.1.11",
-      "hash": "8a57531",
-      "fullHash": "8a5753184072ecf41edb046ad73b52954a6f9f3e",
-      "date": "2026-06-06T14:36:33+03:00",
-      "message": "Add shadcn/ui runtime dependencies for design system."
     }
   ]
 } as const;

@@ -8,8 +8,6 @@ export async function getPdfPageCount(file: File): Promise<number> {
     const buf = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
       data: buf,
-      // Avoid worker startup races when many PDF tabs/tests run in parallel.
-      disableWorker: true,
     });
     const doc = await Promise.race([
       loadingTask.promise,

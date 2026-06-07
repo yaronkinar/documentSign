@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 
 import { Navbar } from '@/components/Navbar';
+import { SiteFooter } from '@/components/SiteFooter';
 import { PageTransition } from '@/components/PageTransition';
 import { Toaster } from '@/components/ui/sonner';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
@@ -46,6 +47,7 @@ export default async function RootLayout({
             <ThemeProviderWithClerk initialTheme={initialTheme}>
               <Navbar />
               <PageTransition>{children}</PageTransition>
+              <SiteFooter />
               <Toaster />
             </ThemeProviderWithClerk>
           </LocaleProvider>

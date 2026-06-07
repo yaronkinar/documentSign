@@ -36,6 +36,13 @@ export const en = {
     settings: 'Settings',
     manageAccount: 'Manage account',
   },
+  footer: {
+    versionLabel: 'v{{version}}',
+    viewChangelog: 'Release notes',
+    changelogTitle: 'Release notes',
+    changelogSubtitle: 'One version per commit, newest first.',
+    current: 'Current',
+  },
   home: {
     tagline: 'Upload, route, and sign documents with a full audit trail.',
     watchDemo: 'Watch demo',

@@ -38,6 +38,13 @@ export const he: TranslationDict = {
     settings: 'הגדרות',
     manageAccount: 'נהל חשבון',
   },
+  footer: {
+    versionLabel: 'גרסה {{version}}',
+    viewChangelog: 'הערות גרסה',
+    changelogTitle: 'הערות גרסה',
+    changelogSubtitle: 'גרסה אחת לכל commit, מהחדש לישן.',
+    current: 'נוכחית',
+  },
   home: {
     tagline: 'העלאה, ניתוב וחתימה על מסמכים עם מעקב מלא.',
     watchDemo: 'צפה בדמו',

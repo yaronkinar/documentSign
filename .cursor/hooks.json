@@ -1,7 +1,17 @@
 {
   "version": 1,
   "hooks": {
+    "afterShellExecution": [
+      {
+        "command": "node .cursor/hooks/update-site-versions.js",
+        "matcher": "git commit"
+      }
+    ],
     "stop": [
+      {
+        "command": "node .cursor/hooks/update-site-versions.js",
+        "timeout": 30
+      },
       {
         "command": "node .cursor/hooks/run-playwright-tests.js",
         "timeout": 900,

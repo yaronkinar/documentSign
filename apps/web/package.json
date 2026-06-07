@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "copy-pdf-worker": "node scripts/copy-pdf-worker.js",
-    "predev": "node scripts/copy-pdf-worker.js && node ../../scripts/generate-haknasot-pdf.mjs",
-    "prebuild": "node scripts/copy-pdf-worker.js && node ../../scripts/generate-haknasot-pdf.mjs",
+    "predev": "node scripts/copy-pdf-worker.js && node ../../scripts/generate-haknasot-pdf.mjs && node ../../scripts/generate-site-versions.mjs",
+    "prebuild": "node scripts/copy-pdf-worker.js && node ../../scripts/generate-haknasot-pdf.mjs && node ../../scripts/generate-site-versions.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

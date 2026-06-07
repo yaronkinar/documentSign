@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DocumentDto, PdfTemplateDto } from '@docflow/shared';
 import {
   HAKNASOT_FORM_TEMPLATE_ID,
@@ -628,7 +628,33 @@ function StartStep({
 }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileInputEl = useRef<HTMLInputElement | null>(null);
+  const onUploadPdfRef = useRef(onUploadPdf);
+  const busyRef = useRef(busy);
+  const fileListenerRef = useRef<((this: HTMLInputElement, ev: Event) => void) | null>(
+    null,
+  );
+  onUploadPdfRef.current = onUploadPdf;
+  busyRef.current = busy;
+
+  const bindFileInput = useCallback((node: HTMLInputElement | null) => {
+    const prev = fileInputEl.current;
+    if (prev && fileListenerRef.current) {
+      prev.removeEventListener('change', fileListenerRef.current);
+    }
+    fileInputEl.current = node;
+    fileListenerRef.current = null;
+    if (!node) return;
+
+    const onPick = () => {
+      const file = node.files?.[0];
+      if (!file || busyRef.current) return;
+      onUploadPdfRef.current(file);
+      node.value = '';
+    };
+    fileListenerRef.current = onPick;
+    node.addEventListener('change', onPick);
+  }, []);
   const [dragOver, setDragOver] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<PdfTemplateDto | null>(
     null,
@@ -663,9 +689,9 @@ function StartStep({
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click();
+            if (e.key === 'Enter' || e.key === ' ') fileInputEl.current?.click();
           }}
-          onClick={() => !busy && fileRef.current?.click()}
+          onClick={() => !busy && fileInputEl.current?.click()}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -688,14 +714,10 @@ function StartStep({
           </p>
         </div>
         <input
-          ref={fileRef}
+          ref={bindFileInput}
           type="file"
           accept="application/pdf,.pdf"
-          className="hidden"
-          onChange={(e) => {
-            handleFile(e.target.files?.[0]);
-            e.target.value = '';
-          }}
+          className="sr-only"
         />
       </section>
 

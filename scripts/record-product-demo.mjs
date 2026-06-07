@@ -1,10 +1,12 @@
 /**
- * Records an updated product demo video for /demo and onboarding.
+ * Records a Hebrew product demo: haknasot form + municipal approval signers.
  *
- * Prerequisites: web (and ideally API) dev servers running, e.g. `npm run dev`.
+ * Prerequisites:
+ *   - Web + API dev servers (`npm run dev`)
+ *   - BYPASS_AUTH=true in apps/web and apps/api env (see .env.local.example)
  *
  * Usage:
- *   node scripts/record-product-demo.mjs
+ *   npm run record:demo
  *   PLAYWRIGHT_BASE_URL=http://localhost:3000 node scripts/record-product-demo.mjs
  */
 import { execSync } from 'node:child_process';
@@ -13,6 +15,8 @@ import path from 'node:path';
 import { chromium } from '@playwright/test';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+const API_URL = process.env.API_URL ?? 'http://127.0.0.1:3001';
+const BYPASS_TOKEN = process.env.BYPASS_TOKEN ?? 'dev-bypass-token-local';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const VIDEOS_DIR = path.join(ROOT, 'apps', 'web', 'public', 'videos');
 const RECORDING_DIR = path.join(VIDEOS_DIR, '.recording');
@@ -22,78 +26,158 @@ const WEBM_PUBLIC = path.join(VIDEOS_DIR, 'product-demo.webm');
 const POSTER_OUT = path.join(VIDEOS_DIR, 'product-demo-poster.jpg');
 
 const VIEWPORT = { width: 1280, height: 720 };
+const LOCALE = 'he';
+
+const HE = {
+  startForm: 'התחל טופס',
+  fillAuto: 'מלא אוטומטית',
+  next: 'הבא',
+  title: 'כותרת',
+  saveAndAssign: 'שמור ושייך שדות',
+  sendToSigners: 'שלח לחותמים',
+  newDocument: 'מסמך חדש',
+  email: 'אימייל',
+  demoTitle: 'חוזה הכנסות – הדגמה',
+};
 
 async function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function ensureServer() {
-  try {
-    const res = await fetch(BASE_URL, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  } catch (err) {
-    console.error(`Cannot reach ${BASE_URL}. Start the app with: npm run dev`);
-    throw err;
+async function ensureServers() {
+  for (const [label, url] of [
+    ['Web', BASE_URL],
+    ['API', `${API_URL}/health`],
+  ]) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      console.log(`✓ ${label} reachable at ${url}`);
+    } catch (err) {
+      console.error(`Cannot reach ${label} at ${url}. Start with: npm run dev`);
+      throw err;
+    }
   }
 }
 
+async function ensureBypassAuth() {
+  try {
+    const res = await fetch(`${API_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${BYPASS_TOKEN}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const me = await res.json();
+    console.log(`✓ Bypass auth OK (${me.email ?? 'dev user'})`);
+  } catch {
+    throw new Error(
+      'API bypass auth failed. Set BYPASS_AUTH=true and BYPASS_TOKEN=dev-bypass-token-local in apps/api and apps/web env, then restart dev servers.',
+    );
+  }
+}
+
+function seedDemoSigners() {
+  console.log('→ Seeding Hebrew demo signer profiles');
+  execSync('node scripts/seed-demo-hebrew-signers.mjs', {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: { ...process.env, API_URL, BYPASS_TOKEN },
+  });
+}
+
 async function pause(page, ms = 1800) {
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
   await wait(ms);
 }
 
 async function clickNext(page) {
-  const next = page.getByRole('button', { name: /^Next$|^הבא$/ });
-  await next.click({ timeout: 8000 });
+  await page.getByRole('button', { name: HE.next, exact: true }).click({ timeout: 12000 });
   await wait(900);
 }
 
-async function runTour(page) {
-  console.log('→ Onboarding tour');
-  await page.goto(`${BASE_URL}/onboarding?replay=1`, { waitUntil: 'domcontentloaded' });
+async function runBriefTour(page) {
+  console.log('→ Onboarding welcome (Hebrew, skip)');
+  await page.goto(`${BASE_URL}/onboarding?replay=1`, {
+    waitUntil: 'domcontentloaded',
+  });
   await pause(page, 2200);
-
-  // Step 1 — Welcome
-  await clickNext(page);
-  // Step 2 — Demo video (pause on the embedded player)
-  await pause(page, 3500);
-  await clickNext(page);
-  // Step 3 — Prepare
-  await pause(page, 2000);
-  await clickNext(page);
-  // Step 4 — Signers
-  await pause(page, 2000);
-  await clickNext(page);
-  // Step 5 — Track
-  await pause(page, 2200);
-  await page.getByRole('button', { name: /^Done$|^סיום$/ }).click();
-  await wait(1200);
+  await page.getByRole('button', { name: 'סגור' }).click({ timeout: 10000 });
+  await wait(800);
 }
 
 async function runDashboard(page) {
   console.log('→ Dashboard');
   await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'domcontentloaded' });
-  await pause(page, 2800);
-  await page.mouse.wheel(0, 420);
-  await wait(1200);
+  await pause(page, 2200);
 }
 
-async function runNewDocument(page) {
-  console.log('→ New document');
+async function fillMissingSignerEmails(page) {
+  const emails = page.getByLabel(HE.email, { exact: true });
+  const count = await emails.count();
+  for (let i = 0; i < count; i++) {
+    const field = emails.nth(i);
+    const value = await field.inputValue();
+    if (!value.trim()) {
+      await field.fill(`demo-signer-${i + 1}@demo.local`);
+    }
+  }
+}
+
+async function runHebrewHaknasotFlow(page) {
+  console.log('→ New document — haknasot form + Hebrew signers');
   await page.goto(`${BASE_URL}/documents/new`, { waitUntil: 'domcontentloaded' });
-  await pause(page, 3200);
-}
-
-async function runSettings(page) {
-  console.log('→ Settings');
-  await page.goto(`${BASE_URL}/settings`, { waitUntil: 'domcontentloaded' });
+  await expectHeading(page, HE.newDocument);
   await pause(page, 2400);
+
+  await page.getByRole('button', { name: HE.startForm }).click({ timeout: 15000 });
+  await page
+    .getByRole('button', { name: HE.fillAuto })
+    .click({ timeout: 20000 });
+  await pause(page, 2200);
+
+  await clickNext(page);
+
+  // Details
+  await page.getByLabel(HE.title).fill(HE.demoTitle);
+  await pause(page, 2800);
+  await clickNext(page);
+
+  // Workflow — municipal approval roles (Hebrew titles + seeded emails)
+  const signerEmails = page.getByLabel(HE.email, { exact: true });
+  await signerEmails.first().waitFor({ timeout: 20000 });
+  const signerCount = await signerEmails.count();
+  if (signerCount < 4) {
+    throw new Error(`Expected at least 4 signers on workflow step, got ${signerCount}`);
+  }
+  console.log(`  ${signerCount} Hebrew approval signers loaded`);
+  await pause(page, 3200);
+  await page.mouse.wheel(0, 280);
+  await wait(1200);
+
+  await fillMissingSignerEmails(page);
+  await clickNext(page);
+
+  // Review
+  await page.getByText(HE.demoTitle).waitFor({ timeout: 10000 });
+  await pause(page, 2400);
+  await page.getByRole('button', { name: HE.saveAndAssign }).click();
+  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
+  await pause(page, 3500);
+
+  // Document viewer — show PDF + signer list, then send
+  await page.mouse.wheel(0, 200);
+  await wait(1000);
+  const sendBtn = page.getByRole('button', { name: HE.sendToSigners });
+  await sendBtn.waitFor({ timeout: 15000 });
+  await pause(page, 2200);
+  await sendBtn.click();
+  await pause(page, 2800);
 }
 
-async function runDemoPage(page) {
-  console.log('→ Demo page');
-  await page.goto(`${BASE_URL}/demo`, { waitUntil: 'domcontentloaded' });
-  await pause(page, 2800);
+async function expectHeading(page, name) {
+  await page.getByRole('heading', { name, level: 1 }).waitFor({ timeout: 15000 });
 }
 
 function encodeOutputs() {
@@ -107,13 +191,16 @@ function encodeOutputs() {
   );
   fs.copyFileSync(WEBM_OUT, WEBM_PUBLIC);
   execSync(
-    `ffmpeg -y -i "${MP4_OUT}" -ss 00:00:02 -frames:v 1 -update 1 "${POSTER_OUT}"`,
+    `ffmpeg -y -i "${MP4_OUT}" -ss 00:00:04 -frames:v 1 -update 1 "${POSTER_OUT}"`,
     { stdio: 'inherit' },
   );
 }
 
 async function main() {
-  await ensureServer();
+  await ensureServers();
+  await ensureBypassAuth();
+  seedDemoSigners();
+
   fs.mkdirSync(RECORDING_DIR, { recursive: true });
 
   const browser = await chromium.launch({
@@ -127,22 +214,21 @@ async function main() {
       dir: RECORDING_DIR,
       size: VIEWPORT,
     },
-    locale: 'en-US',
+    locale: 'he-IL',
   });
 
-  await context.addInitScript(() => {
-    localStorage.setItem('docflow-locale', 'en');
-    document.cookie = 'docflow-locale=en;path=/;max-age=31536000;samesite=lax';
-  });
+  await context.addInitScript((locale) => {
+    localStorage.setItem('docflow-locale', locale);
+    document.cookie = `docflow-locale=${locale};path=/;max-age=31536000;samesite=lax`;
+  }, LOCALE);
 
   const page = await context.newPage();
 
   try {
-    await runTour(page);
+    await runBriefTour(page);
     await runDashboard(page);
-    await runNewDocument(page);
-    await runSettings(page);
-    await runDemoPage(page);
+    await runHebrewHaknasotFlow(page);
+    await runDashboard(page);
   } catch (err) {
     console.error('Recording failed:', err);
     throw err;

@@ -115,12 +115,23 @@ const CLIENT_BYPASS_TOKEN =
     ? (process.env.NEXT_PUBLIC_BYPASS_TOKEN ?? null)
     : null;
 
+const BYPASS_TOKEN_COOKIE = 'docflow-bypass-token';
+
+function readBypassTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${BYPASS_TOKEN_COOKIE}=([^;]*)`),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export function useApiClient() {
   const { getToken } = useAuth();
 
   const withToken = useCallback(
     async <T,>(fn: (token: string) => Promise<T>): Promise<T> => {
-      const token = CLIENT_BYPASS_TOKEN ?? (await getToken());
+      const token =
+        CLIENT_BYPASS_TOKEN ?? readBypassTokenFromCookie() ?? (await getToken());
       if (!token) throw new ApiError(401, 'Not authenticated');
       return fn(token);
     },

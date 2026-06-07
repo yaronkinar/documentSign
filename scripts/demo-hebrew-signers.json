@@ -1,0 +1,57 @@
+[
+  {
+    "title": "אישור מנהל האגף",
+    "name": "דוד כהן",
+    "email": "david.cohen@demo.local"
+  },
+  {
+    "title": "אישור ראש המנהל",
+    "name": "מירי לוי",
+    "email": "miri.levy@demo.local"
+  },
+  {
+    "title": "אישור יועץ משפטי",
+    "name": "יוסף אברהם",
+    "email": "yosef.avraham@demo.local"
+  },
+  {
+    "title": "אישור מנהל אגף נכסים",
+    "name": "רינה שמש",
+    "email": "rina.shemesh@demo.local"
+  },
+  {
+    "title": "אישור חשב האגף",
+    "name": "עמית גולן",
+    "email": "amit.golan@demo.local"
+  },
+  {
+    "title": "אישור מהנדס העירייה",
+    "name": "אלי רוזן",
+    "email": "eli.rozen@demo.local"
+  },
+  {
+    "title": "אישור מ. אגף מכרזים",
+    "name": "נועה בר",
+    "email": "noa.bar@demo.local"
+  },
+  {
+    "title": "אישור מנהל אגף תכנון ופיתוח כלכלי",
+    "name": "ארז כהן",
+    "email": "erez.cohen@demo.local"
+  },
+  {
+    "title": "אישור מ.אגף גזברות",
+    "name": "גיל נחום",
+    "email": "gil.nahum@demo.local"
+  },
+  {
+    "title": "אישור גזבר העירייה",
+    "name": "הילה מזרחי",
+    "email": "hila.mizrahi@demo.local"
+  },
+  {
+    "title": "אישור מנכ\"ל העירייה",
+    "name": "רון שפירא",
+    "email": "ron.shapira@demo.local"
+  }
+]

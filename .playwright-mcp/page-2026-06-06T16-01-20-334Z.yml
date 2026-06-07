@@ -1,0 +1,22 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Settings" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - heading "Appearance" [level=2] [ref=e9]
+          - paragraph [ref=e10]: Choose how DocFlow looks for you. Your choice is saved on this device, and follows you to other devices when you’re signed in.
+        - radiogroup "Theme" [ref=e11]:
+          - radio "Humane Warm cream, indigo-navy, amber." [checked] [ref=e12] [cursor=pointer]:
+            - generic [ref=e13]:
+              - generic [ref=e14]: Humane
+              - img [ref=e15]
+            - generic [ref=e21]: Warm cream, indigo-navy, amber.
+          - radio "Classic Cool blue-grey, deep navy, warm gold." [ref=e22] [cursor=pointer]:
+            - generic [ref=e24]: Classic
+            - generic [ref=e29]: Cool blue-grey, deep navy, warm gold.
+          - radio "Modern Cool grey, near-black, teal." [ref=e30] [cursor=pointer]:
+            - generic [ref=e32]: Modern
+            - generic [ref=e37]: Cool grey, near-black, teal.
+  - region "Notifications alt+T"
+  - alert [ref=e38]

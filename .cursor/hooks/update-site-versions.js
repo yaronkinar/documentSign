@@ -42,10 +42,9 @@ function main() {
   }
 
   const cwd = projectRoot();
-  const result = spawnSync('node', ['scripts/generate-site-versions.mjs'], {
+  const result = spawnSync(process.execPath, ['scripts/generate-site-versions.mjs'], {
     cwd,
     encoding: 'utf8',
-    shell: process.platform === 'win32',
   });
 
   if (result.stdout) process.stderr.write(result.stdout);

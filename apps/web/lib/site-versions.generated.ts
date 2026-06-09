@@ -16,13 +16,27 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.59",
-    "hash": "47be78e",
-    "fullHash": "47be78e55f60017bcafdcbc63af9c879c113981b",
-    "date": "2026-06-07T18:28:58+03:00",
-    "message": "Sync release notes after logo branding commit."
+    "version": "0.1.61",
+    "hash": "d58e098",
+    "fullHash": "d58e0985346bcbb8b73558ae1f59080a3088d691",
+    "date": "2026-06-09T21:42:45+03:00",
+    "message": "Always upload Playwright report artifact in CI"
   },
   "history": [
+    {
+      "version": "0.1.61",
+      "hash": "d58e098",
+      "fullHash": "d58e0985346bcbb8b73558ae1f59080a3088d691",
+      "date": "2026-06-09T21:42:45+03:00",
+      "message": "Always upload Playwright report artifact in CI"
+    },
+    {
+      "version": "0.1.60",
+      "hash": "0adfc3f",
+      "fullHash": "0adfc3fd99e98a25de1367582c7fed2e9595cc6b",
+      "date": "2026-06-09T21:26:18+03:00",
+      "message": "Enable Playwright video and screenshot capture on failure"
+    },
     {
       "version": "0.1.59",
       "hash": "47be78e",
@@ -288,20 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "982561b388e65950b04708c9af8a1c12f43af291",
       "date": "2026-06-06T15:39:47+03:00",
       "message": "Add /dev/tokens preview route showing all primitives in all themes."
-    },
-    {
-      "version": "0.1.21",
-      "hash": "2356f4e",
-      "fullHash": "2356f4e69b70b356443d27bab79e764e6206b689",
-      "date": "2026-06-06T15:37:04+03:00",
-      "message": "Document ThemePicker a11y deferral and inline-swatch rationale."
-    },
-    {
-      "version": "0.1.20",
-      "hash": "2e716a9",
-      "fullHash": "2e716a95be884ae158300d1c31abb5dda3d699d1",
-      "date": "2026-06-06T15:32:13+03:00",
-      "message": "Add ThemePicker radio-card group for Humane, Classic, Modern."
     }
   ]
 } as const;

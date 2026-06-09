@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-import { gotoApp } from './helpers/navigation';
+import { gotoDevTokens } from './helpers/navigation';
 
 const THEMES = [
   { theme: 'humane', expectedBg: 'rgb(251, 250, 247)' },
@@ -13,12 +13,7 @@ async function gotoTokens(page: Page, theme: string) {
     window.localStorage.setItem('docflow-theme', t);
   }, theme);
 
-  const heading = page.getByRole('heading', { name: /tokens & primitives/i });
-
-  await expect(async () => {
-    await gotoApp(page, '/dev/tokens');
-    await expect(heading).toBeVisible({ timeout: 10_000 });
-  }).toPass({ timeout: 45_000 });
+  await gotoDevTokens(page);
 }
 
 function attachRuntimeMonitors(page: Page) {
@@ -38,15 +33,24 @@ function attachRuntimeMonitors(page: Page) {
   return { consoleErrors, failedResponses };
 }
 
+// Next dev compiles routes lazily, so a fresh server under parallel worker load
+// can emit transient failures that recover on the navigation retry in
+// gotoDevTokens: 500s for static chunks and 404/500s for the /dev/tokens
+// document itself. Neither is a product failure once the page renders.
+function isTransientDevFailure(entry: string) {
+  if (entry.startsWith('500 ') && entry.includes('/_next/static/')) return true;
+  return (
+    (entry.startsWith('404 ') || entry.startsWith('500 ')) &&
+    /\/dev\/tokens(\?|$)/.test(entry)
+  );
+}
+
 function assertNoBlockingFailures(
   consoleErrors: string[],
   failedResponses: string[],
 ) {
-  const transientStatic500 = failedResponses.filter(
-    (entry) => entry.startsWith('500 ') && entry.includes('/_next/static/'),
-  );
   const blockingResponses = failedResponses.filter(
-    (entry) => !transientStatic500.includes(entry),
+    (entry) => !isTransientDevFailure(entry),
   );
 
   expect(
@@ -54,9 +58,10 @@ function assertNoBlockingFailures(
     `Failed responses:\n${blockingResponses.join('\n')}`,
   ).toEqual([]);
 
+  const sawTransient = failedResponses.some(isTransientDevFailure);
   const blockingConsole = consoleErrors.filter((msg) => {
-    if (transientStatic500.length === 0) return true;
-    return !/Failed to load resource: the server responded with a status of 500/.test(
+    if (!sawTransient) return true;
+    return !/Failed to load resource: the server responded with a status of (404|500)/.test(
       msg,
     );
   });

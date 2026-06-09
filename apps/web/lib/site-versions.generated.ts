@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.58",
-    "hash": "5faf32f",
-    "fullHash": "5faf32fb423344820df70584a327c22b7169e5a6",
-    "date": "2026-06-07T18:28:13+03:00",
-    "message": "Add DocFlow logo, favicon, and navbar branding."
+    "version": "0.1.59",
+    "hash": "47be78e",
+    "fullHash": "47be78e55f60017bcafdcbc63af9c879c113981b",
+    "date": "2026-06-07T18:28:58+03:00",
+    "message": "Sync release notes after logo branding commit."
   },
   "history": [
+    {
+      "version": "0.1.59",
+      "hash": "47be78e",
+      "fullHash": "47be78e55f60017bcafdcbc63af9c879c113981b",
+      "date": "2026-06-07T18:28:58+03:00",
+      "message": "Sync release notes after logo branding commit."
+    },
     {
       "version": "0.1.58",
       "hash": "5faf32f",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "2e716a95be884ae158300d1c31abb5dda3d699d1",
       "date": "2026-06-06T15:32:13+03:00",
       "message": "Add ThemePicker radio-card group for Humane, Classic, Modern."
-    },
-    {
-      "version": "0.1.19",
-      "hash": "ffc031e",
-      "fullHash": "ffc031edc86374a367bb6f80f443cb6b6aae4186",
-      "date": "2026-06-06T15:30:23+03:00",
-      "message": "Drop next-themes from sonner Toaster (project is light-only in v1)."
     }
   ]
 } as const;

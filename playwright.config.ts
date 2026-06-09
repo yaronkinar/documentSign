@@ -28,6 +28,8 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    video: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   webServer: {
     command: `npm exec --workspace web next dev -- -p ${port}`,
@@ -36,6 +38,9 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
+      // Use a dedicated Next build dir so the e2e server doesn't clobber the
+      // `.next` of a separately-running `npm run dev` (shared dir corrupts both).
+      NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? '.next-e2e',
       BYPASS_AUTH: 'true',
       BYPASS_TOKEN: bypassToken,
       BYPASS_AUTH_EMAIL: process.env.BYPASS_AUTH_EMAIL ?? 'yaronkinar@gmail.com',

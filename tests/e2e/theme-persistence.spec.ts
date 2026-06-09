@@ -1,12 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
-import { gotoApp } from './helpers/navigation';
+import { gotoDevTokens } from './helpers/navigation';
 
 async function gotoThemePicker(page: Page) {
-  await gotoApp(page, '/dev/tokens');
-  await expect(
-    page.getByRole('heading', { name: /tokens & primitives/i }),
-  ).toBeVisible();
+  await gotoDevTokens(page);
 }
 
 test.describe('Theme persistence', () => {

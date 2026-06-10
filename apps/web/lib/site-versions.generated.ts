@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.63",
-    "hash": "d2c1048",
-    "fullHash": "d2c10482bcdce8c336d5030cf33e04f642d822c2",
-    "date": "2026-06-10T17:22:21+03:00",
-    "message": "Add uploaded-PDF form workflow, PDF baking, and dashboard preview."
+    "version": "0.1.64",
+    "hash": "b7f5f32",
+    "fullHash": "b7f5f326362a802b4567922e988082caefa9efc4",
+    "date": "2026-06-10T17:22:50+03:00",
+    "message": "Sync site versions after form workflow release."
   },
   "history": [
+    {
+      "version": "0.1.64",
+      "hash": "b7f5f32",
+      "fullHash": "b7f5f326362a802b4567922e988082caefa9efc4",
+      "date": "2026-06-10T17:22:50+03:00",
+      "message": "Sync site versions after form workflow release."
+    },
     {
       "version": "0.1.63",
       "hash": "d2c1048",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "2afcfb33da75814cb373a9b7ad0cde7e7a6ad352",
       "date": "2026-06-06T16:16:16+03:00",
       "message": "Strengthen RTL toggle test with direct dir attribute check."
-    },
-    {
-      "version": "0.1.24",
-      "hash": "e5682e5",
-      "fullHash": "e5682e54e9420fb68c3ff85cbd7b23b82be0f5a9",
-      "date": "2026-06-06T15:44:24+03:00",
-      "message": "Add Playwright smoke test for /dev/tokens preview route."
     }
   ]
 } as const;

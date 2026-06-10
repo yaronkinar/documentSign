@@ -185,17 +185,10 @@ export function DashboardClient({
   }, [documents, filter, myClerkId, myEmail]);
 
   useEffect(() => {
-    if (filtered.length === 0) {
+    if (previewId && !filtered.some((d) => d._id === previewId)) {
       setPreviewId(null);
-      return;
     }
-    setPreviewId((current) => {
-      if (current && filtered.some((d) => d._id === current)) return current;
-      const firstPreviewable =
-        filtered.find((d) => canPreviewDocumentPdf(d)) ?? filtered[0];
-      return firstPreviewable._id;
-    });
-  }, [filtered]);
+  }, [filtered, previewId]);
 
   const previewDoc = useMemo(
     () => filtered.find((d) => d._id === previewId) ?? null,
@@ -260,7 +253,13 @@ export function DashboardClient({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,42%)] lg:items-start">
+      <div
+        className={cn(
+          'grid gap-6 lg:items-start',
+          previewDoc &&
+            'lg:grid-cols-[minmax(0,1fr)_minmax(280px,42%)]',
+        )}
+      >
         {filtered.length === 0 ? (
           <p className="rounded-md border border-dashed border-border py-12 text-center text-sm text-fg-muted lg:col-span-2">
             {t('dashboard.noDocuments')}
@@ -296,27 +295,8 @@ export function DashboardClient({
                       }}
                     >
                       <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (
-                            target.closest(
-                              'a, button, [role="checkbox"], input',
-                            )
-                          ) {
-                            return;
-                          }
-                          setPreviewId(doc._id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setPreviewId(doc._id);
-                          }
-                        }}
                         className={cn(
-                          'flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-muted',
+                          'flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-muted',
                           isBatchSelected && 'bg-surface-muted/70',
                           isPreviewActive &&
                             'border-s-2 border-s-primary bg-surface-muted',
@@ -348,7 +328,11 @@ export function DashboardClient({
                               variant={
                                 isPreviewActive ? 'secondary' : 'ghost'
                               }
-                              onClick={() => setPreviewId(doc._id)}
+                              onClick={() =>
+                                setPreviewId(
+                                  isPreviewActive ? null : doc._id,
+                                )
+                              }
                               aria-label={t('dashboard.pdfPreview')}
                               aria-pressed={isPreviewActive}
                             >
@@ -391,15 +375,11 @@ export function DashboardClient({
               </ul>
             </div>
 
-            <div className="min-h-[420px] lg:sticky lg:top-6 lg:h-[calc(100vh-8rem)]">
-              {previewDoc ? (
+            {previewDoc && (
+              <div className="min-h-[420px] lg:sticky lg:top-6 lg:h-[calc(100vh-8rem)]">
                 <DashboardDocumentPreview doc={previewDoc} />
-              ) : (
-                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border bg-surface px-6 py-12 text-center text-sm text-fg-muted">
-                  {t('dashboard.selectDocumentToPreview')}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
       </div>

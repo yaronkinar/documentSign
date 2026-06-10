@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.62",
-    "hash": "717e513",
-    "fullHash": "717e51389cafca3abb583a2d8e3c8cc6ebdd6de9",
-    "date": "2026-06-09T21:52:14+03:00",
-    "message": "Clean up site-versions hook and sync generated versions"
+    "version": "0.1.63",
+    "hash": "d2c1048",
+    "fullHash": "d2c10482bcdce8c336d5030cf33e04f642d822c2",
+    "date": "2026-06-10T17:22:21+03:00",
+    "message": "Add uploaded-PDF form workflow, PDF baking, and dashboard preview."
   },
   "history": [
+    {
+      "version": "0.1.63",
+      "hash": "d2c1048",
+      "fullHash": "d2c10482bcdce8c336d5030cf33e04f642d822c2",
+      "date": "2026-06-10T17:22:21+03:00",
+      "message": "Add uploaded-PDF form workflow, PDF baking, and dashboard preview."
+    },
     {
       "version": "0.1.62",
       "hash": "717e513",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "e5682e54e9420fb68c3ff85cbd7b23b82be0f5a9",
       "date": "2026-06-06T15:44:24+03:00",
       "message": "Add Playwright smoke test for /dev/tokens preview route."
-    },
-    {
-      "version": "0.1.23",
-      "hash": "1873395",
-      "fullHash": "1873395584d9ee2a17766aced32db919389df4a9",
-      "date": "2026-06-06T15:42:04+03:00",
-      "message": "Gate /dev/tokens behind NODE_ENV so prod returns 404"
     }
   ]
 } as const;

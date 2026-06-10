@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.65",
-    "hash": "d20af0a",
-    "fullHash": "d20af0afc7d49a6e2714504231879ed1bd7d7c0c",
-    "date": "2026-06-10T20:01:04+03:00",
-    "message": "Redirect signed-in users from home to dashboard and refine dashboard PDF preview UX."
+    "version": "0.1.66",
+    "hash": "e6090e3",
+    "fullHash": "e6090e3433646f7ee054119c54ac247aa96d74d8",
+    "date": "2026-06-10T20:01:38+03:00",
+    "message": "Sync site versions after home redirect and dashboard preview changes."
   },
   "history": [
+    {
+      "version": "0.1.66",
+      "hash": "e6090e3",
+      "fullHash": "e6090e3433646f7ee054119c54ac247aa96d74d8",
+      "date": "2026-06-10T20:01:38+03:00",
+      "message": "Sync site versions after home redirect and dashboard preview changes."
+    },
     {
       "version": "0.1.65",
       "hash": "d20af0a",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "b0e859e7052036edb19e5b941f54235db87d0825",
       "date": "2026-06-06T16:20:26+03:00",
       "message": "Target wrapper via data-testid in RTL test."
-    },
-    {
-      "version": "0.1.26",
-      "hash": "e1040b4",
-      "fullHash": "e1040b43b337592d8bd1d5de1ecba65d5a90bfba",
-      "date": "2026-06-06T16:17:56+03:00",
-      "message": "Revert redundant useEffect in PreviewClient dir sync."
     }
   ]
 } as const;

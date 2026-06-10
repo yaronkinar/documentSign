@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.64",
-    "hash": "b7f5f32",
-    "fullHash": "b7f5f326362a802b4567922e988082caefa9efc4",
-    "date": "2026-06-10T17:22:50+03:00",
-    "message": "Sync site versions after form workflow release."
+    "version": "0.1.65",
+    "hash": "d20af0a",
+    "fullHash": "d20af0afc7d49a6e2714504231879ed1bd7d7c0c",
+    "date": "2026-06-10T20:01:04+03:00",
+    "message": "Redirect signed-in users from home to dashboard and refine dashboard PDF preview UX."
   },
   "history": [
+    {
+      "version": "0.1.65",
+      "hash": "d20af0a",
+      "fullHash": "d20af0afc7d49a6e2714504231879ed1bd7d7c0c",
+      "date": "2026-06-10T20:01:04+03:00",
+      "message": "Redirect signed-in users from home to dashboard and refine dashboard PDF preview UX."
+    },
     {
       "version": "0.1.64",
       "hash": "b7f5f32",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "e1040b43b337592d8bd1d5de1ecba65d5a90bfba",
       "date": "2026-06-06T16:17:56+03:00",
       "message": "Revert redundant useEffect in PreviewClient dir sync."
-    },
-    {
-      "version": "0.1.25",
-      "hash": "2afcfb3",
-      "fullHash": "2afcfb33da75814cb373a9b7ad0cde7e7a6ad352",
-      "date": "2026-06-06T16:16:16+03:00",
-      "message": "Strengthen RTL toggle test with direct dir attribute check."
     }
   ]
 } as const;

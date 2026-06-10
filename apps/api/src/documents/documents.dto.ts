@@ -1,8 +1,11 @@
 import {
+  IsIn,
   IsInt,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -55,4 +58,96 @@ export class UpdateDocumentDto {
 export class UpdateFormValuesDto {
   @IsObject()
   values!: Record<string, string>;
+}
+
+export class AttachFormTemplateDto {
+  @IsString()
+  @MaxLength(64)
+  formTemplateId!: string;
+}
+
+export class CreateDocumentFormFieldDto {
+  @IsString()
+  @MaxLength(200)
+  label!: string;
+
+  @IsOptional()
+  @IsIn(['text', 'textarea', 'date'])
+  type?: 'text' | 'textarea' | 'date';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  section?: string;
+
+  @IsInt()
+  @Min(1)
+  pageNumber!: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  x!: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  y!: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  width?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  height?: number;
+}
+
+export class UpdateDocumentFormFieldDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  label?: string;
+
+  @IsOptional()
+  @IsIn(['text', 'textarea', 'date'])
+  type?: 'text' | 'textarea' | 'date';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  section?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pageNumber?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  x?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  y?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  width?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  height?: number;
 }

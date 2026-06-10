@@ -99,6 +99,7 @@ export interface DocumentDto {
     createdAt: string;
     updatedAt: string;
     fileUrl?: string;
+    hasPdfFile?: boolean;
 }
 export interface SavedSignatureDto {
     _id: string;

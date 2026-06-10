@@ -10,13 +10,25 @@ import {
   Post,
   Query,
   StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { ClerkAuthGuard } from '../auth/clerk.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/current-user.decorator';
 import { DocumentsService } from './documents.service';
-import { ConfirmUploadDto, CreateDocumentDto, UpdateDocumentDto, UpdateFormValuesDto } from './documents.dto';
+import { WordToPdfService } from './word-to-pdf.service';
+import {
+  AttachFormTemplateDto,
+  ConfirmUploadDto,
+  CreateDocumentDto,
+  CreateDocumentFormFieldDto,
+  UpdateDocumentDto,
+  UpdateDocumentFormFieldDto,
+  UpdateFormValuesDto,
+} from './documents.dto';
 import { WorkflowService } from '../workflow/workflow.service';
 import { InvitesService } from '../invites/invites.service';
 import { TemplatesService } from '../templates/templates.service';
@@ -29,6 +41,12 @@ import {
   UpdateSignatureFieldDto,
 } from './signature-fields.dto';
 
+interface UploadedWordFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+}
+
 @Controller('documents')
 @UseGuards(ClerkAuthGuard)
 export class DocumentsController {
@@ -38,7 +56,36 @@ export class DocumentsController {
     private readonly invitesService: InvitesService,
     private readonly signatureFieldsService: SignatureFieldsService,
     private readonly templatesService: TemplatesService,
+    private readonly wordToPdfService: WordToPdfService,
   ) {}
+
+  @Post('convert-to-pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Cache-Control', 'no-store')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }),
+  )
+  async convertToPdf(@UploadedFile() file: UploadedWordFile | undefined) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const name = file.originalname.toLowerCase();
+    const ext = name.endsWith('.docx')
+      ? '.docx'
+      : name.endsWith('.doc')
+        ? '.doc'
+        : file.mimetype ===
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          ? '.docx'
+          : file.mimetype === 'application/msword'
+            ? '.doc'
+            : null;
+    if (!ext) {
+      throw new BadRequestException('Only .doc and .docx files are supported');
+    }
+    const pdf = await this.wordToPdfService.convert(file.buffer, ext);
+    return new StreamableFile(pdf);
+  }
 
   @Post()
   create(
@@ -111,6 +158,48 @@ export class DocumentsController {
     return this.documentsService.updateFormValues(id, user.clerkId, dto);
   }
 
+  @Patch(':id/form-template')
+  attachFormTemplate(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() dto: AttachFormTemplateDto,
+  ) {
+    return this.documentsService.attachFormTemplate(id, user.clerkId, dto);
+  }
+
+  @Post(':id/form-fields')
+  addFormField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateDocumentFormFieldDto,
+  ) {
+    return this.documentsService.addFormField(id, user.clerkId, dto);
+  }
+
+  @Patch(':id/form-fields/:fieldId')
+  updateFormField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Param('fieldId') fieldId: string,
+    @Body() dto: UpdateDocumentFormFieldDto,
+  ) {
+    return this.documentsService.updateFormField(
+      id,
+      user.clerkId,
+      fieldId,
+      dto,
+    );
+  }
+
+  @Delete(':id/form-fields/:fieldId')
+  deleteFormField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Param('fieldId') fieldId: string,
+  ) {
+    return this.documentsService.deleteFormField(id, user.clerkId, fieldId);
+  }
+
   @Get()
   list(@CurrentUser() user: CurrentUserPayload) {
     if (!user.email) throw new BadRequestException('No email on token');
@@ -123,15 +212,31 @@ export class DocumentsController {
     return this.documentsService.getDocument(id, user.clerkId, user.email);
   }
 
-  @Get(':id/rendered.pdf')
+  @Get(':id/source.pdf')
   @Header('Content-Type', 'application/pdf')
   @Header('Cache-Control', 'no-store')
-  async renderHaknasot(
+  async sourcePdf(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
   ) {
     if (!user.email) throw new BadRequestException('No email on token');
-    const bytes = await this.documentsService.renderHaknasotDocument(
+    const bytes = await this.documentsService.getDocumentSourcePdf(
+      id,
+      user.clerkId,
+      user.email,
+    );
+    return new StreamableFile(bytes);
+  }
+
+  @Get(':id/rendered.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Cache-Control', 'no-store')
+  async renderDocumentPdf(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    if (!user.email) throw new BadRequestException('No email on token');
+    const bytes = await this.documentsService.renderDocumentPdf(
       id,
       user.clerkId,
       user.email,

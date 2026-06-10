@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import type { DocumentDto } from '@docflow/shared';
-import { MUNICIPAL_APPROVAL_SIGNER_TITLES } from '@docflow/shared';
+import {
+  HAKNASOT_FORM_TEMPLATE_ID,
+  MUNICIPAL_APPROVAL_SIGNER_TITLES,
+} from '@docflow/shared';
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { hydrateWorkflowStepsFromProfiles } from '@/lib/signer-profile-workflow';
 import {
   WorkflowStepEditor,
   type SignerInput,
+  type SignerRolesSource,
   type WorkflowStepInput,
 } from '@/components/documents/WorkflowStepEditor';
 
@@ -41,6 +45,12 @@ export function DraftWorkflowSetup({
   const [loadingProfiles, setLoadingProfiles] = useState(!!templateId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const templateRoleNames = fallbackRoleNames;
+  const signerRolesSource: SignerRolesSource = templateId
+    ? 'template'
+    : fallbackRoleNames.length > 0
+      ? 'file'
+      : 'manual';
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +182,8 @@ export function DraftWorkflowSetup({
         steps={steps}
         currentUserEmail={currentUserEmail}
         currentUserName={currentUserName}
+        signerRolesSource={signerRolesSource}
+        templateRoleNames={templateRoleNames}
         onAddStep={addStep}
         onUpdateStep={updateStep}
         onRemoveStep={removeStep}
@@ -190,7 +202,7 @@ export function draftWorkflowFallbackRoles(
   formTemplateId: string | null | undefined,
   pdfTemplateFields: string[],
 ): string[] {
-  if (formTemplateId === 'haknasot') {
+  if (formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
     return [...MUNICIPAL_APPROVAL_SIGNER_TITLES];
   }
   return pdfTemplateFields;

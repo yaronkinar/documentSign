@@ -15,20 +15,15 @@ import {
   MUNICIPAL_APPROVAL_SIGNATURE_ROWS,
 } from '@docflow/shared';
 
+import {
+  embedFormFieldFonts,
+  sanitizeFormText,
+  stampFormFieldsOnDocument,
+} from './filled-pdf-renderer';
 
-/** Strip lone surrogates and replace non-breaking spaces with regular spaces. */
 function sanitizeText(s: string): string {
-  let out = '';
-  for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
-    if (code >= 0xD800 && code <= 0xDFFF) continue;
-    if (code === 0xA0) { out += ' '; continue; }
-    out += s[i];
-  }
-  return out.trim();
+  return sanitizeFormText(s);
 }
-
-const HEBREW_RE = /[֐-׿יִ-ﭏ]/;
 
 // Offsets for circling one of the three printed contract-type options
 // on the form. The contract_type field anchors at חדש.
@@ -43,7 +38,6 @@ const APPROVAL_NAME_BOX = { x: 52.4, width: 8.7 } as const;
 const APPROVAL_DATE_BOX = { x: 16.9, width: 8.5 } as const;
 
 let cachedTemplateBytes: Uint8Array | null = null;
-let cachedFontBytes: Uint8Array | null = null;
 
 function resolveAssetPath(...segments: string[]): string {
   // apps/api/src or apps/api/dist – walk up to the repo root either way.
@@ -64,14 +58,6 @@ function loadTemplate(): Uint8Array {
   }
   // Return a fresh copy each call so pdf-lib cannot mutate the cached original.
   return new Uint8Array(cachedTemplateBytes);
-}
-
-function loadFont(): Uint8Array {
-  if (!cachedFontBytes) {
-    const p = resolveAssetPath('apps', 'web', 'public', 'fonts', 'NotoSansHebrew-Regular.ttf');
-    cachedFontBytes = fs.readFileSync(p);
-  }
-  return new Uint8Array(cachedFontBytes);
 }
 
 export interface SignedRowInput {
@@ -100,14 +86,9 @@ export async function renderHaknasotPdf(
   opts: RenderHaknasotPdfOpts,
 ): Promise<Buffer> {
   const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
-  const fontkit = (await import('@pdf-lib/fontkit')).default;
 
   const pdfDoc = await PDFDocument.load(loadTemplate());
-  pdfDoc.registerFontkit(fontkit);
-  const hebrewFont = await pdfDoc.embedFont(loadFont());
-  // Helvetica for dates, numbers, and any purely-ASCII content — NotoSansHebrew
-  // does not reliably embed Latin digit glyphs through pdf-lib's subsetter.
-  const latinFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const { hebrewFont, latinFont } = await embedFormFieldFonts(pdfDoc);
   const latinBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const pages = pdfDoc.getPages();
 
@@ -115,44 +96,12 @@ export async function renderHaknasotPdf(
     (f) => f.id === 'contract_type',
   );
 
-  for (const field of HAKNASOT_FORM_FIELDS) {
-    if (field.id === 'contract_type') continue;
-    const page = pages[field.pageNumber - 1];
-    if (!page) continue;
-    const rawVal = opts.formValues[field.id];
-    if (rawVal === undefined || rawVal === '') continue;
-    const raw = sanitizeText(rawVal);
-    if (!raw) continue;
-
-    const { width: pw, height: ph } = page.getSize();
-    const boxLeft = (field.x / 100) * pw;
-    const boxWidth = (field.width / 100) * pw;
-    const boxTopFromTop = (field.y / 100) * ph;
-    const boxHeight = (field.height / 100) * ph;
-
-    const hasHebrew = HEBREW_RE.test(raw);
-    const font = hasHebrew ? hebrewFont : latinFont;
-
-    let fontSize = Math.max(7, Math.min(10, boxHeight * 0.75));
-    const maxTextWidth = boxWidth - 2;
-    while (fontSize > 5 && font.widthOfTextAtSize(raw, fontSize) > maxTextWidth) {
-      fontSize -= 0.5;
-    }
-    const textWidth = Math.min(font.widthOfTextAtSize(raw, fontSize), maxTextWidth);
-    // Right-align Hebrew; left-align Latin (dates, IDs, amounts).
-    const x = hasHebrew
-      ? boxLeft + boxWidth - textWidth - 1
-      : boxLeft + 1;
-    const y = ph - boxTopFromTop - fontSize * 0.85;
-
-    page.drawText(raw, {
-      x,
-      y,
-      size: fontSize,
-      font,
-      color: rgb(0, 0, 0),
-    });
-  }
+  await stampFormFieldsOnDocument(
+    pdfDoc,
+    HAKNASOT_FORM_FIELDS,
+    opts.formValues,
+    new Set(['contract_type']),
+  );
 
   if (opts.contractTypeSelection && contractTypeField) {
     const ctPage = pages[contractTypeField.pageNumber - 1];

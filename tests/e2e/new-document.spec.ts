@@ -307,7 +307,7 @@ test('creates a Haknasot document through the mocked wizard flow', async ({
   ).toBeVisible();
 
   const addAllApprovals = page.getByRole('button', {
-    name: /Add all approval roles/,
+    name: /Add all (approval|template) roles/,
   });
   if (await addAllApprovals.isVisible()) {
     await addAllApprovals.click();

@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.61",
-    "hash": "d58e098",
-    "fullHash": "d58e0985346bcbb8b73558ae1f59080a3088d691",
-    "date": "2026-06-09T21:42:45+03:00",
-    "message": "Always upload Playwright report artifact in CI"
+    "version": "0.1.62",
+    "hash": "717e513",
+    "fullHash": "717e51389cafca3abb583a2d8e3c8cc6ebdd6de9",
+    "date": "2026-06-09T21:52:14+03:00",
+    "message": "Clean up site-versions hook and sync generated versions"
   },
   "history": [
+    {
+      "version": "0.1.62",
+      "hash": "717e513",
+      "fullHash": "717e51389cafca3abb583a2d8e3c8cc6ebdd6de9",
+      "date": "2026-06-09T21:52:14+03:00",
+      "message": "Clean up site-versions hook and sync generated versions"
+    },
     {
       "version": "0.1.61",
       "hash": "d58e098",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "1873395584d9ee2a17766aced32db919389df4a9",
       "date": "2026-06-06T15:42:04+03:00",
       "message": "Gate /dev/tokens behind NODE_ENV so prod returns 404"
-    },
-    {
-      "version": "0.1.22",
-      "hash": "982561b",
-      "fullHash": "982561b388e65950b04708c9af8a1c12f43af291",
-      "date": "2026-06-06T15:39:47+03:00",
-      "message": "Add /dev/tokens preview route showing all primitives in all themes."
     }
   ]
 } as const;

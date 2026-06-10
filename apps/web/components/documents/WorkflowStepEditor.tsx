@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { MUNICIPAL_APPROVAL_SIGNER_TITLES } from '@docflow/shared';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 export interface SignerInput {
@@ -14,6 +13,8 @@ export interface WorkflowStepInput {
   stepType: 'review' | 'signature' | 'approval';
   signers: SignerInput[];
 }
+
+export type SignerRolesSource = 'file' | 'template' | 'manual';
 
 export function stepTypeLabel(stepType: string, t: (key: string) => string): string {
   switch (stepType) {
@@ -28,10 +29,43 @@ export function stepTypeLabel(stepType: string, t: (key: string) => string): str
   }
 }
 
+function signerSourceBanner(
+  source: SignerRolesSource | undefined,
+  extractedCount: number,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): { text: string; className: string } | null {
+  switch (source) {
+    case 'file':
+      return extractedCount > 0
+        ? {
+            text: t('newDocument.signersFromFileHint', { count: extractedCount }),
+            className: 'border-blue-200 bg-blue-50 text-blue-900',
+          }
+        : {
+            text: t('newDocument.signersFromFileNone'),
+            className: 'border-gray-200 bg-gray-50 text-gray-700',
+          };
+    case 'template':
+      return {
+        text: t('newDocument.signersFromTemplateHint'),
+        className: 'border-blue-200 bg-blue-50 text-blue-900',
+      };
+    case 'manual':
+      return {
+        text: t('newDocument.signersManualHint'),
+        className: 'border-gray-200 bg-gray-50 text-gray-700',
+      };
+    default:
+      return null;
+  }
+}
+
 export function WorkflowStepEditor({
   steps,
   currentUserEmail,
   currentUserName,
+  signerRolesSource,
+  templateRoleNames = [],
   onAddStep,
   onUpdateStep,
   onRemoveStep,
@@ -46,6 +80,9 @@ export function WorkflowStepEditor({
   steps: WorkflowStepInput[];
   currentUserEmail: string;
   currentUserName: string;
+  signerRolesSource?: SignerRolesSource;
+  /** Signature-field labels from the template (saved PDF, Haknasot, etc.). */
+  templateRoleNames?: string[];
   onAddStep: () => void;
   onUpdateStep: (i: number, patch: Partial<WorkflowStepInput>) => void;
   onRemoveStep: (i: number) => void;
@@ -61,9 +98,18 @@ export function WorkflowStepEditor({
   const missingSignerEmail = steps.some((s) =>
     s.signers.some((sg) => !sg.email.trim()),
   );
+  const extractedCount = steps.reduce((n, s) => n + s.signers.length, 0);
+  const sourceBanner = signerSourceBanner(signerRolesSource, extractedCount, t);
   return (
     <div className="space-y-4">
-      {steps.length > 0 && missingSignerEmail && (
+      {sourceBanner && (
+        <div
+          className={`rounded border px-4 py-3 text-sm ${sourceBanner.className}`}
+        >
+          {sourceBanner.text}
+        </div>
+      )}
+      {steps.length > 0 && missingSignerEmail && signerRolesSource !== 'manual' && (
         <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {t('newDocument.extractedSignersHint')}
         </div>
@@ -74,6 +120,7 @@ export function WorkflowStepEditor({
           step={s}
           currentUserEmail={currentUserEmail}
           currentUserName={currentUserName}
+          templateRoleNames={templateRoleNames}
           onUpdate={(patch) => onUpdateStep(i, patch)}
           onRemove={() => onRemoveStep(i)}
           onAddSigner={(signer) => onAddSigner(i, signer)}
@@ -122,6 +169,7 @@ export function WorkflowStepEditor({
 function StepCard({
   step,
   currentUserEmail,
+  templateRoleNames,
   onUpdate,
   onRemove,
   onAddSigner,
@@ -130,6 +178,7 @@ function StepCard({
   step: WorkflowStepInput;
   currentUserEmail: string;
   currentUserName: string;
+  templateRoleNames: string[];
   onUpdate: (patch: Partial<WorkflowStepInput>) => void;
   onRemove: () => void;
   onAddSigner: (s: SignerInput) => void;
@@ -139,6 +188,8 @@ function StepCard({
   const [selectedTitle, setSelectedTitle] = useState('');
   const [customName, setCustomName] = useState('');
   const [newSignerEmail, setNewSignerEmail] = useState('');
+  const hasTemplateRoles = templateRoleNames.length > 0;
+  const templateRoleSet = new Set(templateRoleNames);
 
   const usedTitles = new Set(
     step.signers.map((s) => s.name).filter((name): name is string => !!name),
@@ -157,22 +208,25 @@ function StepCard({
   function addSigner() {
     const email = newSignerEmail.trim().toLowerCase();
     if (!email) return;
-    onAddSigner({ email, name: resolvedName || undefined });
+    const name = hasTemplateRoles
+      ? resolvedName || undefined
+      : customName.trim() || undefined;
+    onAddSigner({ email, name });
     setSelectedTitle('');
     setCustomName('');
     setNewSignerEmail('');
   }
 
-  function addAllApprovalRoles() {
-    const toAdd = MUNICIPAL_APPROVAL_SIGNER_TITLES.filter(
-      (title) => !usedTitles.has(title),
-    ).map((name) => ({ email: '', name }));
+  function addAllTemplateRoles() {
+    const toAdd = templateRoleNames
+      .filter((title) => !usedTitles.has(title))
+      .map((name) => ({ email: '', name }));
     if (toAdd.length === 0) return;
     onUpdate({ signers: [...step.signers, ...toAdd] });
   }
 
   const hasMissingEmail = step.signers.some((s) => !s.email.trim());
-  const pendingApprovalRoles = MUNICIPAL_APPROVAL_SIGNER_TITLES.filter(
+  const pendingTemplateRoles = templateRoleNames.filter(
     (title) => !usedTitles.has(title),
   );
 
@@ -209,11 +263,10 @@ function StepCard({
         {step.signers.map((s, j) => {
           const needsEmail = !s.email.trim();
           const hasRoleName = Boolean(s.name?.trim());
-          const isKnownMunicipalRole =
+          const isKnownTemplateRole =
+            hasTemplateRoles &&
             hasRoleName &&
-            MUNICIPAL_APPROVAL_SIGNER_TITLES.includes(
-              s.name as (typeof MUNICIPAL_APPROVAL_SIGNER_TITLES)[number],
-            );
+            templateRoleSet.has(s.name!.trim());
           return (
             <li
               key={j}
@@ -221,37 +274,19 @@ function StepCard({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  {hasRoleName ? (
-                    <>
-                      <select
-                        className="w-full max-w-xs rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                        value={isKnownMunicipalRole ? s.name : '__custom__'}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          updateSigner(j, {
-                            name:
-                              value === '__custom__' ? (s.name ?? '') : value,
-                          });
-                        }}
-                      >
-                        <option value="">{t('newDocument.selectRolePlaceholder')}</option>
-                        {MUNICIPAL_APPROVAL_SIGNER_TITLES.map((title) => (
-                          <option key={title} value={title}>
-                            {title}
-                          </option>
-                        ))}
-                        <option value="__custom__">{t('newDocument.customRole')}</option>
-                      </select>
-                      {!isKnownMunicipalRole && (
-                        <input
-                          type="text"
-                          placeholder={t('newDocument.namePlaceholder')}
-                          className="w-full max-w-xs rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                          value={s.name ?? ''}
-                          onChange={(e) => updateSigner(j, { name: e.target.value })}
-                        />
-                      )}
-                    </>
+                  {isKnownTemplateRole ? (
+                    <select
+                      className="w-full max-w-xs rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                      value={s.name}
+                      onChange={(e) => updateSigner(j, { name: e.target.value })}
+                    >
+                      <option value="">{t('newDocument.selectRolePlaceholder')}</option>
+                      {templateRoleNames.map((title) => (
+                        <option key={title} value={title}>
+                          {title}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
                     <input
                       type="text"
@@ -302,24 +337,36 @@ function StepCard({
       <div className="space-y-2 rounded border border-dashed border-gray-200 bg-gray-50/50 p-3">
         <p className="text-xs font-medium text-gray-600">{t('newDocument.addSignerHeading')}</p>
         <div className="flex flex-wrap gap-2">
-          <select
-            className="min-w-56 flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-            value={selectedTitle}
-            onChange={(e) => setSelectedTitle(e.target.value)}
-          >
-            <option value="">{t('newDocument.selectRolePlaceholder')}</option>
-            {MUNICIPAL_APPROVAL_SIGNER_TITLES.map((title) => (
-              <option key={title} value={title} disabled={usedTitles.has(title)}>
-                {title}
-              </option>
-            ))}
-            <option value="__custom__">{t('newDocument.customRole')}</option>
-          </select>
-          {selectedTitle === '__custom__' && (
+          {hasTemplateRoles ? (
+            <>
+              <select
+                className="min-w-56 flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                value={selectedTitle}
+                onChange={(e) => setSelectedTitle(e.target.value)}
+              >
+                <option value="">{t('newDocument.selectRolePlaceholder')}</option>
+                {templateRoleNames.map((title) => (
+                  <option key={title} value={title} disabled={usedTitles.has(title)}>
+                    {title}
+                  </option>
+                ))}
+                <option value="__custom__">{t('newDocument.customRole')}</option>
+              </select>
+              {selectedTitle === '__custom__' && (
+                <input
+                  type="text"
+                  placeholder={t('newDocument.namePlaceholder')}
+                  className="w-48 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                />
+              )}
+            </>
+          ) : (
             <input
               type="text"
               placeholder={t('newDocument.namePlaceholder')}
-              className="w-48 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+              className="min-w-56 flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
             />
@@ -357,13 +404,13 @@ function StepCard({
             {t('common.add')}
           </button>
         </div>
-        {pendingApprovalRoles.length > 0 && (
+        {hasTemplateRoles && pendingTemplateRoles.length > 0 && (
           <button
             type="button"
-            onClick={addAllApprovalRoles}
+            onClick={addAllTemplateRoles}
             className="text-xs text-blue-700 hover:underline"
           >
-            {t('newDocument.addAllApprovals')} ({pendingApprovalRoles.length})
+            {t('newDocument.addAllTemplateRoles')} ({pendingTemplateRoles.length})
           </button>
         )}
       </div>

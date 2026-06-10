@@ -1,11 +1,13 @@
 'use client';
 
+import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { Download, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   CommentDto,
   DocumentDto,
+  PdfFormFieldType,
   PdfTemplateDto,
   SavedSignatureDto,
   SignatureDto,
@@ -25,6 +27,11 @@ import {
   DraftWorkflowSetup,
   draftWorkflowFallbackRoles,
 } from '@/components/documents/DraftWorkflowSetup';
+import {
+  DocumentDraftStepper,
+  type DraftSetupStep,
+} from '@/components/documents/DocumentDraftStepper';
+import { DocumentFormFieldsEditor } from '@/components/documents/DocumentFormFieldsEditor';
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
 import { PdfLoadingSkeleton } from '@/components/pdf/PdfLoadingSkeleton';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
@@ -35,7 +42,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { useDocumentSocket } from '@/lib/socket';
-import { useRenderedPdfUrl } from '@/lib/use-rendered-pdf-url';
+import { useDocumentPdfUrl } from '@/lib/use-document-pdf-url';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 import { clampPlacementToPageCount } from '@/lib/pdf-signature-placement';
 import {
@@ -69,7 +76,17 @@ interface CommentTarget {
   y: number;
 }
 
-const HAKNASOT_RENDER_VERSION = 'signature-row-v2';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const CLIENT_BYPASS_TOKEN =
+  process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+    ? (process.env.NEXT_PUBLIC_BYPASS_TOKEN ?? null)
+    : null;
+
+type DocumentSidebarTab = 'workflow' | 'form-setup' | 'form-fill' | 'comments';
+
+function hasFilledFormValues(values: Record<string, string>): boolean {
+  return Object.values(values).some((value) => value.trim().length > 0);
+}
 
 function safePdfFileName(title: string): string {
   const cleaned = title
@@ -89,6 +106,7 @@ export function DocumentViewerClient({
   myEmail,
 }: Props) {
   const api = useApiClient();
+  const { getToken } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
   const [doc, setDoc] = useState<DocumentDto>(initialDoc);
@@ -97,7 +115,11 @@ export function DocumentViewerClient({
     initialSignatureFields,
   );
   const [comments, setComments] = useState<CommentDto[]>(initialComments);
-  const [sidebarTab, setSidebarTab] = useState<'workflow' | 'comments' | 'form'>('workflow');
+  const [sidebarTab, setSidebarTab] =
+    useState<DocumentSidebarTab>('workflow');
+  const [formFillDraft, setFormFillDraft] = useState<Record<string, string>>(
+    () => initialDoc.formValues ?? {},
+  );
 
   useEffect(() => {
     if (initialDoc.status === 'draft' && initialDoc.workflowSteps.length === 0) {
@@ -125,37 +147,38 @@ export function DocumentViewerClient({
   const [autoMapBusy, setAutoMapBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [formSaveBusy, setFormSaveBusy] = useState(false);
+  const [attachFormBusy, setAttachFormBusy] = useState(false);
+  const [formFieldPlacementMode, setFormFieldPlacementMode] = useState(false);
+  const [activeFormFieldId, setActiveFormFieldId] = useState<string | null>(null);
   const [saveTemplateBusy, setSaveTemplateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const autoMapOnLoadRef = useRef(false);
+  const formStepPromptRef = useRef(false);
   const [draftFallbackRoles, setDraftFallbackRoles] = useState<string[]>([]);
 
   const formFields = resolveDocumentFormFields(doc);
   const hasForm = formFields.length > 0;
+  const formFilled = hasFilledFormValues(doc.formValues ?? {});
+
+  useEffect(() => {
+    setFormFillDraft(doc.formValues ?? {});
+  }, [doc.formValues]);
   const isTemplateDoc = !!doc.formTemplateId;
-  const isHaknasot = doc.formTemplateId === 'haknasot';
-  // During draft the owner is filling the form: use the static template PDF
-  // with form-field overlays so both pages stay visible and the view doesn't
-  // reload on every save. After submission use the server-rendered PDF (values
-  // + signatures baked in) so signers see the final output.
-  const showRenderedPdf = isHaknasot && doc.status !== 'draft';
-  const renderedCacheKey = showRenderedPdf
-    ? `${HAKNASOT_RENDER_VERSION}:${doc.updatedAt}:${signatures.length}:${Object.keys(doc.formValues ?? {}).length}`
-    : '';
-  const { pdfUrl: renderedPdfUrl, loading: renderedPdfLoading } =
-    useRenderedPdfUrl(showRenderedPdf ? doc._id : null, renderedCacheKey);
+  const hasUploadedPdf = doc.hasPdfFile ?? !!doc.fileUrl;
+  // Haknasot (and other form templates) use the static template PDF with
+  // form-field and signature overlays in the viewer. Uploaded PDFs are fetched
+  // via source.pdf (auth proxy) so pdf.js avoids storage CORS issues.
+  const {
+    pdfUrl: uploadedPdfUrl,
+    loading: uploadedPdfLoading,
+    error: uploadedPdfError,
+  } = useDocumentPdfUrl(hasUploadedPdf ? doc._id : null);
   const { pdfUrl: templatePdfUrl, loading: templatePdfLoading } =
     useTemplatePdfUrl(
-      !showRenderedPdf && doc.formTemplateId && !doc.fileUrl ? doc.formTemplateId : null,
+      doc.formTemplateId && !hasUploadedPdf ? doc.formTemplateId : null,
     );
-  const viewerPdfUrl = showRenderedPdf
-    ? renderedPdfUrl
-    : doc.fileUrl ?? templatePdfUrl;
-  const viewerLoading = showRenderedPdf
-    ? renderedPdfLoading
-    : doc.fileUrl
-      ? false
-      : templatePdfLoading;
+  const viewerPdfUrl = uploadedPdfUrl ?? templatePdfUrl;
+  const viewerLoading = hasUploadedPdf ? uploadedPdfLoading : templatePdfLoading;
 
   const pageCount = doc.pageCount ?? 1;
   const displaySignatures = clampPlacementToPageCount(signatures, pageCount);
@@ -231,6 +254,27 @@ export function DocumentViewerClient({
   const canSubmitDraft =
     hasWorkflowSteps && doc.workflowSteps.every((s) => s.signers.length > 0);
   const canSaveAsTemplate = isOwner && signatureFields.length > 0 && !!doc.fileUrl;
+  const fieldsAssigned = isTemplateDoc || allSignersMapped;
+  const canManageFormFields = isOwner && isDraft && hasUploadedPdf;
+  const readyForFormStep =
+    canManageFormFields &&
+    fieldsAssigned &&
+    !fieldPlacementMode &&
+    !formFieldPlacementMode;
+  const showDraftStepper =
+    isOwner && isDraft && hasUploadedPdf && !isTemplateDoc;
+  const editableFormFieldIds = (doc.formFields ?? []).map((f) => f.id);
+  const formSetupTabVisible = canManageFormFields && !isTemplateDoc;
+  const formFillTabVisible = hasForm;
+  const draftSetupStep: DraftSetupStep = (() => {
+    if (!hasWorkflowSteps) return 'workflow';
+    if (!isTemplateDoc && !allSignersMapped) return 'map';
+    if (formSetupTabVisible && !hasForm) return 'form-setup';
+    if (formFillTabVisible && !formFilled) return 'form-fill';
+    return 'send';
+  })();
+  const viewerFormValues =
+    sidebarTab === 'form-fill' ? formFillDraft : (doc.formValues ?? {});
 
   const myAssignedFields =
     mySignerInActiveStep && activeStep
@@ -290,6 +334,7 @@ export function DocumentViewerClient({
     setError(null);
     setCommentMode(false);
     setPlacementMode(false);
+    setFormFieldPlacementMode(false);
     if (!selectedSignerKey && signerOptions.length > 0) {
       setSelectedSignerKey(signerOptions[0].key);
     }
@@ -489,6 +534,29 @@ export function DocumentViewerClient({
     void autoMapSignersFromTemplate();
   }, [doc._id, isTemplateDoc]);
 
+  useEffect(() => {
+    if (!readyForFormStep || !formFillTabVisible) return;
+    if (formStepPromptRef.current) return;
+    formStepPromptRef.current = true;
+    setSidebarTab('form-fill');
+  }, [readyForFormStep, formFillTabVisible]);
+
+  function goToFormSetup() {
+    setFormFieldPlacementMode(false);
+    setSidebarTab('form-setup');
+  }
+
+  function goToFormFill() {
+    setFormFieldPlacementMode(false);
+    setFormFillDraft(doc.formValues ?? {});
+    setSidebarTab('form-fill');
+  }
+
+  function handleSidebarTabChange(tab: DocumentSidebarTab) {
+    if (tab !== 'form-setup') setFormFieldPlacementMode(false);
+    setSidebarTab(tab);
+  }
+
   async function saveFormValues(values: Record<string, string>) {
     setFormSaveBusy(true);
     setError(null);
@@ -502,6 +570,135 @@ export function DocumentViewerClient({
       throw err;
     } finally {
       setFormSaveBusy(false);
+    }
+  }
+
+  async function attachFormTemplate(formTemplateId: string) {
+    setAttachFormBusy(true);
+    setError(null);
+    try {
+      const fresh = await api.patch<DocumentDto>(`/documents/${doc._id}/form-template`, {
+        formTemplateId,
+      });
+      setDoc(fresh);
+      goToFormSetup();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.saveFormFailed'));
+    } finally {
+      setAttachFormBusy(false);
+    }
+  }
+
+  async function extractFormFieldsFromPdf() {
+    setAttachFormBusy(true);
+    setError(null);
+    try {
+      await api.post(`/documents/${doc._id}/extract-form-fields`);
+      const fresh = await api.get<DocumentDto>(`/documents/${doc._id}`);
+      setDoc(fresh);
+      goToFormSetup();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.saveFormFailed'));
+    } finally {
+      setAttachFormBusy(false);
+    }
+  }
+
+  function startFormFieldPlacement() {
+    if (!isOwner || !isDraft || !hasUploadedPdf) return;
+    setError(null);
+    setFieldPlacementMode(false);
+    setPlacementMode(false);
+    setCommentMode(false);
+    setFormFieldPlacementMode(true);
+    setSidebarTab('form-setup');
+  }
+
+  async function onFormFieldPlace(page: number, x: number, y: number) {
+    if (!formFieldPlacementMode) return;
+    const label = `${t('document.formFieldLabel')} ${(doc.formFields?.length ?? 0) + 1}`;
+    setError(null);
+    try {
+      const fresh = await api.post<DocumentDto>(`/documents/${doc._id}/form-fields`, {
+        label,
+        pageNumber: page,
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+      });
+      setDoc(fresh);
+      setActiveFormFieldId(fresh.formFields?.at(-1)?.id ?? null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldAddFailed'),
+      );
+    }
+  }
+
+  async function onFormFieldMove(fieldId: string, page: number, x: number, y: number) {
+    try {
+      const fresh = await api.patch<DocumentDto>(
+        `/documents/${doc._id}/form-fields/${fieldId}`,
+        {
+          pageNumber: page,
+          x: Number(x.toFixed(2)),
+          y: Number(y.toFixed(2)),
+        },
+      );
+      setDoc(fresh);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldUpdateFailed'),
+      );
+    }
+  }
+
+  async function onFormFieldResize(fieldId: string, width: number, height: number) {
+    try {
+      const fresh = await api.patch<DocumentDto>(
+        `/documents/${doc._id}/form-fields/${fieldId}`,
+        {
+          width: Number(width.toFixed(2)),
+          height: Number(height.toFixed(2)),
+        },
+      );
+      setDoc(fresh);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldUpdateFailed'),
+      );
+    }
+  }
+
+  async function updateFormFieldMeta(
+    fieldId: string,
+    patch: { label?: string; type?: PdfFormFieldType },
+  ) {
+    setError(null);
+    try {
+      const fresh = await api.patch<DocumentDto>(
+        `/documents/${doc._id}/form-fields/${fieldId}`,
+        patch,
+      );
+      setDoc(fresh);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldUpdateFailed'),
+      );
+    }
+  }
+
+  async function deleteFormField(fieldId: string) {
+    setError(null);
+    try {
+      const fresh = await api.delete<DocumentDto>(
+        `/documents/${doc._id}/form-fields/${fieldId}`,
+      );
+      setDoc(fresh);
+      if (activeFormFieldId === fieldId) setActiveFormFieldId(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldDeleteFailed'),
+      );
     }
   }
 
@@ -521,13 +718,15 @@ export function DocumentViewerClient({
   }
 
   async function downloadCurrentPdf() {
-    const sourceUrl = showRenderedPdf ? renderedPdfUrl : viewerPdfUrl;
-    if (!sourceUrl) return;
-
     setDownloadBusy(true);
     setError(null);
     try {
-      const res = await fetch(sourceUrl);
+      const token = CLIENT_BYPASS_TOKEN ?? (await getToken());
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch(`${API_URL}/documents/${doc._id}/download.pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error(`Download failed (${res.status})`);
       const blob = await res.blob();
       if (blob.size === 0) throw new Error('Downloaded PDF is empty');
@@ -826,21 +1025,84 @@ export function DocumentViewerClient({
         </div>
       )}
 
+      {readyForFormStep && formFillTabVisible && sidebarTab !== 'form-fill' && (
+        <div className="border-b border-info/30 bg-info/5 px-6 py-3 text-sm text-fg">
+          {t('document.fillFormBeforeSend')}{' '}
+          <button
+            type="button"
+            onClick={goToFormFill}
+            className="font-medium text-info underline hover:no-underline"
+          >
+            {t('document.formFillTab')}
+          </button>
+        </div>
+      )}
+
+      {formSetupTabVisible && !hasForm && sidebarTab !== 'form-setup' && (
+        <div className="border-b border-info/30 bg-info/5 px-6 py-3 text-sm text-fg">
+          {t('document.setupFormBeforeSend')}{' '}
+          <button
+            type="button"
+            onClick={goToFormSetup}
+            className="font-medium text-info underline hover:no-underline"
+          >
+            {t('document.formSetupTab')}
+          </button>
+        </div>
+      )}
+
+      {hasForm &&
+        !formFilled &&
+        formSetupTabVisible &&
+        sidebarTab === 'form-setup' && (
+          <div className="border-b border-info/30 bg-info/5 px-6 py-3 text-sm text-fg">
+            {t('document.formFieldsReadyToFill')}{' '}
+            <button
+              type="button"
+              onClick={goToFormFill}
+              className="font-medium text-info underline hover:no-underline"
+            >
+              {t('document.formFillTab')}
+            </button>
+          </div>
+        )}
+
+      {showDraftStepper && (
+        <DocumentDraftStepper
+          current={draftSetupStep}
+          hasWorkflow={hasWorkflowSteps}
+          signersMapped={isTemplateDoc || allSignersMapped}
+          hasFormFields={hasForm}
+          formFilled={formFilled}
+        />
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         <section className="flex-1 overflow-auto bg-bg p-4 md:p-6">
           {viewerLoading && !viewerPdfUrl && <PdfLoadingSkeleton />}
+          {uploadedPdfError && hasUploadedPdf && (
+            <div className="mx-auto max-w-3xl rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
+              {t('document.pdfLoadFailed')}: {uploadedPdfError}
+            </div>
+          )}
           {viewerPdfUrl && (
             <PDFViewer
               pdfUrl={viewerPdfUrl}
               signatures={displaySignatures}
               signatureFields={displaySignatureFields}
-              signatureTagHitTargetsOnly={showRenderedPdf}
               comments={comments}
-              formFields={showRenderedPdf ? [] : formFields}
-              formValues={showRenderedPdf ? undefined : doc.formValues}
+              formFields={formFields}
+              formValues={viewerFormValues}
               placementMode={placementMode}
               fieldPlacementMode={fieldPlacementMode}
-              fieldEditMode={isOwner && isDraft}
+              fieldEditMode={
+                isOwner &&
+                isDraft &&
+                !formFieldPlacementMode &&
+                !fieldPlacementMode &&
+                sidebarTab !== 'form-setup' &&
+                sidebarTab !== 'form-fill'
+              }
               commentMode={commentMode}
               activeSignerId={canSign ? mySignerInActiveStep?._id : null}
               onSignaturePlace={onPlace}
@@ -858,6 +1120,21 @@ export function DocumentViewerClient({
                 setSidebarTab('comments');
                 setSelectedCommentId(commentId);
               }}
+              activeFormFieldId={activeFormFieldId}
+              formFieldPlacementMode={formFieldPlacementMode}
+              formFieldEditMode={
+                isOwner &&
+                isDraft &&
+                hasUploadedPdf &&
+                !formFieldPlacementMode &&
+                !fieldPlacementMode &&
+                sidebarTab === 'form-setup'
+              }
+              editableFormFieldIds={editableFormFieldIds}
+              onFormFieldPlace={onFormFieldPlace}
+              onFormFieldMove={onFormFieldMove}
+              onFormFieldResize={onFormFieldResize}
+              onFormFieldSelect={setActiveFormFieldId}
             />
           )}
           {!isTemplateDoc && (fieldPlacementMode || isDraft) && (
@@ -1056,6 +1333,7 @@ export function DocumentViewerClient({
                 setPendingCommentTarget(null);
                 setPlacementMode(false);
                 setFieldPlacementMode(false);
+                setFormFieldPlacementMode(false);
               }}
               className={cn(commentMode && 'bg-warning text-accent-fg hover:bg-warning/90')}
             >
@@ -1068,18 +1346,21 @@ export function DocumentViewerClient({
         <aside className="flex w-[360px] shrink-0 flex-col overflow-hidden border-l border-border bg-surface">
           <Tabs
             value={sidebarTab}
-            onValueChange={(v) =>
-              setSidebarTab(v as 'workflow' | 'comments' | 'form')
-            }
+            onValueChange={(v) => handleSidebarTabChange(v as DocumentSidebarTab)}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <TabsList className="h-auto w-full shrink-0 rounded-none border-b border-border bg-surface-muted p-1">
+            <TabsList className="h-auto w-full shrink-0 flex-wrap rounded-none border-b border-border bg-surface-muted p-1">
               <TabsTrigger value="workflow" className="flex-1">
                 {t('document.workflow')}
               </TabsTrigger>
-              {hasForm && (
-                <TabsTrigger value="form" className="flex-1">
-                  {t('document.formTab')}
+              {formSetupTabVisible && (
+                <TabsTrigger value="form-setup" className="flex-1">
+                  {t('document.formSetupTab')}
+                </TabsTrigger>
+              )}
+              {formFillTabVisible && (
+                <TabsTrigger value="form-fill" className="flex-1">
+                  {t('document.formFillTab')}
                 </TabsTrigger>
               )}
               <TabsTrigger value="comments" className="flex-1">
@@ -1087,13 +1368,36 @@ export function DocumentViewerClient({
               </TabsTrigger>
             </TabsList>
             <div className="min-h-0 flex-1 overflow-auto">
-          {sidebarTab === 'form' && hasForm && (
-            <div className="p-4">
+          {sidebarTab === 'form-setup' && formSetupTabVisible && (
+            <div className="space-y-4 p-4">
+              <DocumentFormFieldsEditor
+                doc={doc}
+                fields={formFields}
+                busy={attachFormBusy}
+                formFieldPlacementMode={formFieldPlacementMode}
+                onStartAddField={startFormFieldPlacement}
+                onCancelAddField={() => setFormFieldPlacementMode(false)}
+                onSelectTemplate={(id) => void attachFormTemplate(id)}
+                onExtractFromPdf={() => void extractFormFieldsFromPdf()}
+                onUpdateField={(fieldId, patch) =>
+                  void updateFormFieldMeta(fieldId, patch)
+                }
+                onDeleteField={(fieldId) => void deleteFormField(fieldId)}
+                onSelectField={setActiveFormFieldId}
+                activeFieldId={activeFormFieldId}
+                onContinueToFill={hasForm ? goToFormFill : undefined}
+              />
+            </div>
+          )}
+          {sidebarTab === 'form-fill' && formFillTabVisible && (
+            <div className="space-y-4 p-4">
+              <p className="text-xs text-fg-muted">{t('document.formFillStepHint')}</p>
               <DocumentFormFillPanel
                 fields={formFields}
-                values={doc.formValues ?? {}}
+                values={formFillDraft}
                 readOnly={!isOwner || !isDraft}
                 saving={formSaveBusy}
+                onChange={setFormFillDraft}
                 onSave={saveFormValues}
               />
             </div>

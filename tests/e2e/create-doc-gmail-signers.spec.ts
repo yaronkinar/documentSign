@@ -22,7 +22,7 @@ async function ensureWorkflowStep(page: Page) {
   if (!(await stepLabel.isVisible().catch(() => false))) {
     await addStep.click();
   }
-  await expect(page.getByText('Add signer')).toBeVisible();
+  await expect(page.getByText('Add signer', { exact: true })).toBeVisible();
 }
 
 async function removeAllWorkflowSigners(page: Page) {
@@ -110,7 +110,9 @@ test.describe('Create document with Gmail signer aliases', () => {
     await titleField(page).fill(docTitle);
     await page.getByRole('button', { name: 'Next' }).click();
 
-    await expect(page.getByText('Add signer')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Add signer', { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
     await ensureWorkflowStep(page);
     await removeAllWorkflowSigners(page);
 

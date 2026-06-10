@@ -45,6 +45,7 @@ export function toDocumentDto(
     formValues: doc.formValues ?? {},
     createdAt: (doc as unknown as { createdAt: Date }).createdAt.toISOString(),
     updatedAt: (doc as unknown as { updatedAt: Date }).updatedAt.toISOString(),
+    hasPdfFile: !!doc.fileKey,
     ...(options?.fileUrl ? { fileUrl: options.fileUrl } : {}),
   };
 }

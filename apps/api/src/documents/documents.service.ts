@@ -9,10 +9,15 @@ import { Model, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import {
   allowedDocumentFormFieldIds,
+  allocateFormFieldId,
   AuditEventType,
   buildPdfFormFieldsFromExtracted,
+  getHaknasotFormFields,
   HAKNASOT_FORM_TEMPLATE_ID,
+  isEditableDocumentFormField,
+  isKnownFormTemplateId,
   MUNICIPAL_APPROVAL_SIGNER_TITLES,
+  resolveDocumentFormFields,
   type DocumentDto,
   type PdfFormFieldTemplate,
 } from '@docflow/shared';
@@ -29,11 +34,23 @@ import { StorageService } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
 import { fieldLabelAppearsInPdfText } from '../ai/pdf-field-label';
 import { AiService } from '../ai/ai.service';
-import { ConfirmUploadDto, CreateDocumentDto, UpdateDocumentDto, UpdateFormValuesDto } from './documents.dto';
+import {
+  AttachFormTemplateDto,
+  ConfirmUploadDto,
+  CreateDocumentDto,
+  CreateDocumentFormFieldDto,
+  UpdateDocumentDto,
+  UpdateDocumentFormFieldDto,
+  UpdateFormValuesDto,
+} from './documents.dto';
 import { toDocumentDto } from './documents.mapper';
 import { TemplatesService } from '../templates/templates.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { renderHaknasotPdf, type SignedRowInput } from './haknasot-renderer';
+import {
+  renderFilledUploadedPdf,
+  type SignatureStampInput,
+} from './signed-pdf-renderer';
 import {
   SignerProfile,
   type SignerProfileDocument,
@@ -290,8 +307,8 @@ export class DocumentsService {
     const filtered = extracted.filter((field) =>
       fieldLabelAppearsInPdfText(field.label, pdfText),
     );
-    const fields = buildPdfFormFieldsFromExtracted(filtered);
-    doc.formFields = fields.map((f) => ({
+    const extractedFields = buildPdfFormFieldsFromExtracted(filtered);
+    const existing = (doc.formFields ?? []).map((f) => ({
       id: f.id,
       label: f.label,
       type: f.type,
@@ -301,10 +318,146 @@ export class DocumentsService {
       y: f.y,
       width: f.width,
       height: f.height,
-    })) as never;
+    }));
+    const existingIds = new Set(existing.map((f) => f.id));
+    const merged = [
+      ...existing,
+      ...extractedFields.filter((f) => !existingIds.has(f.id)),
+    ];
+    doc.formFields = merged as never;
     doc.markModified('formFields');
     await doc.save();
-    return { fields };
+    return { fields: merged };
+  }
+
+  private assertCanEditFormFields(doc: DocumentDocument): void {
+    if (doc.status !== 'draft') {
+      throw new ForbiddenException('Form fields can only be edited in draft');
+    }
+    if (!doc.fileKey && !(doc.formFields?.length)) {
+      throw new BadRequestException(
+        'Form fields require an uploaded PDF or existing custom fields',
+      );
+    }
+    if (
+      doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID &&
+      !doc.fileKey
+    ) {
+      throw new BadRequestException(
+        'Add custom fields on haknasot documents with an uploaded PDF only',
+      );
+    }
+  }
+
+  private docFormFieldSnapshot(
+    doc: DocumentDocument,
+  ): PdfFormFieldTemplate[] {
+    return (doc.formFields ?? []).map((f) => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      section: f.section,
+      pageNumber: f.pageNumber,
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+    }));
+  }
+
+  async addFormField(
+    documentId: string,
+    clerkId: string,
+    dto: CreateDocumentFormFieldDto,
+  ): Promise<DocumentDto> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    this.assertCanEditFormFields(doc);
+
+    const existingIds = this.docFormFieldSnapshot(doc).map((f) => f.id);
+    const id = allocateFormFieldId(dto.label, existingIds);
+    const field = {
+      id,
+      label: dto.label.trim(),
+      type: dto.type ?? 'text',
+      section: dto.section?.trim() || `page_${dto.pageNumber}`,
+      pageNumber: dto.pageNumber,
+      x: dto.x,
+      y: dto.y,
+      width: dto.width ?? 20,
+      height: dto.height ?? 6,
+    };
+
+    if (!doc.formFields) doc.formFields = [] as never;
+    doc.formFields.push(field as never);
+    doc.markModified('formFields');
+    await doc.save();
+    return toDocumentDto(doc);
+  }
+
+  async updateFormField(
+    documentId: string,
+    clerkId: string,
+    fieldId: string,
+    dto: UpdateDocumentFormFieldDto,
+  ): Promise<DocumentDto> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    this.assertCanEditFormFields(doc);
+
+    const snapshot = this.docFormFieldSnapshot(doc);
+    if (
+      !isEditableDocumentFormField(
+        { formTemplateId: doc.formTemplateId, formFields: snapshot },
+        fieldId,
+      )
+    ) {
+      throw new NotFoundException('Form field not found or not editable');
+    }
+
+    const field = doc.formFields.find((f) => f.id === fieldId);
+    if (!field) throw new NotFoundException('Form field not found');
+
+    if (dto.label !== undefined) field.label = dto.label.trim();
+    if (dto.type !== undefined) field.type = dto.type;
+    if (dto.section !== undefined) field.section = dto.section.trim();
+    if (dto.pageNumber !== undefined) field.pageNumber = dto.pageNumber;
+    if (dto.x !== undefined) field.x = dto.x;
+    if (dto.y !== undefined) field.y = dto.y;
+    if (dto.width !== undefined) field.width = dto.width;
+    if (dto.height !== undefined) field.height = dto.height;
+
+    doc.markModified('formFields');
+    await doc.save();
+    return toDocumentDto(doc);
+  }
+
+  async deleteFormField(
+    documentId: string,
+    clerkId: string,
+    fieldId: string,
+  ): Promise<DocumentDto> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    this.assertCanEditFormFields(doc);
+
+    const snapshot = this.docFormFieldSnapshot(doc);
+    if (
+      !isEditableDocumentFormField(
+        { formTemplateId: doc.formTemplateId, formFields: snapshot },
+        fieldId,
+      )
+    ) {
+      throw new NotFoundException('Form field not found or not editable');
+    }
+
+    doc.formFields = doc.formFields.filter((f) => f.id !== fieldId) as never;
+    if (doc.formValues?.[fieldId]) {
+      const next = { ...doc.formValues };
+      delete next[fieldId];
+      doc.formValues = next;
+      doc.markModified('formValues');
+    }
+    doc.markModified('formFields');
+    await doc.save();
+    return toDocumentDto(doc);
   }
 
   async updateDocument(
@@ -319,6 +472,46 @@ export class DocumentsService {
     if (dto.description !== undefined) doc.description = dto.description;
     await doc.save();
     return toDocumentDto(doc);
+  }
+
+  async attachFormTemplate(
+    documentId: string,
+    clerkId: string,
+    dto: AttachFormTemplateDto,
+  ): Promise<DocumentDto> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    if (doc.status !== 'draft') {
+      throw new ForbiddenException('Form template can only be set in draft');
+    }
+    const templateId = dto.formTemplateId.trim();
+    if (!isKnownFormTemplateId(templateId)) {
+      throw new BadRequestException(`Unknown form template: ${templateId}`);
+    }
+
+    if (templateId === HAKNASOT_FORM_TEMPLATE_ID) {
+      const fields = getHaknasotFormFields();
+      if (!doc.fileKey) {
+        doc.formTemplateId = HAKNASOT_FORM_TEMPLATE_ID;
+        doc.formFields = [] as never;
+      } else {
+        doc.formFields = fields.map((f) => ({
+          id: f.id,
+          label: f.label,
+          type: f.type,
+          section: f.section,
+          pageNumber: f.pageNumber,
+          x: f.x,
+          y: f.y,
+          width: f.width,
+          height: f.height,
+        })) as never;
+        doc.markModified('formFields');
+      }
+      await doc.save();
+      return toDocumentDto(doc);
+    }
+
+    throw new BadRequestException(`Unsupported form template: ${templateId}`);
   }
 
   async updateFormValues(
@@ -412,6 +605,101 @@ export class DocumentsService {
       eventType: AuditEventType.DocumentViewed,
     });
     return toDocumentDto(doc, fileUrl ? { fileUrl } : undefined);
+  }
+
+  private toFormFieldTemplates(
+    doc: DocumentDocument,
+  ): PdfFormFieldTemplate[] {
+    return resolveDocumentFormFields({
+      formTemplateId: doc.formTemplateId,
+      formFields: doc.formFields?.map((f) => ({
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      })),
+    });
+  }
+
+  private async collectSignatureStamps(
+    doc: DocumentDocument,
+  ): Promise<SignatureStampInput[]> {
+    const signatureDocs = await this.signatureModel
+      .find({ documentId: doc._id })
+      .exec();
+    const stamps: SignatureStampInput[] = [];
+    for (const sig of signatureDocs) {
+      try {
+        const imageBytes = await this.storageService.downloadObject(sig.imageKey);
+        stamps.push({
+          pageNumber: sig.pageNumber,
+          x: sig.x,
+          y: sig.y,
+          width: sig.width,
+          height: sig.height,
+          imageBytes,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[documents] failed to load signature image for download',
+          sig.imageKey,
+          err,
+        );
+      }
+    }
+    return stamps;
+  }
+
+  /** Raw uploaded PDF bytes for in-browser preview (overlays drawn client-side). */
+  async getDocumentSourcePdf(
+    documentId: string,
+    clerkId: string,
+    email: string,
+  ): Promise<Buffer> {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    const isParticipant =
+      doc.ownerId === clerkId ||
+      doc.participantClerkIds.includes(clerkId) ||
+      doc.participantEmails.includes(email.toLowerCase());
+    if (!isParticipant) throw new ForbiddenException();
+    if (!doc.fileKey) {
+      throw new BadRequestException('Document has no uploaded PDF');
+    }
+    if (!(await this.storageService.objectExists(doc.fileKey))) {
+      throw new NotFoundException('Uploaded PDF file is missing from storage');
+    }
+    return this.storageService.downloadObject(doc.fileKey);
+  }
+
+  async renderDocumentPdf(
+    documentId: string,
+    clerkId: string,
+    email: string,
+  ): Promise<Buffer> {
+    const doc = await this.documentModel.findById(documentId).exec();
+    if (!doc) throw new NotFoundException('Document not found');
+    const isParticipant =
+      doc.ownerId === clerkId ||
+      doc.participantClerkIds.includes(clerkId) ||
+      doc.participantEmails.includes(email.toLowerCase());
+    if (!isParticipant) throw new ForbiddenException();
+
+    if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID && !doc.fileKey) {
+      return this.renderHaknasotDocument(documentId, clerkId, email);
+    }
+
+    if (doc.fileKey) {
+      return this.renderUploadedPdfComplete(doc);
+    }
+
+    throw new BadRequestException('Document has no renderable PDF');
   }
 
   async renderHaknasotDocument(
@@ -584,10 +872,26 @@ export class DocumentsService {
     }
 
     if (doc.fileKey) {
-      return this.storageService.downloadObject(doc.fileKey);
+      return this.renderUploadedPdfComplete(doc);
     }
 
     throw new BadRequestException('Document has no downloadable PDF');
+  }
+
+  /** Bake form values and signature overlays into an uploaded PDF. */
+  private async renderUploadedPdfComplete(
+    doc: DocumentDocument,
+  ): Promise<Buffer> {
+    const pdfBytes = await this.storageService.downloadObject(doc.fileKey!);
+    const fields = this.toFormFieldTemplates(doc);
+    const stamps = await this.collectSignatureStamps(doc);
+    if (fields.length === 0 && stamps.length === 0) return pdfBytes;
+    return renderFilledUploadedPdf(
+      pdfBytes,
+      fields,
+      doc.formValues ?? {},
+      stamps,
+    );
   }
 
   /**

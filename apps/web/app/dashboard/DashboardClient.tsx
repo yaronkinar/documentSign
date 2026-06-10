@@ -1,13 +1,17 @@
 'use client';
 
 import { useAuth } from '@clerk/nextjs';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, Eye, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { DocumentDto } from '@docflow/shared';
 
+import {
+  canPreviewDocumentPdf,
+  DashboardDocumentPreview,
+} from '@/components/dashboard/DashboardDocumentPreview';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -77,6 +81,7 @@ export function DashboardClient({
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<DocumentDto | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   useEffect(() => {
     setDocuments(initialDocuments);
@@ -179,6 +184,24 @@ export function DashboardClient({
     return documents;
   }, [documents, filter, myClerkId, myEmail]);
 
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setPreviewId(null);
+      return;
+    }
+    setPreviewId((current) => {
+      if (current && filtered.some((d) => d._id === current)) return current;
+      const firstPreviewable =
+        filtered.find((d) => canPreviewDocumentPdf(d)) ?? filtered[0];
+      return firstPreviewable._id;
+    });
+  }, [filtered]);
+
+  const previewDoc = useMemo(
+    () => filtered.find((d) => d._id === previewId) ?? null,
+    [filtered, previewId],
+  );
+
   const selectableIds = useMemo(() => filtered.map((d) => d._id), [filtered]);
   const allSelected =
     selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
@@ -237,99 +260,149 @@ export function DashboardClient({
         </div>
       )}
 
-      {filtered.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border py-12 text-center text-sm text-fg-muted">
-          {t('dashboard.noDocuments')}
-        </p>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
-          <div className="flex items-center gap-3 border-b border-border bg-surface-muted px-4 py-2">
-            <Checkbox
-              checked={allSelected}
-              disabled={selectableIds.length === 0}
-              onCheckedChange={toggleSelectAll}
-              aria-label={t('dashboard.selectAll')}
-            />
-            <span className="text-xs text-fg-muted">
-              {t('dashboard.selectAll')}
-            </span>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,42%)] lg:items-start">
+        {filtered.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border py-12 text-center text-sm text-fg-muted lg:col-span-2">
+            {t('dashboard.noDocuments')}
+          </p>
+        ) : (
+          <>
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
+              <div className="flex items-center gap-3 border-b border-border bg-surface-muted px-4 py-2">
+                <Checkbox
+                  checked={allSelected}
+                  disabled={selectableIds.length === 0}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label={t('dashboard.selectAll')}
+                />
+                <span className="text-xs text-fg-muted">
+                  {t('dashboard.selectAll')}
+                </span>
+              </div>
 
-          <ul className="divide-y divide-border">
-            {filtered.map((doc, index) => {
-              const isSelected = selectedIds.has(doc._id);
-              return (
-                <motion.li
-                  key={doc._id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.2,
-                    delay: Math.min(index * 0.025, 0.3),
-                    ease: 'easeOut',
-                  }}
-                >
-                  <div
-                    className={cn(
-                      'flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-muted',
-                      isSelected && 'bg-surface-muted',
-                    )}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleSelect(doc._id)}
-                      aria-label={`Select ${doc.title}`}
-                    />
-                    <Link
-                      href={`/documents/${doc._id}`}
-                      className="min-w-0 flex-1"
+              <ul className="divide-y divide-border">
+                {filtered.map((doc, index) => {
+                  const isBatchSelected = selectedIds.has(doc._id);
+                  const isPreviewActive = previewId === doc._id;
+                  return (
+                    <motion.li
+                      key={doc._id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.2,
+                        delay: Math.min(index * 0.025, 0.3),
+                        ease: 'easeOut',
+                      }}
                     >
-                      <div className="truncate font-medium text-fg">
-                        {doc.title}
-                      </div>
-                      <div className="text-xs text-fg-muted">
-                        {countSigners(doc)} {t('dashboard.signers')} ·{' '}
-                        {t('dashboard.updated')}{' '}
-                        {formatUpdatedAt(doc.updatedAt, dateLocale)}
-                      </div>
-                    </Link>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => downloadDocument(doc)}
-                        disabled={downloadBusyId === doc._id}
-                        aria-label={t('common.downloadPdf')}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (
+                            target.closest(
+                              'a, button, [role="checkbox"], input',
+                            )
+                          ) {
+                            return;
+                          }
+                          setPreviewId(doc._id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setPreviewId(doc._id);
+                          }
+                        }}
+                        className={cn(
+                          'flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-muted',
+                          isBatchSelected && 'bg-surface-muted/70',
+                          isPreviewActive &&
+                            'border-s-2 border-s-primary bg-surface-muted',
+                        )}
                       >
-                        <Download className="me-1.5 h-3.5 w-3.5" />
-                        {downloadBusyId === doc._id
-                          ? t('common.downloading')
-                          : t('common.downloadPdf')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmDelete(doc)}
-                        disabled={deleteBusyId === doc._id}
-                        aria-label={t('common.delete')}
-                        className="text-danger hover:bg-surface-muted hover:text-danger"
-                      >
-                        <Trash2 className="me-1.5 h-3.5 w-3.5" />
-                        {deleteBusyId === doc._id
-                          ? t('common.deleting')
-                          : t('common.delete')}
-                      </Button>
-                      <StatusBadge status={doc.status} />
-                    </div>
-                  </div>
-                </motion.li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+                        <Checkbox
+                          checked={isBatchSelected}
+                          onCheckedChange={() => toggleSelect(doc._id)}
+                          aria-label={`Select ${doc.title}`}
+                        />
+                        <Link
+                          href={`/documents/${doc._id}`}
+                          className="min-w-0 flex-1"
+                        >
+                          <div className="truncate font-medium text-fg">
+                            {doc.title}
+                          </div>
+                          <div className="text-xs text-fg-muted">
+                            {countSigners(doc)} {t('dashboard.signers')} ·{' '}
+                            {t('dashboard.updated')}{' '}
+                            {formatUpdatedAt(doc.updatedAt, dateLocale)}
+                          </div>
+                        </Link>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {canPreviewDocumentPdf(doc) && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={
+                                isPreviewActive ? 'secondary' : 'ghost'
+                              }
+                              onClick={() => setPreviewId(doc._id)}
+                              aria-label={t('dashboard.pdfPreview')}
+                              aria-pressed={isPreviewActive}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => downloadDocument(doc)}
+                            disabled={downloadBusyId === doc._id}
+                            aria-label={t('common.downloadPdf')}
+                          >
+                            <Download className="me-1.5 h-3.5 w-3.5" />
+                            {downloadBusyId === doc._id
+                              ? t('common.downloading')
+                              : t('common.downloadPdf')}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmDelete(doc)}
+                            disabled={deleteBusyId === doc._id}
+                            aria-label={t('common.delete')}
+                            className="text-danger hover:bg-surface-muted hover:text-danger"
+                          >
+                            <Trash2 className="me-1.5 h-3.5 w-3.5" />
+                            {deleteBusyId === doc._id
+                              ? t('common.deleting')
+                              : t('common.delete')}
+                          </Button>
+                          <StatusBadge status={doc.status} />
+                        </div>
+                      </div>
+                    </motion.li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className="min-h-[420px] lg:sticky lg:top-6 lg:h-[calc(100vh-8rem)]">
+              {previewDoc ? (
+                <DashboardDocumentPreview doc={previewDoc} />
+              ) : (
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border bg-surface px-6 py-12 text-center text-sm text-fg-muted">
+                  {t('dashboard.selectDocumentToPreview')}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
       <Dialog
         open={confirmDelete !== null}
         onOpenChange={(open) => !open && setConfirmDelete(null)}

@@ -88,6 +88,40 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
+async function requestFormData(
+  path: string,
+  formData: FormData,
+  opts: RequestOptions = {},
+): Promise<Response> {
+  const url = new URL(`${API_URL}${path}`);
+  if (opts.query) {
+    for (const [k, v] of Object.entries(opts.query)) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
+    }
+  }
+  const headers: Record<string, string> = {};
+  const token = SERVER_BYPASS_TOKEN ?? opts.token;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  try {
+    return await fetch(url.toString(), {
+      method: 'POST',
+      headers,
+      body: formData,
+      cache: 'no-store',
+    });
+  } catch (err) {
+    const hint =
+      err instanceof TypeError
+        ? ` Cannot reach the API at ${API_URL}. Is "npm run dev:api" running?`
+        : '';
+    throw new Error(
+      `Network error calling POST ${path}.${hint}`,
+      { cause: err },
+    );
+  }
+}
+
 export const apiClient = {
   get<T>(path: string, opts?: RequestOptions): Promise<T> {
     return request<T>('GET', path, undefined, opts);
@@ -100,6 +134,9 @@ export const apiClient = {
   },
   delete<T>(path: string, opts?: RequestOptions): Promise<T> {
     return request<T>('DELETE', path, undefined, opts);
+  },
+  postFormData(path: string, formData: FormData, opts?: RequestOptions) {
+    return requestFormData(path, formData, opts);
   },
 };
 
@@ -165,6 +202,11 @@ export function useApiClient() {
       },
       delete<T>(path: string) {
         return withToken<T>((token) => apiClient.delete<T>(path, { token }));
+      },
+      async postFormData(path: string, formData: FormData): Promise<Response> {
+        return withToken((token) =>
+          apiClient.postFormData(path, formData, { token }),
+        );
       },
     }),
     [withToken],

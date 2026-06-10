@@ -57,6 +57,18 @@ export interface PDFViewerProps {
   formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   activeFormFieldId?: string | null;
+  formFieldPlacementMode?: boolean;
+  formFieldEditMode?: boolean;
+  editableFormFieldIds?: string[];
+  onFormFieldPlace?: (page: number, xPct: number, yPct: number) => void;
+  onFormFieldMove?: (
+    fieldId: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => void;
+  onFormFieldResize?: (fieldId: string, width: number, height: number) => void;
+  onFormFieldSelect?: (fieldId: string) => void;
   // Template editing
   templateEditMode?: boolean;
   templateEditFields?: TemplateEditField[];
@@ -70,6 +82,50 @@ export interface PDFViewerProps {
 function computeScale(containerWidth: number, pageWidth: number) {
   const available = Math.max(containerWidth - 32, 100);
   return Math.min(1.5, Math.max(0.4, available / pageWidth));
+}
+
+interface PageDropTarget {
+  pageNumber: number;
+  x: number;
+  y: number;
+}
+
+/** Resolve which PDF page and % coords a point should drop onto. */
+function resolvePageDropTarget(
+  topLeftX: number,
+  topLeftY: number,
+  fieldWidth: number,
+  fieldHeight: number,
+  pageHintX = topLeftX,
+  pageHintY = topLeftY,
+): PageDropTarget | null {
+  const hit = document.elementFromPoint(pageHintX, pageHintY);
+  if (!hit) return null;
+
+  const pageEl = hit.closest('[data-page-number]') as HTMLElement | null;
+  if (!pageEl) return null;
+
+  const pageNumber = Number(pageEl.getAttribute('data-page-number'));
+  if (!Number.isFinite(pageNumber) || pageNumber < 1) return null;
+
+  const overlay = pageEl.querySelector(
+    '[data-pdf-page-overlay]',
+  ) as HTMLElement | null;
+  if (!overlay) return null;
+
+  const rect = overlay.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  const x = Math.max(
+    0,
+    Math.min(100 - fieldWidth, ((topLeftX - rect.left) / rect.width) * 100),
+  );
+  const y = Math.max(
+    0,
+    Math.min(100 - fieldHeight, ((topLeftY - rect.top) / rect.height) * 100),
+  );
+
+  return { pageNumber, x, y };
 }
 
 /**
@@ -187,6 +243,13 @@ export function PDFViewer(props: PDFViewerProps) {
               )}
               formValues={props.formValues}
               activeFormFieldId={props.activeFormFieldId}
+              formFieldPlacementMode={!!props.formFieldPlacementMode}
+              formFieldEditMode={!!props.formFieldEditMode}
+              editableFormFieldIds={props.editableFormFieldIds}
+              onFormFieldPlace={props.onFormFieldPlace}
+              onFormFieldMove={props.onFormFieldMove}
+              onFormFieldResize={props.onFormFieldResize}
+              onFormFieldSelect={props.onFormFieldSelect}
               templateEditMode={!!props.templateEditMode}
               templateEditFields={(props.templateEditFields ?? []).filter(
                 (f) => f.pageNumber === pageNumber,
@@ -229,6 +292,13 @@ function LazyPDFPage({
   formFields,
   formValues,
   activeFormFieldId,
+  formFieldPlacementMode,
+  formFieldEditMode,
+  editableFormFieldIds,
+  onFormFieldPlace,
+  onFormFieldMove,
+  onFormFieldResize,
+  onFormFieldSelect,
   templateEditMode,
   templateEditFields,
   selectedTemplateFieldId,
@@ -274,6 +344,18 @@ function LazyPDFPage({
   formFields?: PdfFormFieldTemplate[];
   formValues?: Record<string, string>;
   activeFormFieldId?: string | null;
+  formFieldPlacementMode: boolean;
+  formFieldEditMode: boolean;
+  editableFormFieldIds?: string[];
+  onFormFieldPlace?: (page: number, xPct: number, yPct: number) => void;
+  onFormFieldMove?: (
+    fieldId: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => void;
+  onFormFieldResize?: (fieldId: string, width: number, height: number) => void;
+  onFormFieldSelect?: (fieldId: string) => void;
   templateEditMode: boolean;
   templateEditFields: TemplateEditField[];
   selectedTemplateFieldId?: string | null;
@@ -371,8 +453,10 @@ function LazyPDFPage({
     };
   }, [pdf, pageNumber, scale, dimensions, eager, prefetch]);
 
+  const editableFormFieldSet = new Set(editableFormFieldIds ?? []);
+
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (templateEditMode || fieldPlacementMode) {
+    if (templateEditMode || fieldPlacementMode || formFieldPlacementMode) {
       if (justDraggedRef.current) {
         justDraggedRef.current = false;
         return;
@@ -386,11 +470,20 @@ function LazyPDFPage({
       onTemplateFieldAdd?.(pageNumber, xPct, yPct);
       return;
     }
-    if (!placementMode && !fieldPlacementMode && !commentMode) return;
+    if (
+      !placementMode &&
+      !fieldPlacementMode &&
+      !formFieldPlacementMode &&
+      !commentMode
+    ) {
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const xPct = ((e.clientX - rect.left) / rect.width) * 100;
     const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    if (fieldPlacementMode && onFieldPlace) {
+    if (formFieldPlacementMode && onFormFieldPlace) {
+      onFormFieldPlace(pageNumber, xPct, yPct);
+    } else if (fieldPlacementMode && onFieldPlace) {
       onFieldPlace(pageNumber, xPct, yPct);
     } else if (placementMode && onSignaturePlace) {
       onSignaturePlace(pageNumber, xPct, yPct);
@@ -540,6 +633,74 @@ function LazyPDFPage({
     const startWidth = field.width;
     const startHeight = field.height;
 
+    if (mode === 'move') {
+      const fieldRect = fieldEl.getBoundingClientRect();
+      const dragOffsetX = e.clientX - fieldRect.left;
+      const dragOffsetY = e.clientY - fieldRect.top;
+      const ghostWidth = fieldRect.width;
+      const ghostHeight = fieldRect.height;
+
+      fieldEl.style.position = 'fixed';
+      fieldEl.style.left = `${fieldRect.left}px`;
+      fieldEl.style.top = `${fieldRect.top}px`;
+      fieldEl.style.width = `${ghostWidth}px`;
+      fieldEl.style.height = `${ghostHeight}px`;
+      fieldEl.style.zIndex = '9999';
+      fieldEl.style.margin = '0';
+      fieldEl.style.pointerEvents = 'none';
+
+      function clearDragStyles() {
+        fieldEl.style.position = '';
+        fieldEl.style.left = '';
+        fieldEl.style.top = '';
+        fieldEl.style.width = '';
+        fieldEl.style.height = '';
+        fieldEl.style.zIndex = '';
+        fieldEl.style.margin = '';
+        fieldEl.style.pointerEvents = '';
+      }
+
+      function onMouseMove(ev: MouseEvent) {
+        fieldEl.style.left = `${ev.clientX - dragOffsetX}px`;
+        fieldEl.style.top = `${ev.clientY - dragOffsetY}px`;
+      }
+
+      function onMouseUp(ev: MouseEvent) {
+        const moved =
+          Math.abs(ev.clientX - startMouseX) > 3 ||
+          Math.abs(ev.clientY - startMouseY) > 3;
+
+        clearDragStyles();
+
+        if (moved) {
+          const topLeftX = ev.clientX - dragOffsetX;
+          const topLeftY = ev.clientY - dragOffsetY;
+          const drop = resolvePageDropTarget(
+            topLeftX,
+            topLeftY,
+            field.width,
+            field.height,
+            topLeftX + ghostWidth / 2,
+            topLeftY + ghostHeight / 2,
+          );
+          if (drop) {
+            justDraggedRef.current = true;
+            onFieldMove?.(field._id, drop.pageNumber, drop.x, drop.y);
+            setTimeout(() => {
+              justDraggedRef.current = false;
+            }, 50);
+          }
+        }
+
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      }
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      return;
+    }
+
     function onMouseMove(ev: MouseEvent) {
       const overlay = overlayRef.current;
       if (!overlay) return;
@@ -547,17 +708,10 @@ function LazyPDFPage({
       const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
       const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
 
-      if (mode === 'move') {
-        const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
-        const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
-        fieldEl.style.left = `${newX}%`;
-        fieldEl.style.top = `${newY}%`;
-      } else {
-        const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
-        const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
-        fieldEl.style.width = `${newW}%`;
-        fieldEl.style.height = `${newH}%`;
-      }
+      const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+      const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+      fieldEl.style.width = `${newW}%`;
+      fieldEl.style.height = `${newH}%`;
     }
 
     function onMouseUp(ev: MouseEvent) {
@@ -570,15 +724,136 @@ function LazyPDFPage({
 
         if (moved) {
           justDraggedRef.current = true;
-          if (mode === 'move') {
-            const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
-            const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
-            onFieldMove?.(field._id, pageNumber, newX, newY);
-          } else {
-            const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
-            const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
-            onFieldResize?.(field._id, newW, newH);
+          const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+          const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+          onFieldResize?.(field._id, newW, newH);
+          setTimeout(() => {
+            justDraggedRef.current = false;
+          }, 50);
+        }
+      }
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  function startFormFieldDrag(
+    e: React.MouseEvent,
+    field: PdfFormFieldTemplate,
+    mode: 'move' | 'resize',
+  ) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const fieldEl = (e.currentTarget as HTMLElement).closest(
+      '[data-ffield]',
+    ) as HTMLElement;
+    if (!fieldEl) return;
+
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startFieldX = field.x;
+    const startFieldY = field.y;
+    const startWidth = field.width;
+    const startHeight = field.height;
+
+    if (mode === 'move') {
+      const fieldRect = fieldEl.getBoundingClientRect();
+      const dragOffsetX = e.clientX - fieldRect.left;
+      const dragOffsetY = e.clientY - fieldRect.top;
+      const ghostWidth = fieldRect.width;
+      const ghostHeight = fieldRect.height;
+
+      fieldEl.style.position = 'fixed';
+      fieldEl.style.left = `${fieldRect.left}px`;
+      fieldEl.style.top = `${fieldRect.top}px`;
+      fieldEl.style.width = `${ghostWidth}px`;
+      fieldEl.style.height = `${ghostHeight}px`;
+      fieldEl.style.zIndex = '9999';
+      fieldEl.style.margin = '0';
+      fieldEl.style.pointerEvents = 'none';
+
+      function clearDragStyles() {
+        fieldEl.style.position = '';
+        fieldEl.style.left = '';
+        fieldEl.style.top = '';
+        fieldEl.style.width = '';
+        fieldEl.style.height = '';
+        fieldEl.style.zIndex = '';
+        fieldEl.style.margin = '';
+        fieldEl.style.pointerEvents = '';
+      }
+
+      function onMouseMove(ev: MouseEvent) {
+        fieldEl.style.left = `${ev.clientX - dragOffsetX}px`;
+        fieldEl.style.top = `${ev.clientY - dragOffsetY}px`;
+      }
+
+      function onMouseUp(ev: MouseEvent) {
+        const moved =
+          Math.abs(ev.clientX - startMouseX) > 3 ||
+          Math.abs(ev.clientY - startMouseY) > 3;
+
+        clearDragStyles();
+
+        if (moved) {
+          const topLeftX = ev.clientX - dragOffsetX;
+          const topLeftY = ev.clientY - dragOffsetY;
+          const drop = resolvePageDropTarget(
+            topLeftX,
+            topLeftY,
+            field.width,
+            field.height,
+            topLeftX + ghostWidth / 2,
+            topLeftY + ghostHeight / 2,
+          );
+          if (drop) {
+            justDraggedRef.current = true;
+            onFormFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);
+            setTimeout(() => {
+              justDraggedRef.current = false;
+            }, 50);
           }
+        }
+
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      }
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      return;
+    }
+
+    function onMouseMove(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const rect = overlay.getBoundingClientRect();
+      const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+      const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+
+      const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+      const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+      fieldEl.style.width = `${newW}%`;
+      fieldEl.style.height = `${newH}%`;
+    }
+
+    function onMouseUp(ev: MouseEvent) {
+      const overlay = overlayRef.current;
+      if (overlay) {
+        const rect = overlay.getBoundingClientRect();
+        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+        const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
+
+        if (moved) {
+          justDraggedRef.current = true;
+          const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+          const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+          onFormFieldResize?.(field.id, newW, newH);
           setTimeout(() => {
             justDraggedRef.current = false;
           }, 50);
@@ -596,14 +871,18 @@ function LazyPDFPage({
     !!onSignerTag &&
     !placementMode &&
     !fieldPlacementMode &&
+    !formFieldPlacementMode &&
     !commentMode &&
     !fieldEditMode &&
+    !formFieldEditMode &&
     !templateEditMode;
 
   const overlayInteractive =
     templateEditMode ||
     placementMode ||
     fieldPlacementMode ||
+    formFieldPlacementMode ||
+    formFieldEditMode ||
     commentMode ||
     signerTagEnabled ||
     signatureFields.some(
@@ -647,63 +926,21 @@ function LazyPDFPage({
       {rendered && (
         <div
           ref={overlayRef}
+          data-pdf-page-overlay
           onClick={handleClick}
           className="absolute inset-0"
           style={{
             cursor: templateEditMode
               ? (onTemplateFieldAdd ? 'crosshair' : 'default')
-              : placementMode || fieldPlacementMode || commentMode
+              : placementMode ||
+                  fieldPlacementMode ||
+                  formFieldPlacementMode ||
+                  commentMode
                 ? 'crosshair'
                 : 'default',
             pointerEvents: overlayInteractive ? 'auto' : 'none',
           }}
         >
-          {formFields?.map((field) => {
-            const value = formValues?.[field.id]?.trim();
-            const highlighted = activeFormFieldId === field.id;
-            return (
-              <div
-                key={field.id}
-                title={field.label}
-                style={{
-                  position: 'absolute',
-                  left: `${field.x}%`,
-                  top: `${field.y}%`,
-                  width: `${field.width}%`,
-                  minHeight: `${field.height}%`,
-                  border: highlighted
-                    ? '1px solid #2563eb'
-                    : value
-                      ? '1px solid transparent'
-                      : '1px dashed rgba(37, 99, 235, 0.35)',
-                  background: value ? '#fff' : 'rgba(37, 99, 235, 0.04)',
-                  borderRadius: 2,
-                  pointerEvents: 'none',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0 2px',
-                }}
-              >
-                {value && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      lineHeight: 1.1,
-                      color: '#111',
-                      direction: 'rtl',
-                      textAlign: 'right',
-                      width: '100%',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {value}
-                  </span>
-                )}
-              </div>
-            );
-          })}
           {comments
             .filter(
               (comment) =>
@@ -824,6 +1061,7 @@ function LazyPDFPage({
                     ...boxStyle,
                     cursor: 'move',
                     pointerEvents: 'auto',
+                    zIndex: 15,
                   }}
                 >
                   {labelEl}
@@ -882,6 +1120,121 @@ function LazyPDFPage({
               >
                 {labelEl}
               </button>
+            );
+          })}
+          {formFields?.map((field) => {
+            const value = formValues?.[field.id]?.trim();
+            const highlighted = activeFormFieldId === field.id;
+            const editable =
+              formFieldEditMode &&
+              !formFieldPlacementMode &&
+              editableFormFieldSet.has(field.id);
+            const draggable =
+              editable && !!(onFormFieldMove || onFormFieldResize);
+            return (
+              <div
+                key={field.id}
+                data-ffield={field.id}
+                title={
+                  draggable
+                    ? `${field.label} – ${t('document.dragToMoveField')}`
+                    : field.label
+                }
+                onMouseDown={
+                  draggable
+                    ? (e) => {
+                        onFormFieldSelect?.(field.id);
+                        startFormFieldDrag(e, field, 'move');
+                      }
+                    : undefined
+                }
+                style={{
+                  position: 'absolute',
+                  left: `${field.x}%`,
+                  top: `${field.y}%`,
+                  width: `${field.width}%`,
+                  minHeight: `${field.height}%`,
+                  border: highlighted
+                    ? '2px solid #2563eb'
+                    : draggable
+                      ? '2px dashed #2563eb'
+                      : value
+                        ? '1px solid transparent'
+                        : '1px dashed rgba(37, 99, 235, 0.35)',
+                  background: value
+                    ? '#fff'
+                    : draggable
+                      ? 'rgba(37, 99, 235, 0.08)'
+                      : 'rgba(37, 99, 235, 0.04)',
+                  borderRadius: 4,
+                  boxSizing: 'border-box',
+                  pointerEvents: draggable ? 'auto' : 'none',
+                  overflow: 'visible',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 2px',
+                  cursor: draggable ? 'move' : undefined,
+                  userSelect: 'none',
+                  zIndex: draggable ? 25 : 5,
+                }}
+              >
+                {draggable && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: -18,
+                      left: 0,
+                      fontSize: 10,
+                      lineHeight: 1,
+                      color: '#1d4ed8',
+                      whiteSpace: 'nowrap',
+                      pointerEvents: 'none',
+                      background: 'rgba(255,255,255,0.9)',
+                      padding: '1px 3px',
+                      borderRadius: 2,
+                    }}
+                  >
+                    {field.label}
+                  </span>
+                )}
+                {value && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      lineHeight: 1.1,
+                      color: '#111',
+                      direction: 'rtl',
+                      textAlign: 'right',
+                      width: '100%',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {value}
+                  </span>
+                )}
+                {draggable && onFormFieldResize && (
+                  <div
+                    role="presentation"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      startFormFieldDrag(e, field, 'resize');
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      bottom: 0,
+                      width: 10,
+                      height: 10,
+                      cursor: 'se-resize',
+                      background: '#2563eb',
+                      borderRadius: '2px 0 2px 0',
+                    }}
+                  />
+                )}
+              </div>
             );
           })}
           {signatures.map((s) =>

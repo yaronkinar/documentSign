@@ -1,7 +1,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ libreoffice
 
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
@@ -19,7 +19,7 @@ RUN npm run build:shared && npm run generate:haknasot-pdf && npm run build:api
 FROM node:22-alpine
 WORKDIR /app
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ libreoffice
 
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/

@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-10">
+    <main className="mx-auto w-full max-w-7xl px-6 py-10">
       <DashboardClient
         documents={documents}
         myClerkId={userId}

@@ -58,14 +58,35 @@ export function buildPdfFormFieldsFromExtracted(
   });
 }
 
+export function allocateFormFieldId(
+  label: string,
+  existingIds: Iterable<string>,
+): string {
+  return slugifyFieldId(label, new Set(existingIds));
+}
+
 export function resolveDocumentFormFields(doc: {
   formTemplateId?: string | null;
   formFields?: PdfFormFieldTemplate[] | null;
 }): PdfFormFieldTemplate[] {
+  const custom = doc.formFields ?? [];
   if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
-    return getHaknasotFormFields();
+    const base = getHaknasotFormFields();
+    const baseIds = new Set(base.map((f) => f.id));
+    return [...base, ...custom.filter((f) => !baseIds.has(f.id))];
   }
-  return doc.formFields ?? [];
+  return custom;
+}
+
+/** True when the field is stored on the document (user-added or extracted), not built-in template-only. */
+export function isEditableDocumentFormField(
+  doc: {
+    formTemplateId?: string | null;
+    formFields?: PdfFormFieldTemplate[] | null;
+  },
+  fieldId: string,
+): boolean {
+  return (doc.formFields ?? []).some((f) => f.id === fieldId);
 }
 
 export function allowedDocumentFormFieldIds(doc: {

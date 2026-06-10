@@ -16,11 +16,23 @@ import {
   WorkflowStepEditor,
   stepTypeLabel,
   type SignerInput,
+  type SignerRolesSource,
   type WorkflowStepInput,
 } from '@/components/documents/WorkflowStepEditor';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
+import { PdfLoadingSkeleton } from '@/components/pdf/PdfLoadingSkeleton';
 import { useUser } from '@clerk/nextjs';
 import { useApiClient } from '@/lib/api-client';
+import {
+  convertWordToPdf,
+  pdfFileFromBlob,
+} from '@/lib/convert-word-to-pdf';
+import {
+  DOCUMENT_UPLOAD_ACCEPT,
+  isSupportedDocumentUpload,
+  isWordFile,
+  titleFromUploadFile,
+} from '@/lib/document-upload';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { downloadHaknasotPdf } from '@/lib/generate-haknasot-pdf';
 import { getPdfPageCount } from '@/lib/pdf-page-count';
@@ -29,6 +41,7 @@ import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 
 type Step = 'start' | 'form' | 'details' | 'workflow' | 'review';
 type DocSource = 'template' | 'upload' | 'saved_pdf';
+type UploadPhase = 'idle' | 'converting' | 'uploading' | 'processing';
 
 export function NewDocumentClient() {
   const router = useRouter();
@@ -41,6 +54,7 @@ export function NewDocumentClient() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>('idle');
   const [steps, setSteps] = useState<WorkflowStepInput[]>([]);
   const [summarizing, setSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -50,6 +64,9 @@ export function NewDocumentClient() {
   const [docSource, setDocSource] = useState<DocSource | null>(null);
   const [extractingSigners, setExtractingSigners] = useState(false);
   const [extractingFormFields, setExtractingFormFields] = useState(false);
+  const [signerRolesSource, setSignerRolesSource] =
+    useState<SignerRolesSource>('manual');
+  const [templateRoleNames, setTemplateRoleNames] = useState<string[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<PdfTemplateDto[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(
@@ -123,6 +140,8 @@ export function NewDocumentClient() {
       setDocumentId(doc._id);
       setTitle(doc.title);
       setDocSource('template');
+      setSignerRolesSource('template');
+      setTemplateRoleNames([...MUNICIPAL_APPROVAL_SIGNER_TITLES]);
       setActiveTemplateId(HAKNASOT_FORM_TEMPLATE_ID);
       const fields = resolveFormTemplateFields(doc.formTemplateId);
       setFormFields(fields);
@@ -135,52 +154,51 @@ export function NewDocumentClient() {
     }
   }
 
-  function titleFromPdfFile(file: File): string {
-    const base = file.name.replace(/\.pdf$/i, '').trim();
-    return base || HEBREW_SAMPLE_DEFAULT_TITLE;
-  }
-
-  function isPdfFile(file: File): boolean {
-    return (
-      file.type === 'application/pdf' ||
-      file.name.toLowerCase().endsWith('.pdf')
-    );
-  }
-
   async function startUploadedDocument(file: File) {
-    if (!isPdfFile(file)) {
-      setError(t('newDocument.pdfOnly'));
+    if (!isSupportedDocumentUpload(file)) {
+      setError(t('newDocument.unsupportedFile'));
       return;
     }
     setError(null);
     setBusy(true);
+    setUploadPhase(isWordFile(file) ? 'converting' : 'uploading');
     setSummaryError(null);
     setDescription('');
     setDocSource('upload');
     setActiveTemplateId(null);
+    setSignerRolesSource('manual');
+    setTemplateRoleNames([]);
     setFormFields([]);
     setFormValues({});
     setUploadPdfUrl(null);
-    const docTitle = titleFromPdfFile(file);
+    const docTitle = titleFromUploadFile(file, HEBREW_SAMPLE_DEFAULT_TITLE);
     setTitle(docTitle);
     try {
+      let pdfFile = file;
+      if (isWordFile(file)) {
+        const pdfBlob = await convertWordToPdf(file, api.postFormData);
+        pdfFile = pdfFileFromBlob(pdfBlob, file.name);
+        setUploadPhase('uploading');
+      }
+
       const { uploadUrl, documentId: newId } = await api.post<{
         uploadUrl: string;
         documentId: string;
       }>('/documents', { title: docTitle });
 
-      const pageCount = await getPdfPageCount(file);
+      const pageCount = await getPdfPageCount(pdfFile);
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
-        body: file,
+        body: pdfFile,
         headers: { 'Content-Type': 'application/pdf' },
       });
       if (!uploadRes.ok) {
         throw new Error(t('newDocument.uploadFailed'));
       }
 
+      setUploadPhase('processing');
       const confirmed = await api.post<DocumentDto>(`/documents/${newId}/confirm`, {
-        fileSize: file.size,
+        fileSize: pdfFile.size,
         pageCount,
       });
       setDocumentId(confirmed._id);
@@ -203,6 +221,8 @@ export function NewDocumentClient() {
         extractedFields = formResult.fields;
         if (docWithUrl.fileUrl) setUploadPdfUrl(docWithUrl.fileUrl);
         if (signers.length > 0) {
+          setSignerRolesSource('file');
+          setTemplateRoleNames(signers);
           setSteps([
             {
               label: t('newDocument.signaturesStepLabel'),
@@ -211,6 +231,8 @@ export function NewDocumentClient() {
             },
           ]);
         } else {
+          setSignerRolesSource('manual');
+          setTemplateRoleNames([]);
           setSteps([
             {
               label: t('newDocument.stepLabel', { n: 1 }),
@@ -220,6 +242,8 @@ export function NewDocumentClient() {
           ]);
         }
       } catch {
+        setSignerRolesSource('manual');
+        setTemplateRoleNames([]);
         setSteps([
           {
             label: t('newDocument.stepLabel', { n: 1 }),
@@ -234,16 +258,15 @@ export function NewDocumentClient() {
 
       if (extractedFields.length > 0) {
         setFormFields(extractedFields);
-        setStep('form');
-      } else {
-        setStep('details');
-        void requestSummarize(newId);
       }
+      setStep('details');
+      void requestSummarize(newId);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newDocument.uploadFailed'));
       setDocSource(null);
     } finally {
       setBusy(false);
+      setUploadPhase('idle');
     }
   }
 
@@ -271,6 +294,8 @@ export function NewDocumentClient() {
     setSummaryError(null);
     setDescription('');
     setDocSource('saved_pdf');
+    setSignerRolesSource('template');
+    setTemplateRoleNames(signerNamesFromTemplateFields(template));
     setActiveTemplateId(template._id);
     setFormFields([]);
     setFormValues({});
@@ -286,15 +311,27 @@ export function NewDocumentClient() {
       if (doc.fileUrl) setUploadPdfUrl(doc.fileUrl);
 
       let signers = signerNamesFromTemplateFields(template);
-      if (signers.length === 0) {
+      if (signers.length > 0) {
+        setSignerRolesSource('template');
+        setTemplateRoleNames(signers);
+      } else {
         setExtractingSigners(true);
         try {
           const { signers: extracted } = await api.post<{ signers: string[] }>(
             `/documents/${doc._id}/extract-signers`,
           );
           signers = extracted;
+          if (extracted.length > 0) {
+            setSignerRolesSource('file');
+            setTemplateRoleNames(extracted);
+          } else {
+            setSignerRolesSource('manual');
+            setTemplateRoleNames([]);
+          }
         } catch {
           signers = [];
+          setSignerRolesSource('manual');
+          setTemplateRoleNames([]);
         } finally {
           setExtractingSigners(false);
         }
@@ -369,7 +406,7 @@ export function NewDocumentClient() {
         const fallbackRoles =
           activeTemplateId === HAKNASOT_FORM_TEMPLATE_ID
             ? [...MUNICIPAL_APPROVAL_SIGNER_TITLES]
-            : [];
+            : templateRoleNames;
         const hydrated = await hydrateWorkflowStepsFromProfiles(
           api,
           activeTemplateId,
@@ -377,6 +414,19 @@ export function NewDocumentClient() {
           fallbackRoles,
         );
         setSteps(hydrated);
+        const rolesFromStep = hydrated.flatMap((step) =>
+          step.signers
+            .map((signer) => signer.name?.trim())
+            .filter((name): name is string => !!name),
+        );
+        if (rolesFromStep.length > 0) {
+          setTemplateRoleNames(rolesFromStep);
+        } else if (fallbackRoles.length > 0) {
+          setTemplateRoleNames(fallbackRoles);
+        }
+        if (signerRolesSource !== 'file') {
+          setSignerRolesSource('template');
+        }
       }
       setStep('workflow');
     } catch (err) {
@@ -466,11 +516,7 @@ export function NewDocumentClient() {
       <ProgressIndicator
         current={step}
         docSource={docSource}
-        includeFormStep={
-          docSource === 'template' ||
-          ((docSource === 'upload' || docSource === 'saved_pdf') &&
-            formFields.length > 0)
-        }
+        includeFormStep={docSource === 'template'}
       />
       {error && (
         <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
@@ -485,6 +531,7 @@ export function NewDocumentClient() {
           onUploadPdf={startUploadedDocument}
           onSelectSavedTemplate={startFromSavedTemplate}
           busy={busy || extractingSigners || extractingFormFields}
+          uploadPhase={uploadPhase}
         />
       )}
 
@@ -507,23 +554,6 @@ export function NewDocumentClient() {
         />
       )}
 
-      {step === 'form' &&
-        docSource === 'upload' &&
-        formFields.length > 0 &&
-        uploadPdfUrl && (
-          <FormFillStep
-            pdfUrl={uploadPdfUrl}
-            fields={formFields}
-            values={formValues}
-            busy={busy}
-            onNext={handleFormNext}
-            onSkip={() => {
-              setStep('details');
-              if (documentId) void requestSummarize(documentId);
-            }}
-          />
-        )}
-
       {step === 'details' && (
         <DetailsStep
           title={title}
@@ -532,7 +562,7 @@ export function NewDocumentClient() {
           onDescription={setDescription}
           onNext={handleDetailsNext}
           onBack={() => {
-            if (docSource === 'template' || formFields.length > 0) {
+            if (docSource === 'template') {
               setStep('form');
             } else {
               setStep('start');
@@ -549,6 +579,8 @@ export function NewDocumentClient() {
           steps={steps}
           currentUserEmail={currentUserEmail}
           currentUserName={currentUserName}
+          signerRolesSource={signerRolesSource}
+          templateRoleNames={templateRoleNames}
           onAddStep={addStep}
           onUpdateStep={updateStep}
           onRemoveStep={removeStep}
@@ -619,12 +651,14 @@ function StartStep({
   onUploadPdf,
   onSelectSavedTemplate,
   busy,
+  uploadPhase,
 }: {
   savedTemplates: PdfTemplateDto[];
   onStart: () => void;
   onUploadPdf: (file: File) => void;
   onSelectSavedTemplate: (template: PdfTemplateDto) => void;
   busy: boolean;
+  uploadPhase: UploadPhase;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -681,42 +715,68 @@ function StartStep({
     onUploadPdf(file);
   }
 
+  const uploadStatusMessage =
+    uploadPhase === 'converting'
+      ? t('newDocument.convertingToPdf')
+      : uploadPhase === 'uploading'
+        ? t('newDocument.uploadingDocument')
+        : uploadPhase === 'processing'
+          ? t('newDocument.processingDocument')
+          : null;
+
+  const showUploadSkeleton = uploadPhase !== 'idle';
+
   return (
     <div className="space-y-8">
       <section className="space-y-3">
         <h2 className="text-lg font-medium">{t('newDocument.uploadYourPdf')}</h2>
-        <div
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') fileInputEl.current?.click();
-          }}
-          onClick={() => !busy && fileInputEl.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            handleFile(e.dataTransfer.files[0]);
-          }}
-          className={`flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors ${
-            dragOver
-              ? 'border-black bg-gray-50'
-              : 'border-gray-300 bg-white hover:border-gray-400'
-          } ${busy ? 'pointer-events-none opacity-50' : ''}`}
-        >
-          <p className="text-sm text-gray-600">{t('newDocument.dropPdf')}</p>
-          <p className="mt-2 text-xs text-gray-400">
-            {busy ? t('common.uploading') : 'PDF'}
-          </p>
-        </div>
+        {showUploadSkeleton ? (
+          <div
+            className="rounded-lg border border-gray-200 bg-gray-50 px-6 py-8"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <PdfLoadingSkeleton />
+            {uploadStatusMessage && (
+              <p className="mt-4 text-center text-sm text-gray-600">
+                {uploadStatusMessage}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') fileInputEl.current?.click();
+            }}
+            onClick={() => !busy && fileInputEl.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              handleFile(e.dataTransfer.files[0]);
+            }}
+            className={`flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors ${
+              dragOver
+                ? 'border-black bg-gray-50'
+                : 'border-gray-300 bg-white hover:border-gray-400'
+            } ${busy ? 'pointer-events-none opacity-50' : ''}`}
+          >
+            <p className="text-sm text-gray-600">{t('newDocument.dropPdf')}</p>
+            <p className="mt-2 text-xs text-gray-400">
+              {t('newDocument.supportedFormats')}
+            </p>
+          </div>
+        )}
         <input
           ref={bindFileInput}
           type="file"
-          accept="application/pdf,.pdf"
+          accept={DOCUMENT_UPLOAD_ACCEPT}
           className="sr-only"
         />
       </section>

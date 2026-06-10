@@ -196,6 +196,8 @@ export interface DocumentDto {
   updatedAt: string;
   // Optional fields populated by specific endpoints:
   fileUrl?: string;
+  /** True when the document has an uploaded PDF in storage (viewer uses source.pdf). */
+  hasPdfFile?: boolean;
 }
 
 export interface SavedSignatureDto {
@@ -384,6 +386,13 @@ export {
   getHaknasotFormFields,
 } from './haknasot-form.js';
 
+export {
+  FORM_TEMPLATE_CATALOG,
+  getFormTemplateCatalogEntry,
+  isKnownFormTemplateId,
+  type FormTemplateCatalogEntry,
+} from './form-template-catalog.js';
+
 export { HAKNASOT_SAMPLE_FORM_VALUES } from './haknasot-sample-values.js';
 
 export function resolveFormTemplateFields(
@@ -396,7 +405,9 @@ export function resolveFormTemplateFields(
 }
 
 export {
+  allocateFormFieldId,
   buildPdfFormFieldsFromExtracted,
   resolveDocumentFormFields,
   allowedDocumentFormFieldIds,
+  isEditableDocumentFormField,
 } from './document-form-fields.js';

@@ -6,20 +6,14 @@ import { useAuth } from '@clerk/nextjs';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 /**
- * Fetches a server-flattened PDF (e.g. /documents/:id/rendered.pdf) with the
- * Clerk bearer token, wraps it in an object URL, and returns it for pdf.js.
- * The URL is revoked on cleanup.
- *
- * Set `cacheKey` to a value that changes when the rendering inputs change
- * (formValues, signature count, etc.) to force a refetch.
+ * Fetches the raw uploaded PDF (/documents/:id/source.pdf) with auth and
+ * exposes a blob URL for pdf.js. Avoids CORS issues with presigned storage URLs.
  */
-export function useRenderedPdfUrl(
-  documentId: string | null,
-  cacheKey: string,
-) {
+export function useDocumentPdfUrl(documentId: string | null) {
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+
   const bypassToken =
     process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
       ? (process.env.NEXT_PUBLIC_BYPASS_TOKEN ?? null)
@@ -30,11 +24,15 @@ export function useRenderedPdfUrl(
 
   useEffect(() => {
     if (!documentId) {
-      setPdfUrl(null);
+      setPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setError(null);
+      setLoading(false);
       return;
     }
 
-    let objectUrl: string | null = null;
     let cancelled = false;
 
     async function load() {
@@ -43,27 +41,24 @@ export function useRenderedPdfUrl(
       try {
         const token = bypassToken ?? (await getTokenRef.current());
         if (!token) throw new Error('Not authenticated');
-        const res = await fetch(
-          `${API_URL}/documents/${documentId}/rendered.pdf`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store',
-          },
-        );
+        const res = await fetch(`${API_URL}/documents/${documentId}/source.pdf`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
         if (!res.ok) {
-          throw new Error(`Rendered PDF unavailable (${res.status})`);
+          throw new Error(`PDF unavailable (${res.status})`);
         }
         const blob = await res.blob();
+        if (blob.size === 0) throw new Error('PDF file is empty');
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
+        const objectUrl = URL.createObjectURL(blob);
         setPdfUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return objectUrl;
         });
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to render PDF');
-          setPdfUrl(null);
+          setError(err instanceof Error ? err.message : 'Failed to load PDF');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -74,13 +69,18 @@ export function useRenderedPdfUrl(
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [documentId, bypassToken]);
+
+  // Revoke blob when switching documents or unmounting (not on every re-render).
+  useEffect(() => {
+    return () => {
       setPdfUrl((prev) => {
-        if (prev && prev !== objectUrl) URL.revokeObjectURL(prev);
+        if (prev) URL.revokeObjectURL(prev);
         return null;
       });
     };
-  }, [documentId, cacheKey, bypassToken]);
+  }, [documentId]);
 
   return { pdfUrl, loading, error };
 }

@@ -43,7 +43,10 @@ export class StorageController {
     }
     const key = verifyStorageToken(token, 'download');
     const data = await this.local.downloadObject(key);
-    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader(
+      'Content-Type',
+      key.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream',
+    );
     res.setHeader('Cache-Control', 'private, max-age=60');
     res.send(data);
   }

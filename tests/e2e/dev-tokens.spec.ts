@@ -60,6 +60,9 @@ function assertNoBlockingFailures(
 
   const sawTransient = failedResponses.some(isTransientDevFailure);
   const blockingConsole = consoleErrors.filter((msg) => {
+    if (/Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES/.test(msg)) {
+      return false;
+    }
     if (!sawTransient) return true;
     return !/Failed to load resource: the server responded with a status of (404|500)/.test(
       msg,

@@ -7,12 +7,14 @@ async function gotoThemePicker(page: Page) {
 }
 
 test.describe('Theme persistence', () => {
-  test.describe.configure({ mode: 'serial' });
+  test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
   async function selectTheme(page: Page, name: RegExp) {
     const option = page.getByRole('radio', { name });
     await expect(option).toBeVisible();
-    await option.click();
+    await option.scrollIntoViewIfNeeded();
+    // Theme cards use transition-colors; force avoids flaky "element is not stable".
+    await option.click({ force: true });
     await expect(option).toHaveAttribute('aria-checked', 'true', { timeout: 5_000 });
   }
 

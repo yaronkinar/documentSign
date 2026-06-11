@@ -2,15 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DocumentDto, PdfTemplateDto } from '@docflow/shared';
+import type { DocumentDto, PdfFormFieldType, PdfTemplateDto } from '@docflow/shared';
 import {
   HAKNASOT_FORM_TEMPLATE_ID,
   HAKNASOT_SAMPLE_FORM_VALUES,
   HEBREW_SAMPLE_DEFAULT_TITLE,
   MUNICIPAL_APPROVAL_SIGNER_TITLES,
+  resolveDocumentFormFields,
   resolveFormTemplateFields,
 } from '@docflow/shared';
 
+import { DocumentFormFieldsEditor } from '@/components/documents/DocumentFormFieldsEditor';
 import { DocumentFormFillPanel } from '@/components/documents/DocumentFormFillPanel';
 import {
   WorkflowStepEditor,
@@ -37,9 +39,17 @@ import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { downloadHaknasotPdf } from '@/lib/generate-haknasot-pdf';
 import { getPdfPageCount } from '@/lib/pdf-page-count';
 import { hydrateWorkflowStepsFromProfiles } from '@/lib/signer-profile-workflow';
+import { useDocumentPdfUrl } from '@/lib/use-document-pdf-url';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 
-type Step = 'start' | 'form' | 'details' | 'workflow' | 'review';
+type Step =
+  | 'start'
+  | 'form'
+  | 'form-setup'
+  | 'form-fill'
+  | 'details'
+  | 'workflow'
+  | 'review';
 type DocSource = 'template' | 'upload' | 'saved_pdf';
 type UploadPhase = 'idle' | 'converting' | 'uploading' | 'processing';
 
@@ -50,6 +60,7 @@ export function NewDocumentClient() {
   const { user: clerkUser } = useUser();
   const [step, setStep] = useState<Step>('start');
   const [documentId, setDocumentId] = useState<string | null>(null);
+  const [doc, setDoc] = useState<DocumentDto | null>(null);
   const [title, setTitle] = useState(HEBREW_SAMPLE_DEFAULT_TITLE);
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +86,11 @@ export function NewDocumentClient() {
   const [currentUserName, setCurrentUserName] = useState(
     () => clerkUser?.fullName ?? '',
   );
+  const [formFieldPlacementMode, setFormFieldPlacementMode] = useState(false);
+  const [activeFormFieldId, setActiveFormFieldId] = useState<string | null>(null);
+  const [attachFormBusy, setAttachFormBusy] = useState(false);
+
+  const uploadDocPdf = useDocumentPdfUrl(docSource === 'upload' ? documentId : null);
 
   useEffect(() => {
     const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress;
@@ -206,7 +222,7 @@ export function NewDocumentClient() {
 
       setExtractingSigners(true);
       setExtractingFormFields(true);
-      let extractedFields: ReturnType<typeof resolveFormTemplateFields> = [];
+      let latestDoc = confirmed;
       try {
         const [signersResult, formResult, docWithUrl] = await Promise.all([
           api.post<{ signers: string[] }>(`/documents/${newId}/extract-signers`),
@@ -218,7 +234,7 @@ export function NewDocumentClient() {
           api.get<DocumentDto>(`/documents/${newId}`),
         ]);
         const { signers } = signersResult;
-        extractedFields = formResult.fields;
+        latestDoc = docWithUrl;
         if (docWithUrl.fileUrl) setUploadPdfUrl(docWithUrl.fileUrl);
         if (signers.length > 0) {
           setSignerRolesSource('file');
@@ -256,11 +272,12 @@ export function NewDocumentClient() {
         setExtractingFormFields(false);
       }
 
-      if (extractedFields.length > 0) {
-        setFormFields(extractedFields);
+      setDoc(latestDoc);
+      const resolvedFields = resolveDocumentFormFields(latestDoc);
+      if (resolvedFields.length > 0) {
+        setFormFields(resolvedFields);
       }
-      setStep('details');
-      void requestSummarize(newId);
+      setStep('form-setup');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newDocument.uploadFailed'));
       setDocSource(null);
@@ -390,9 +407,174 @@ export function NewDocumentClient() {
 
   async function handleFormNext(values: Record<string, string>) {
     await handleFormSave(values);
+    goToDetails();
+  }
+
+  function syncDoc(fresh: DocumentDto) {
+    setDoc(fresh);
+    setFormFields(resolveDocumentFormFields(fresh));
+    setFormValues(fresh.formValues ?? {});
+  }
+
+  function goToDetails() {
+    setFormFieldPlacementMode(false);
     setStep('details');
-    if (documentId && hasFilledFormValues(values)) {
-      void requestSummarize(documentId);
+    if (documentId) void requestSummarize(documentId);
+  }
+
+  function advanceFromFormSetup() {
+    setFormFieldPlacementMode(false);
+    const fields = doc ? resolveDocumentFormFields(doc) : [];
+    if (fields.length > 0) {
+      setFormFields(fields);
+      setStep('form-fill');
+    } else {
+      goToDetails();
+    }
+  }
+
+  async function handleUploadFormNext(values: Record<string, string>) {
+    if (!documentId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fresh = await api.patch<DocumentDto>(`/documents/${documentId}/form-values`, {
+        values,
+      });
+      syncDoc(fresh);
+      goToDetails();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.saveFormFailed'));
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function extractFormFieldsFromPdf() {
+    if (!documentId) return;
+    setAttachFormBusy(true);
+    setError(null);
+    try {
+      await api.post(`/documents/${documentId}/extract-form-fields`);
+      const fresh = await api.get<DocumentDto>(`/documents/${documentId}`);
+      syncDoc(fresh);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.saveFormFailed'));
+    } finally {
+      setAttachFormBusy(false);
+    }
+  }
+
+  async function attachFormTemplate(formTemplateId: string) {
+    if (!documentId) return;
+    setAttachFormBusy(true);
+    setError(null);
+    try {
+      const fresh = await api.patch<DocumentDto>(`/documents/${documentId}/form-template`, {
+        formTemplateId,
+      });
+      syncDoc(fresh);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('document.saveFormFailed'));
+    } finally {
+      setAttachFormBusy(false);
+    }
+  }
+
+  function startFormFieldPlacement() {
+    setFormFieldPlacementMode(true);
+  }
+
+  async function onFormFieldPlace(page: number, x: number, y: number) {
+    if (!documentId || !formFieldPlacementMode) return;
+    const label = `${t('document.formFieldLabel')} ${(doc?.formFields?.length ?? 0) + 1}`;
+    setError(null);
+    try {
+      const fresh = await api.post<DocumentDto>(`/documents/${documentId}/form-fields`, {
+        label,
+        pageNumber: page,
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+      });
+      syncDoc(fresh);
+      setActiveFormFieldId(fresh.formFields?.at(-1)?.id ?? null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldAddFailed'),
+      );
+    }
+  }
+
+  async function onFormFieldMove(fieldId: string, page: number, x: number, y: number) {
+    if (!documentId) return;
+    try {
+      const fresh = await api.patch<DocumentDto>(
+        `/documents/${documentId}/form-fields/${fieldId}`,
+        {
+          pageNumber: page,
+          x: Number(x.toFixed(2)),
+          y: Number(y.toFixed(2)),
+        },
+      );
+      syncDoc(fresh);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldUpdateFailed'),
+      );
+    }
+  }
+
+  async function onFormFieldResize(fieldId: string, width: number, height: number) {
+    if (!documentId) return;
+    try {
+      const fresh = await api.patch<DocumentDto>(
+        `/documents/${documentId}/form-fields/${fieldId}`,
+        {
+          width: Number(width.toFixed(2)),
+          height: Number(height.toFixed(2)),
+        },
+      );
+      syncDoc(fresh);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldUpdateFailed'),
+      );
+    }
+  }
+
+  async function updateFormFieldMeta(
+    fieldId: string,
+    patch: { label?: string; type?: PdfFormFieldType },
+  ) {
+    if (!documentId) return;
+    setError(null);
+    try {
+      const fresh = await api.patch<DocumentDto>(
+        `/documents/${documentId}/form-fields/${fieldId}`,
+        patch,
+      );
+      syncDoc(fresh);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldUpdateFailed'),
+      );
+    }
+  }
+
+  async function deleteFormField(fieldId: string) {
+    if (!documentId) return;
+    setError(null);
+    try {
+      const fresh = await api.delete<DocumentDto>(
+        `/documents/${documentId}/form-fields/${fieldId}`,
+      );
+      syncDoc(fresh);
+      if (activeFormFieldId === fieldId) setActiveFormFieldId(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('document.formFieldDeleteFailed'),
+      );
     }
   }
 
@@ -513,11 +695,7 @@ export function NewDocumentClient() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">{t('newDocument.title')}</h1>
-      <ProgressIndicator
-        current={step}
-        docSource={docSource}
-        includeFormStep={docSource === 'template'}
-      />
+      <ProgressIndicator current={step} docSource={docSource} />
       {error && (
         <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -550,7 +728,46 @@ export function NewDocumentClient() {
           values={formValues}
           busy={busy}
           onNext={handleFormNext}
-          onSkip={() => setStep('details')}
+          onSkip={goToDetails}
+        />
+      )}
+
+      {step === 'form-setup' && docSource === 'upload' && doc && (
+        <FormSetupStep
+          doc={doc}
+          fields={resolveDocumentFormFields(doc)}
+          pdfUrl={uploadDocPdf.pdfUrl}
+          pdfLoading={uploadDocPdf.loading}
+          pdfError={uploadDocPdf.error}
+          busy={busy}
+          attachFormBusy={attachFormBusy}
+          formFieldPlacementMode={formFieldPlacementMode}
+          activeFieldId={activeFormFieldId}
+          onStartAddField={startFormFieldPlacement}
+          onCancelAddField={() => setFormFieldPlacementMode(false)}
+          onSelectTemplate={(id) => void attachFormTemplate(id)}
+          onExtractFromPdf={() => void extractFormFieldsFromPdf()}
+          onUpdateField={(fieldId, patch) => void updateFormFieldMeta(fieldId, patch)}
+          onDeleteField={(fieldId) => void deleteFormField(fieldId)}
+          onSelectField={setActiveFormFieldId}
+          onFormFieldPlace={onFormFieldPlace}
+          onFormFieldMove={onFormFieldMove}
+          onFormFieldResize={onFormFieldResize}
+          onNext={advanceFromFormSetup}
+          onSkip={goToDetails}
+          onBack={() => setStep('start')}
+        />
+      )}
+
+      {step === 'form-fill' && docSource === 'upload' && doc && (
+        <FormFillStep
+          pdfUrl={uploadDocPdf.pdfUrl ?? undefined}
+          fields={resolveDocumentFormFields(doc)}
+          values={formValues}
+          busy={busy}
+          onNext={handleUploadFormNext}
+          onSkip={goToDetails}
+          onBack={() => setStep('form-setup')}
         />
       )}
 
@@ -564,6 +781,9 @@ export function NewDocumentClient() {
           onBack={() => {
             if (docSource === 'template') {
               setStep('form');
+            } else if (docSource === 'upload') {
+              const fields = doc ? resolveDocumentFormFields(doc) : [];
+              setStep(fields.length > 0 ? 'form-fill' : 'form-setup');
             } else {
               setStep('start');
             }
@@ -604,22 +824,30 @@ export function NewDocumentClient() {
   );
 }
 
+function progressOrder(docSource: DocSource | null): Step[] {
+  if (docSource === 'template') {
+    return ['start', 'form', 'details', 'workflow', 'review'];
+  }
+  if (docSource === 'upload') {
+    return ['start', 'form-setup', 'form-fill', 'details', 'workflow', 'review'];
+  }
+  return ['start', 'details', 'workflow', 'review'];
+}
+
 function ProgressIndicator({
   current,
   docSource,
-  includeFormStep,
 }: {
   current: Step;
   docSource: DocSource | null;
-  includeFormStep: boolean;
 }) {
   const { t } = useTranslation();
-  const order: Step[] = includeFormStep
-    ? ['start', 'form', 'details', 'workflow', 'review']
-    : ['start', 'details', 'workflow', 'review'];
+  const order = progressOrder(docSource);
   const stepLabels: Record<Step, string> = {
     start: t('newDocument.stepStart'),
     form: t('newDocument.stepForm'),
+    'form-setup': t('newDocument.stepFormSetup'),
+    'form-fill': t('newDocument.stepFormFill'),
     details: t('newDocument.stepDetails'),
     workflow: t('newDocument.stepWorkflow'),
     review: t('newDocument.stepReview'),
@@ -913,6 +1141,131 @@ function StartStep({
   );
 }
 
+function FormSetupStep({
+  doc,
+  fields,
+  pdfUrl,
+  pdfLoading,
+  pdfError,
+  busy,
+  attachFormBusy,
+  formFieldPlacementMode,
+  activeFieldId,
+  onStartAddField,
+  onCancelAddField,
+  onSelectTemplate,
+  onExtractFromPdf,
+  onUpdateField,
+  onDeleteField,
+  onSelectField,
+  onFormFieldPlace,
+  onFormFieldMove,
+  onFormFieldResize,
+  onNext,
+  onSkip,
+  onBack,
+}: {
+  doc: DocumentDto;
+  fields: ReturnType<typeof resolveDocumentFormFields>;
+  pdfUrl: string | null;
+  pdfLoading: boolean;
+  pdfError: string | null;
+  busy: boolean;
+  attachFormBusy: boolean;
+  formFieldPlacementMode: boolean;
+  activeFieldId: string | null;
+  onStartAddField: () => void;
+  onCancelAddField: () => void;
+  onSelectTemplate: (formTemplateId: string) => void;
+  onExtractFromPdf: () => void;
+  onUpdateField: (
+    fieldId: string,
+    patch: { label?: string; type?: PdfFormFieldType },
+  ) => void;
+  onDeleteField: (fieldId: string) => void;
+  onSelectField: (fieldId: string | null) => void;
+  onFormFieldPlace: (page: number, x: number, y: number) => void;
+  onFormFieldMove: (fieldId: string, page: number, x: number, y: number) => void;
+  onFormFieldResize: (fieldId: string, width: number, height: number) => void;
+  onNext: () => void;
+  onSkip: () => void;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  const editableFormFieldIds = (doc.formFields ?? []).map((f) => f.id);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">{t('newDocument.formSetupStepHint')}</p>
+      {pdfError && (
+        <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          {pdfError}
+        </div>
+      )}
+      <div className="flex min-h-[520px] flex-col gap-4 lg:flex-row">
+        <section className="min-h-[400px] flex-1 overflow-auto rounded border bg-gray-50 p-3">
+          {pdfLoading && (
+            <p className="py-16 text-center text-sm text-gray-500">
+              {t('pdf.loading')}
+            </p>
+          )}
+          {pdfUrl && (
+            <PDFViewer
+              pdfUrl={pdfUrl}
+              formFields={fields}
+              formValues={doc.formValues ?? {}}
+              formFieldPlacementMode={formFieldPlacementMode}
+              formFieldEditMode={!formFieldPlacementMode}
+              editableFormFieldIds={editableFormFieldIds}
+              activeFormFieldId={activeFieldId}
+              onFormFieldPlace={onFormFieldPlace}
+              onFormFieldMove={onFormFieldMove}
+              onFormFieldResize={onFormFieldResize}
+              onFormFieldSelect={onSelectField}
+            />
+          )}
+        </section>
+        <aside className="w-full shrink-0 overflow-auto rounded border bg-white p-4 lg:w-[360px]">
+          <DocumentFormFieldsEditor
+            doc={doc}
+            fields={fields}
+            busy={attachFormBusy}
+            formFieldPlacementMode={formFieldPlacementMode}
+            onStartAddField={onStartAddField}
+            onCancelAddField={onCancelAddField}
+            onSelectTemplate={onSelectTemplate}
+            onExtractFromPdf={onExtractFromPdf}
+            onUpdateField={onUpdateField}
+            onDeleteField={onDeleteField}
+            onSelectField={onSelectField}
+            activeFieldId={activeFieldId}
+            onContinueToFill={fields.length > 0 ? onNext : undefined}
+            onSkipToSigners={onSkip}
+          />
+        </aside>
+      </div>
+      <div className="flex justify-between pt-2">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={busy || attachFormBusy}
+          className="text-sm text-gray-600 hover:underline disabled:opacity-50"
+        >
+          ← {t('common.back')}
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={busy || attachFormBusy || formFieldPlacementMode}
+          className="rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+        >
+          {t('common.next')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function FormFillStep({
   formTemplateId,
   pdfUrl: pdfUrlProp,
@@ -921,6 +1274,7 @@ function FormFillStep({
   busy,
   onNext,
   onSkip,
+  onBack,
 }: {
   formTemplateId?: string;
   pdfUrl?: string;
@@ -929,6 +1283,7 @@ function FormFillStep({
   busy: boolean;
   onNext: (values: Record<string, string>) => Promise<void>;
   onSkip: () => void;
+  onBack?: () => void;
 }) {
   const { t } = useTranslation();
   const templatePdf = useTemplatePdfUrl(formTemplateId ?? null);
@@ -1000,14 +1355,25 @@ function FormFillStep({
         </aside>
       </div>
       <div className="flex justify-between pt-2">
-        <button
-          type="button"
-          onClick={onSkip}
-          disabled={busy || saving}
-          className="text-sm text-gray-600 hover:underline disabled:opacity-50"
-        >
-          {t('newDocument.skipForm')}
-        </button>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={busy || saving}
+            className="text-sm text-gray-600 hover:underline disabled:opacity-50"
+          >
+            ← {t('common.back')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={busy || saving}
+            className="text-sm text-gray-600 hover:underline disabled:opacity-50"
+          >
+            {t('newDocument.skipForm')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void handleNext()}

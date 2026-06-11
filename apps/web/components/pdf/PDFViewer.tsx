@@ -29,6 +29,9 @@ export interface PDFViewerProps {
   fieldPlacementMode?: boolean;
   /** Draft owner: drag unsigned signature fields to reposition. */
   fieldEditMode?: boolean;
+  /** When set, only this signature field can be dragged in field edit mode. */
+  movableSignatureFieldId?: string | null;
+  onSignatureFieldSelect?: (fieldId: string) => void;
   commentMode?: boolean;
   /** When set, only this signer's unsigned fields are clickable. */
   activeSignerId?: string | null;
@@ -90,6 +93,56 @@ interface PageDropTarget {
   y: number;
 }
 
+interface PageOverlayHit {
+  pageNumber: number;
+  overlay: HTMLElement;
+}
+
+/** Find the PDF page overlay under a viewport point (ignores UI below the canvas). */
+function findPageOverlayAtPoint(
+  x: number,
+  y: number,
+): PageOverlayHit | null {
+  const pages = document.querySelectorAll('[data-page-number]');
+  for (const pageEl of pages) {
+    const overlay = pageEl.querySelector(
+      '[data-pdf-page-overlay]',
+    ) as HTMLElement | null;
+    if (!overlay) continue;
+    const rect = overlay.getBoundingClientRect();
+    if (
+      x >= rect.left &&
+      x <= rect.right &&
+      y >= rect.top &&
+      y <= rect.bottom
+    ) {
+      const pageNumber = Number(pageEl.getAttribute('data-page-number'));
+      if (!Number.isFinite(pageNumber) || pageNumber < 1) continue;
+      return { pageNumber, overlay };
+    }
+  }
+  return null;
+}
+
+function coordsInOverlay(
+  overlay: HTMLElement,
+  topLeftX: number,
+  topLeftY: number,
+  fieldWidth: number,
+  fieldHeight: number,
+): { x: number; y: number } {
+  const rect = overlay.getBoundingClientRect();
+  const x = Math.max(
+    0,
+    Math.min(100 - fieldWidth, ((topLeftX - rect.left) / rect.width) * 100),
+  );
+  const y = Math.max(
+    0,
+    Math.min(100 - fieldHeight, ((topLeftY - rect.top) / rect.height) * 100),
+  );
+  return { x, y };
+}
+
 /** Resolve which PDF page and % coords a point should drop onto. */
 function resolvePageDropTarget(
   topLeftX: number,
@@ -99,10 +152,22 @@ function resolvePageDropTarget(
   pageHintX = topLeftX,
   pageHintY = topLeftY,
 ): PageDropTarget | null {
-  const hit = document.elementFromPoint(pageHintX, pageHintY);
-  if (!hit) return null;
+  const hit =
+    findPageOverlayAtPoint(pageHintX, pageHintY) ??
+    findPageOverlayAtPoint(topLeftX, topLeftY);
+  if (hit) {
+    const { x, y } = coordsInOverlay(
+      hit.overlay,
+      topLeftX,
+      topLeftY,
+      fieldWidth,
+      fieldHeight,
+    );
+    return { pageNumber: hit.pageNumber, x, y };
+  }
 
-  const pageEl = hit.closest('[data-page-number]') as HTMLElement | null;
+  const el = document.elementFromPoint(pageHintX, pageHintY);
+  const pageEl = el?.closest('[data-page-number]') as HTMLElement | null;
   if (!pageEl) return null;
 
   const pageNumber = Number(pageEl.getAttribute('data-page-number'));
@@ -116,16 +181,30 @@ function resolvePageDropTarget(
   const rect = overlay.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
 
-  const x = Math.max(
-    0,
-    Math.min(100 - fieldWidth, ((topLeftX - rect.left) / rect.width) * 100),
+  const { x, y } = coordsInOverlay(
+    overlay,
+    topLeftX,
+    topLeftY,
+    fieldWidth,
+    fieldHeight,
   );
-  const y = Math.max(
-    0,
-    Math.min(100 - fieldHeight, ((topLeftY - rect.top) / rect.height) * 100),
-  );
-
   return { pageNumber, x, y };
+}
+
+function lockDragSurface() {
+  const prev = {
+    userSelect: document.body.style.userSelect,
+    overflow: document.body.style.overflow,
+  };
+  document.body.style.userSelect = 'none';
+  document.body.style.overflow = 'hidden';
+  let unlocked = false;
+  return () => {
+    if (unlocked) return;
+    unlocked = true;
+    document.body.style.userSelect = prev.userSelect;
+    document.body.style.overflow = prev.overflow;
+  };
 }
 
 /**
@@ -227,6 +306,8 @@ export function PDFViewer(props: PDFViewerProps) {
               placementMode={!!props.placementMode}
               fieldPlacementMode={!!props.fieldPlacementMode}
               fieldEditMode={!!props.fieldEditMode}
+              movableSignatureFieldId={props.movableSignatureFieldId}
+              onSignatureFieldSelect={props.onSignatureFieldSelect}
               commentMode={!!props.commentMode}
               activeSignerId={props.activeSignerId}
               signatureTagHitTargetsOnly={!!props.signatureTagHitTargetsOnly}
@@ -278,6 +359,8 @@ function LazyPDFPage({
   placementMode,
   fieldPlacementMode,
   fieldEditMode,
+  movableSignatureFieldId,
+  onSignatureFieldSelect,
   commentMode,
   activeSignerId,
   signatureTagHitTargetsOnly,
@@ -318,6 +401,8 @@ function LazyPDFPage({
   placementMode: boolean;
   fieldPlacementMode: boolean;
   fieldEditMode: boolean;
+  movableSignatureFieldId?: string | null;
+  onSignatureFieldSelect?: (fieldId: string) => void;
   commentMode: boolean;
   activeSignerId?: string | null;
   signatureTagHitTargetsOnly?: boolean;
@@ -519,6 +604,10 @@ function LazyPDFPage({
     e.stopPropagation();
     const isMine = !activeSignerId || field.signerId === activeSignerId;
     const canSignThisField = !field.signed && isMine && !!onFieldClick;
+    if (fieldEditMode && !field.signed && onSignatureFieldSelect) {
+      onSignatureFieldSelect(field._id);
+      return;
+    }
     if (canSignThisField) {
       onFieldClick(field);
       return;
@@ -633,63 +722,59 @@ function LazyPDFPage({
     const startWidth = field.width;
     const startHeight = field.height;
 
+    onSignatureFieldSelect?.(field._id);
+
     if (mode === 'move') {
-      const fieldRect = fieldEl.getBoundingClientRect();
-      const dragOffsetX = e.clientX - fieldRect.left;
-      const dragOffsetY = e.clientY - fieldRect.top;
-      const ghostWidth = fieldRect.width;
-      const ghostHeight = fieldRect.height;
-
-      fieldEl.style.position = 'fixed';
-      fieldEl.style.left = `${fieldRect.left}px`;
-      fieldEl.style.top = `${fieldRect.top}px`;
-      fieldEl.style.width = `${ghostWidth}px`;
-      fieldEl.style.height = `${ghostHeight}px`;
-      fieldEl.style.zIndex = '9999';
-      fieldEl.style.margin = '0';
-      fieldEl.style.pointerEvents = 'none';
-
-      function clearDragStyles() {
-        fieldEl.style.position = '';
-        fieldEl.style.left = '';
-        fieldEl.style.top = '';
-        fieldEl.style.width = '';
-        fieldEl.style.height = '';
-        fieldEl.style.zIndex = '';
-        fieldEl.style.margin = '';
-        fieldEl.style.pointerEvents = '';
-      }
+      const startOverlay = overlayRef.current;
+      if (!startOverlay) return;
+      const unlockDragSurface = lockDragSurface();
+      let currentX = startFieldX;
+      let currentY = startFieldY;
 
       function onMouseMove(ev: MouseEvent) {
-        fieldEl.style.left = `${ev.clientX - dragOffsetX}px`;
-        fieldEl.style.top = `${ev.clientY - dragOffsetY}px`;
+        ev.preventDefault();
+        const overlay = overlayRef.current;
+        if (!overlay) return;
+        const rect = overlay.getBoundingClientRect();
+        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+        currentX = Math.max(
+          0,
+          Math.min(100 - field.width, startFieldX + dx),
+        );
+        currentY = Math.max(
+          0,
+          Math.min(100 - field.height, startFieldY + dy),
+        );
+        fieldEl.style.left = `${currentX}%`;
+        fieldEl.style.top = `${currentY}%`;
       }
 
       function onMouseUp(ev: MouseEvent) {
+        unlockDragSurface();
         const moved =
           Math.abs(ev.clientX - startMouseX) > 3 ||
           Math.abs(ev.clientY - startMouseY) > 3;
 
-        clearDragStyles();
+        const fieldRect = fieldEl.getBoundingClientRect();
+        fieldEl.style.left = '';
+        fieldEl.style.top = '';
 
         if (moved) {
-          const topLeftX = ev.clientX - dragOffsetX;
-          const topLeftY = ev.clientY - dragOffsetY;
-          const drop = resolvePageDropTarget(
-            topLeftX,
-            topLeftY,
-            field.width,
-            field.height,
-            topLeftX + ghostWidth / 2,
-            topLeftY + ghostHeight / 2,
-          );
-          if (drop) {
-            justDraggedRef.current = true;
-            onFieldMove?.(field._id, drop.pageNumber, drop.x, drop.y);
-            setTimeout(() => {
-              justDraggedRef.current = false;
-            }, 50);
-          }
+          const drop =
+            resolvePageDropTarget(
+              fieldRect.left,
+              fieldRect.top,
+              field.width,
+              field.height,
+              fieldRect.left + fieldRect.width / 2,
+              fieldRect.top + fieldRect.height / 2,
+            ) ?? { pageNumber, x: currentX, y: currentY };
+          justDraggedRef.current = true;
+          onFieldMove?.(field._id, drop.pageNumber, drop.x, drop.y);
+          setTimeout(() => {
+            justDraggedRef.current = false;
+          }, 50);
         }
 
         window.removeEventListener('mousemove', onMouseMove);
@@ -701,36 +786,41 @@ function LazyPDFPage({
       return;
     }
 
+    const unlockDragSurface = lockDragSurface();
+    let currentWidth = startWidth;
+    let currentHeight = startHeight;
+
     function onMouseMove(ev: MouseEvent) {
+      ev.preventDefault();
       const overlay = overlayRef.current;
       if (!overlay) return;
       const rect = overlay.getBoundingClientRect();
       const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
       const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
 
-      const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
-      const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
-      fieldEl.style.width = `${newW}%`;
-      fieldEl.style.height = `${newH}%`;
+      currentWidth = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+      currentHeight = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+      fieldEl.style.width = `${currentWidth}%`;
+      fieldEl.style.height = `${currentHeight}%`;
     }
 
     function onMouseUp(ev: MouseEvent) {
+      unlockDragSurface();
       const overlay = overlayRef.current;
-      if (overlay) {
-        const rect = overlay.getBoundingClientRect();
-        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
-        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
-        const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
+      const rect = overlay?.getBoundingClientRect();
+      const dx = rect ? ((ev.clientX - startMouseX) / rect.width) * 100 : 0;
+      const dy = rect ? ((ev.clientY - startMouseY) / rect.height) * 100 : 0;
+      const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
 
-        if (moved) {
-          justDraggedRef.current = true;
-          const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
-          const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
-          onFieldResize?.(field._id, newW, newH);
-          setTimeout(() => {
-            justDraggedRef.current = false;
-          }, 50);
-        }
+      fieldEl.style.width = '';
+      fieldEl.style.height = '';
+
+      if (moved) {
+        justDraggedRef.current = true;
+        onFieldResize?.(field._id, currentWidth, currentHeight);
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 50);
       }
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
@@ -761,62 +851,56 @@ function LazyPDFPage({
     const startHeight = field.height;
 
     if (mode === 'move') {
-      const fieldRect = fieldEl.getBoundingClientRect();
-      const dragOffsetX = e.clientX - fieldRect.left;
-      const dragOffsetY = e.clientY - fieldRect.top;
-      const ghostWidth = fieldRect.width;
-      const ghostHeight = fieldRect.height;
-
-      fieldEl.style.position = 'fixed';
-      fieldEl.style.left = `${fieldRect.left}px`;
-      fieldEl.style.top = `${fieldRect.top}px`;
-      fieldEl.style.width = `${ghostWidth}px`;
-      fieldEl.style.height = `${ghostHeight}px`;
-      fieldEl.style.zIndex = '9999';
-      fieldEl.style.margin = '0';
-      fieldEl.style.pointerEvents = 'none';
-
-      function clearDragStyles() {
-        fieldEl.style.position = '';
-        fieldEl.style.left = '';
-        fieldEl.style.top = '';
-        fieldEl.style.width = '';
-        fieldEl.style.height = '';
-        fieldEl.style.zIndex = '';
-        fieldEl.style.margin = '';
-        fieldEl.style.pointerEvents = '';
-      }
+      const startOverlay = overlayRef.current;
+      if (!startOverlay) return;
+      const unlockDragSurface = lockDragSurface();
+      let currentX = startFieldX;
+      let currentY = startFieldY;
 
       function onMouseMove(ev: MouseEvent) {
-        fieldEl.style.left = `${ev.clientX - dragOffsetX}px`;
-        fieldEl.style.top = `${ev.clientY - dragOffsetY}px`;
+        ev.preventDefault();
+        const overlay = overlayRef.current;
+        if (!overlay) return;
+        const rect = overlay.getBoundingClientRect();
+        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
+        currentX = Math.max(
+          0,
+          Math.min(100 - field.width, startFieldX + dx),
+        );
+        currentY = Math.max(
+          0,
+          Math.min(100 - field.height, startFieldY + dy),
+        );
+        fieldEl.style.left = `${currentX}%`;
+        fieldEl.style.top = `${currentY}%`;
       }
 
       function onMouseUp(ev: MouseEvent) {
+        unlockDragSurface();
         const moved =
           Math.abs(ev.clientX - startMouseX) > 3 ||
           Math.abs(ev.clientY - startMouseY) > 3;
 
-        clearDragStyles();
+        const fieldRect = fieldEl.getBoundingClientRect();
+        fieldEl.style.left = '';
+        fieldEl.style.top = '';
 
         if (moved) {
-          const topLeftX = ev.clientX - dragOffsetX;
-          const topLeftY = ev.clientY - dragOffsetY;
-          const drop = resolvePageDropTarget(
-            topLeftX,
-            topLeftY,
-            field.width,
-            field.height,
-            topLeftX + ghostWidth / 2,
-            topLeftY + ghostHeight / 2,
-          );
-          if (drop) {
-            justDraggedRef.current = true;
-            onFormFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);
-            setTimeout(() => {
-              justDraggedRef.current = false;
-            }, 50);
-          }
+          const drop =
+            resolvePageDropTarget(
+              fieldRect.left,
+              fieldRect.top,
+              field.width,
+              field.height,
+              fieldRect.left + fieldRect.width / 2,
+              fieldRect.top + fieldRect.height / 2,
+            ) ?? { pageNumber, x: currentX, y: currentY };
+          justDraggedRef.current = true;
+          onFormFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);
+          setTimeout(() => {
+            justDraggedRef.current = false;
+          }, 50);
         }
 
         window.removeEventListener('mousemove', onMouseMove);
@@ -828,36 +912,41 @@ function LazyPDFPage({
       return;
     }
 
+    const unlockDragSurface = lockDragSurface();
+    let currentWidth = startWidth;
+    let currentHeight = startHeight;
+
     function onMouseMove(ev: MouseEvent) {
+      ev.preventDefault();
       const overlay = overlayRef.current;
       if (!overlay) return;
       const rect = overlay.getBoundingClientRect();
       const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
       const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
 
-      const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
-      const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
-      fieldEl.style.width = `${newW}%`;
-      fieldEl.style.height = `${newH}%`;
+      currentWidth = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
+      currentHeight = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
+      fieldEl.style.width = `${currentWidth}%`;
+      fieldEl.style.height = `${currentHeight}%`;
     }
 
     function onMouseUp(ev: MouseEvent) {
+      unlockDragSurface();
       const overlay = overlayRef.current;
-      if (overlay) {
-        const rect = overlay.getBoundingClientRect();
-        const dx = ((ev.clientX - startMouseX) / rect.width) * 100;
-        const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
-        const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
+      const rect = overlay?.getBoundingClientRect();
+      const dx = rect ? ((ev.clientX - startMouseX) / rect.width) * 100 : 0;
+      const dy = rect ? ((ev.clientY - startMouseY) / rect.height) * 100 : 0;
+      const moved = Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3;
 
-        if (moved) {
-          justDraggedRef.current = true;
-          const newW = Math.max(5, Math.min(100 - startFieldX, startWidth + dx));
-          const newH = Math.max(2, Math.min(100 - startFieldY, startHeight + dy));
-          onFormFieldResize?.(field.id, newW, newH);
-          setTimeout(() => {
-            justDraggedRef.current = false;
-          }, 50);
-        }
+      fieldEl.style.width = '';
+      fieldEl.style.height = '';
+
+      if (moved) {
+        justDraggedRef.current = true;
+        onFormFieldResize?.(field.id, currentWidth, currentHeight);
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 50);
       }
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
@@ -987,10 +1076,10 @@ function LazyPDFPage({
             const canSignThisField = !field.signed && isMine && !!onFieldClick;
             const canTagSigner = signerTagEnabled && canTagField(field);
             const clickable = canSignThisField || canTagSigner;
+            const selectableForEdit = fieldEditMode && !field.signed;
+            const selectedForEdit = movableSignatureFieldId === field._id;
             const draggable =
-              fieldEditMode &&
-              !field.signed &&
-              !!(onFieldMove || onFieldResize);
+              selectableForEdit && !!(onFieldMove || onFieldResize);
             const label =
               field.label ||
               field.signerName ||
@@ -1018,14 +1107,18 @@ function LazyPDFPage({
                   height: `${field.height}%`,
                   border: field.signed
                     ? '2px solid #10b981'
-                    : isMine
-                      ? '2px dashed #2563eb'
-                      : '2px dashed #9ca3af',
+                    : selectedForEdit
+                      ? '2px solid #2563eb'
+                      : isMine
+                        ? '2px dashed #2563eb'
+                        : '2px dashed #9ca3af',
                   background: field.signed
                     ? 'rgba(16, 185, 129, 0.12)'
-                    : isMine
-                      ? 'rgba(37, 99, 235, 0.08)'
-                      : 'rgba(156, 163, 175, 0.08)',
+                    : selectedForEdit
+                      ? 'rgba(37, 99, 235, 0.14)'
+                      : isMine
+                        ? 'rgba(37, 99, 235, 0.08)'
+                        : 'rgba(156, 163, 175, 0.08)',
                   borderRadius: 4,
                   boxSizing: 'border-box',
                   userSelect: 'none',
@@ -1057,6 +1150,7 @@ function LazyPDFPage({
                   data-sfield={field._id}
                   title={`${label} – ${field.signerEmail}`}
                   onMouseDown={(e) => startSignatureFieldDrag(e, field, 'move')}
+                  onClick={(e) => e.stopPropagation()}
                   style={{
                     ...boxStyle,
                     cursor: 'move',
@@ -1067,6 +1161,7 @@ function LazyPDFPage({
                   {labelEl}
                   {onFieldResize && (
                     <div
+                      title={t('document.dragToMoveField')}
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         startSignatureFieldDrag(e, field, 'resize');
@@ -1074,13 +1169,14 @@ function LazyPDFPage({
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         position: 'absolute',
-                        bottom: 0,
-                        right: 0,
-                        width: 10,
-                        height: 10,
+                        bottom: -1,
+                        right: -1,
+                        width: 8,
+                        height: 8,
                         background: '#2563eb',
                         cursor: 'se-resize',
                         borderRadius: '2px 0 2px 0',
+                        zIndex: 2,
                       }}
                     />
                   )}
@@ -1112,8 +1208,12 @@ function LazyPDFPage({
                 }
                 style={{
                   ...boxStyle,
-                  cursor: clickable ? 'pointer' : 'default',
-                  pointerEvents: clickable || fieldPlacementMode ? 'auto' : 'none',
+                  cursor:
+                    selectableForEdit || clickable ? 'pointer' : 'default',
+                  pointerEvents:
+                    clickable || fieldPlacementMode || selectableForEdit
+                      ? 'auto'
+                      : 'none',
                   padding: 0,
                   zIndex: tagHitTargetOnly ? 20 : undefined,
                 }}
@@ -1126,9 +1226,8 @@ function LazyPDFPage({
             const value = formValues?.[field.id]?.trim();
             const highlighted = activeFormFieldId === field.id;
             const editable =
-              formFieldEditMode &&
-              !formFieldPlacementMode &&
-              editableFormFieldSet.has(field.id);
+              formFieldEditMode && editableFormFieldSet.has(field.id);
+            const selected = activeFormFieldId === field.id;
             const draggable =
               editable && !!(onFormFieldMove || onFormFieldResize);
             return (
@@ -1138,13 +1237,23 @@ function LazyPDFPage({
                 title={
                   draggable
                     ? `${field.label} – ${t('document.dragToMoveField')}`
-                    : field.label
+                    : editable
+                      ? `${field.label} – ${t('document.clickFieldToSelect')}`
+                      : field.label
                 }
                 onMouseDown={
                   draggable
                     ? (e) => {
                         onFormFieldSelect?.(field.id);
                         startFormFieldDrag(e, field, 'move');
+                      }
+                    : undefined
+                }
+                onClick={
+                  editable
+                    ? (e) => {
+                        e.stopPropagation();
+                        if (!draggable) onFormFieldSelect?.(field.id);
                       }
                     : undefined
                 }
@@ -1168,17 +1277,17 @@ function LazyPDFPage({
                       : 'rgba(37, 99, 235, 0.04)',
                   borderRadius: 4,
                   boxSizing: 'border-box',
-                  pointerEvents: draggable ? 'auto' : 'none',
+                  pointerEvents: editable ? 'auto' : 'none',
                   overflow: 'visible',
                   display: 'flex',
                   alignItems: 'center',
                   padding: '0 2px',
-                  cursor: draggable ? 'move' : undefined,
+                  cursor: draggable ? 'move' : editable ? 'pointer' : undefined,
                   userSelect: 'none',
-                  zIndex: draggable ? 25 : 5,
+                  zIndex: editable ? 25 : 5,
                 }}
               >
-                {draggable && (
+                {editable && (
                   <span
                     style={{
                       position: 'absolute',

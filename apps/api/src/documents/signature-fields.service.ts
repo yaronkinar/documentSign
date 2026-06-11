@@ -61,6 +61,19 @@ export class SignatureFieldsService {
       doc.set('signatureFields', []);
     }
 
+    const signedIds = await this.getSignedFieldIds(doc._id);
+    const duplicate = doc.signatureFields.find(
+      (field) =>
+        String(field.stepId) === String(step._id) &&
+        String(field.signerId) === String(signer._id) &&
+        !signedIds.has(String(field._id)),
+    );
+    if (duplicate) {
+      throw new BadRequestException(
+        'This signer already has a signature field on the document',
+      );
+    }
+
     doc.signatureFields.push({
       stepId: step._id,
       signerId: signer._id,
@@ -74,7 +87,6 @@ export class SignatureFieldsService {
     await doc.save();
 
     const field = doc.signatureFields[doc.signatureFields.length - 1];
-    const signedIds = await this.getSignedFieldIds(doc._id);
     return this.toFieldDto(doc, field, signedIds);
   }
 

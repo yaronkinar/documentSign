@@ -49,8 +49,12 @@ async function uploadPdf(page: Page, pdfPath: string) {
   await expect(fileInput).toHaveCount(1, { timeout: 30_000 });
   await fileInput.setInputFiles(pdfPath);
   await expect(
-    page.getByText('Uploading...').or(titleField(page)),
-  ).toBeVisible({ timeout: 30_000 });
+    page
+      .getByText('Uploading your document…')
+      .or(page.getByText('Processing document and detecting fields…'))
+      .or(page.getByRole('button', { name: 'Skip — no form needed' }))
+      .or(titleField(page)),
+  ).toBeVisible({ timeout: 90_000 });
 }
 
 async function reachDetailsStep(page: Page) {
@@ -62,10 +66,32 @@ async function reachDetailsStep(page: Page) {
     throw new Error(`Upload failed: ${await uploadError.innerText()}`);
   }
 
-  const skipForm = page.getByRole('button', { name: 'Skip for now' });
-  if (await skipForm.isVisible().catch(() => false)) {
-    await skipForm.click();
-  }
+  await expect(async () => {
+    if (await titleField(page).isVisible()) return;
+
+    const skipFormSetup = page.getByRole('button', { name: /skip.*no form needed/i });
+    if (await skipFormSetup.count()) {
+      await skipFormSetup.first().click();
+      return;
+    }
+
+    const skipFormFill = page.getByRole('button', { name: 'Skip for now' });
+    if (await skipFormFill.isVisible()) {
+      await skipFormFill.click();
+      return;
+    }
+
+    const wizardNext = page
+      .locator('main')
+      .getByRole('button', { name: 'Next', exact: true })
+      .last();
+    if (await wizardNext.isVisible()) {
+      await wizardNext.click();
+      return;
+    }
+
+    throw new Error('Waiting to leave form wizard steps');
+  }).toPass({ timeout: 60_000 });
 
   await expect(titleField(page)).toBeVisible({ timeout: 30_000 });
 }

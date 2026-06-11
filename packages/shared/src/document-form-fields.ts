@@ -65,6 +65,28 @@ export function allocateFormFieldId(
   return slugifyFieldId(label, new Set(existingIds));
 }
 
+function formFieldPlacementKey(field: {
+  pageNumber: number;
+  label: string;
+}): string {
+  return `${field.pageNumber}:${field.label.trim().toLowerCase()}`;
+}
+
+/** Drop duplicate placements (same page + label) keeping the first entry. */
+export function dedupeFormFieldsByPlacement(
+  fields: PdfFormFieldTemplate[],
+): PdfFormFieldTemplate[] {
+  const seen = new Set<string>();
+  const out: PdfFormFieldTemplate[] = [];
+  for (const field of fields) {
+    const key = formFieldPlacementKey(field);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(field);
+  }
+  return out;
+}
+
 export function resolveDocumentFormFields(doc: {
   formTemplateId?: string | null;
   formFields?: PdfFormFieldTemplate[] | null;
@@ -73,9 +95,17 @@ export function resolveDocumentFormFields(doc: {
   if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
     const base = getHaknasotFormFields();
     const baseIds = new Set(base.map((f) => f.id));
-    return [...base, ...custom.filter((f) => !baseIds.has(f.id))];
+    const baseKeys = new Set(base.map((f) => formFieldPlacementKey(f)));
+    return dedupeFormFieldsByPlacement([
+      ...base,
+      ...custom.filter(
+        (f) =>
+          !baseIds.has(f.id) &&
+          !baseKeys.has(formFieldPlacementKey(f)),
+      ),
+    ]);
   }
-  return custom;
+  return dedupeFormFieldsByPlacement(custom);
 }
 
 /** True when the field is stored on the document (user-added or extracted), not built-in template-only. */

@@ -58,6 +58,28 @@ export function listTemplateSignatureSigners(
     );
 }
 
+/** Normalize Hebrew/English signer labels for fuzzy template slot matching. */
+export function normalizeSignerMatchKey(label: string): string {
+  return label
+    .trim()
+    .replace(/^חתימת\s+/u, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+export function signerLabelsMatch(
+  slotLabel: string | null | undefined,
+  signerName: string | null | undefined,
+): boolean {
+  const slot = slotLabel?.trim();
+  const signer = signerName?.trim();
+  if (!slot || !signer) return false;
+  const slotKey = normalizeSignerMatchKey(slot);
+  const signerKey = normalizeSignerMatchKey(signer);
+  if (slotKey === signerKey) return true;
+  return slotKey.includes(signerKey) || signerKey.includes(slotKey);
+}
+
 export function buildTemplateFieldMappings(
   workflowSteps: TemplateWorkflowStep[],
   template: SignatureFieldTemplate[],
@@ -87,7 +109,9 @@ function resolveTemplateSlot(
 ): SignatureFieldTemplate {
   if (signer.name) {
     const byLabel = template.findIndex(
-      (slot, index) => !usedSlots.has(index) && slot.label === signer.name,
+      (slot, index) =>
+        !usedSlots.has(index) &&
+        signerLabelsMatch(slot.label, signer.name),
     );
     if (byLabel >= 0) {
       usedSlots.add(byLabel);

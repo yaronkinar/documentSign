@@ -65,7 +65,14 @@ async function createHaknasotDocAsSelfSigner(page: Page) {
   // not attached yet), leaving the wizard stuck on the Start step.
   const startFormButton = page.getByRole('button', { name: 'Start form' });
   await expect(startFormButton).toBeEnabled();
-  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Loading PDF…')).toHaveCount(0, { timeout: 30_000 });
+  await expect(async () => {
+    const canvas = page.locator('canvas').first();
+    await expect(canvas).toBeVisible({ timeout: 5_000 });
+    const box = await canvas.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThan(0);
+    expect(box?.height ?? 0).toBeGreaterThan(0);
+  }).toPass({ timeout: 30_000 });
   // The PDF preview can overlap the button; force ensures the handler runs.
   await startFormButton.click({ force: true });
 

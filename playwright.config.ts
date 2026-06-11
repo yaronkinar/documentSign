@@ -21,7 +21,7 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 4,
+  workers: process.env.CI ? 2 : 2,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['github'], ['html']] : [['list'], ['html', { open: 'never' }]],

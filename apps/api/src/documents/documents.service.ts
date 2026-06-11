@@ -320,9 +320,18 @@ export class DocumentsService {
       height: f.height,
     }));
     const existingIds = new Set(existing.map((f) => f.id));
+    const existingPlacementKeys = new Set(
+      existing.map((f) => `${f.pageNumber}:${f.label.trim().toLowerCase()}`),
+    );
     const merged = [
       ...existing,
-      ...extractedFields.filter((f) => !existingIds.has(f.id)),
+      ...extractedFields.filter((f) => {
+        if (existingIds.has(f.id)) return false;
+        const key = `${f.pageNumber}:${f.label.trim().toLowerCase()}`;
+        if (existingPlacementKeys.has(key)) return false;
+        existingPlacementKeys.add(key);
+        return true;
+      }),
     ];
     doc.formFields = merged as never;
     doc.markModified('formFields');

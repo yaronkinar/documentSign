@@ -211,6 +211,8 @@ export const en = {
     title: 'New Document',
     stepStart: 'Start',
     stepForm: 'Fill form',
+    stepFormSetup: 'Form fields',
+    stepFormFill: 'Fill form',
     stepDetails: 'Details',
     stepWorkflow: 'Workflow',
     stepReview: 'Review',
@@ -279,6 +281,8 @@ export const en = {
     stepMissingEmail: 'Step "{{label}}": please add an email for: {{names}}',
     submissionFailed: 'Submission failed',
     formStepHint: 'Fill in the form fields — values appear on the PDF as you type.',
+    formSetupStepHint:
+      'Add or detect form fields on your PDF before adding signers. Click Add field, then click on the PDF to place it.',
     fillFormAutomatically: 'Fill automatically',
     skipForm: 'Skip for now',
   },
@@ -306,8 +310,13 @@ export const en = {
     assignManually: 'Assign manually',
     sendToSigners: 'Send to signers',
     assignTo: 'Assign to:',
-    clickToPlaceField: 'Click on the PDF to place a field',
+    clickToPlaceField:
+      'Click on the PDF to place a field (click again to move it)',
+    clickOrDragToPlaceField:
+      'Click on the PDF to place a field, or drag placed fields to reposition',
+    selectFieldToMove: 'Select a placed field, then drag it on the PDF to move',
     dragToMoveField: 'drag boxes to move, corner handle to resize',
+    clickFieldToSelect: 'click to select',
     moveFieldFailed: 'Failed to update field position',
     signDocument: 'Sign Document',
     clickFieldToSign: 'Click your highlighted signature field',
@@ -335,9 +344,11 @@ export const en = {
       'Fill in the form fields — values appear on the PDF as you type.',
     formFieldsReadyToFill: 'Form fields are ready.',
     continueToFillForm: 'Continue to fill form',
+    continueToSigners: 'Continue to add signers',
+    skipFormToSigners: 'Skip — no form needed',
     selectFormTypeTitle: 'Choose a form to fill',
     selectFormTypeHint:
-      'After assigning signature fields, pick a form type and fill it in before sending.',
+      'Pick a form type or detect fields from the PDF, then fill them in before adding signers.',
     extractFormFromPdf: 'Detect fields from PDF',
     fillFormBeforeSend: 'Fill in the form in the sidebar before sending.',
     setupFormBeforeSend: 'Add or detect form fields in the sidebar before sending.',
@@ -352,7 +363,8 @@ export const en = {
     manualFormFieldsHint:
       'Add fields manually: click Add field, then click on the PDF. Drag corners to resize.',
     dragFormFieldToMove:
-      'Drag blue boxes on the PDF to move; use the corner handle to resize.',
+      'Drag the selected field on the PDF to move; use the corner handle to resize.',
+    selectFormFieldToMove: 'Select a field in the list or on the PDF, then drag to move',
     clickToPlaceFormField: 'Click on the PDF to place a form field',
     editFormField: 'Edit field',
     deleteFormField: 'Remove field',

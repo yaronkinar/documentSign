@@ -19,10 +19,10 @@ interface Props {
 }
 
 const STEPS: DraftSetupStep[] = [
-  'workflow',
-  'map',
   'form-setup',
   'form-fill',
+  'workflow',
+  'map',
   'send',
 ];
 
@@ -45,14 +45,14 @@ export function DocumentDraftStepper({
 
   function stepDone(step: DraftSetupStep): boolean {
     switch (step) {
+      case 'form-setup':
+        return hasFormFields || hasWorkflow;
+      case 'form-fill':
+        return formFilled || !hasFormFields || hasWorkflow;
       case 'workflow':
         return hasWorkflow;
       case 'map':
         return signersMapped;
-      case 'form-setup':
-        return hasFormFields;
-      case 'form-fill':
-        return formFilled;
       case 'send':
         return false;
       default:

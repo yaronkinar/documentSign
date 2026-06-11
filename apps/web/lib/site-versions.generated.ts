@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.66",
-    "hash": "e6090e3",
-    "fullHash": "e6090e3433646f7ee054119c54ac247aa96d74d8",
-    "date": "2026-06-10T20:01:38+03:00",
-    "message": "Sync site versions after home redirect and dashboard preview changes."
+    "version": "0.1.67",
+    "hash": "a6ee018",
+    "fullHash": "a6ee018ffa8273e45535743fb872e03f998a9920",
+    "date": "2026-06-10T20:02:22+03:00",
+    "message": "Sync site versions after home redirect release."
   },
   "history": [
+    {
+      "version": "0.1.67",
+      "hash": "a6ee018",
+      "fullHash": "a6ee018ffa8273e45535743fb872e03f998a9920",
+      "date": "2026-06-10T20:02:22+03:00",
+      "message": "Sync site versions after home redirect release."
+    },
     {
       "version": "0.1.66",
       "hash": "e6090e3",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "74e819d05ba9c9e0e4b8ffa2406e9627d036ab6f",
       "date": "2026-06-06T17:18:22+03:00",
       "message": "Add Phase 2 implementation plan for UI design system."
-    },
-    {
-      "version": "0.1.27",
-      "hash": "b0e859e",
-      "fullHash": "b0e859e7052036edb19e5b941f54235db87d0825",
-      "date": "2026-06-06T16:20:26+03:00",
-      "message": "Target wrapper via data-testid in RTL test."
     }
   ]
 } as const;

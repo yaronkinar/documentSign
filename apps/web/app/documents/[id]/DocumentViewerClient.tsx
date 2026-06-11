@@ -46,7 +46,7 @@ import { useDocumentPdfUrl } from '@/lib/use-document-pdf-url';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 import { clampPlacementToPageCount } from '@/lib/pdf-signature-placement';
 import {
-  createMissingTemplateFields,
+  applyTemplateFieldMappings,
   listSignatureSigners,
   signersMissingFields,
 } from '@/lib/signature-field-mapping';
@@ -115,17 +115,25 @@ export function DocumentViewerClient({
     initialSignatureFields,
   );
   const [comments, setComments] = useState<CommentDto[]>(initialComments);
-  const [sidebarTab, setSidebarTab] =
-    useState<DocumentSidebarTab>('workflow');
+  const [sidebarTab, setSidebarTab] = useState<DocumentSidebarTab>(() => {
+    if (initialDoc.status !== 'draft' || initialDoc.workflowSteps.length > 0) {
+      return 'workflow';
+    }
+    const initialFormFields = resolveDocumentFormFields(initialDoc);
+    const canFormSetup =
+      initialDoc.ownerId === myClerkId &&
+      (initialDoc.hasPdfFile ?? !!initialDoc.fileUrl) &&
+      !initialDoc.formTemplateId;
+    if (canFormSetup && initialFormFields.length === 0) return 'form-setup';
+    if (initialFormFields.length > 0 && !hasFilledFormValues(initialDoc.formValues ?? {})) {
+      return 'form-fill';
+    }
+    return 'workflow';
+  });
   const [formFillDraft, setFormFillDraft] = useState<Record<string, string>>(
     () => initialDoc.formValues ?? {},
   );
 
-  useEffect(() => {
-    if (initialDoc.status === 'draft' && initialDoc.workflowSteps.length === 0) {
-      setSidebarTab('workflow');
-    }
-  }, [initialDoc.status, initialDoc.workflowSteps.length]);
   const [placementMode, setPlacementMode] = useState(false);
   const [fieldPlacementMode, setFieldPlacementMode] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
@@ -150,6 +158,9 @@ export function DocumentViewerClient({
   const [attachFormBusy, setAttachFormBusy] = useState(false);
   const [formFieldPlacementMode, setFormFieldPlacementMode] = useState(false);
   const [activeFormFieldId, setActiveFormFieldId] = useState<string | null>(null);
+  const [selectedSignatureFieldId, setSelectedSignatureFieldId] = useState<
+    string | null
+  >(null);
   const [saveTemplateBusy, setSaveTemplateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const autoMapOnLoadRef = useRef(false);
@@ -254,23 +265,21 @@ export function DocumentViewerClient({
   const canSubmitDraft =
     hasWorkflowSteps && doc.workflowSteps.every((s) => s.signers.length > 0);
   const canSaveAsTemplate = isOwner && signatureFields.length > 0 && !!doc.fileUrl;
-  const fieldsAssigned = isTemplateDoc || allSignersMapped;
   const canManageFormFields = isOwner && isDraft && hasUploadedPdf;
   const readyForFormStep =
-    canManageFormFields &&
-    fieldsAssigned &&
-    !fieldPlacementMode &&
-    !formFieldPlacementMode;
+    canManageFormFields && !fieldPlacementMode && !formFieldPlacementMode;
   const showDraftStepper =
     isOwner && isDraft && hasUploadedPdf && !isTemplateDoc;
   const editableFormFieldIds = (doc.formFields ?? []).map((f) => f.id);
   const formSetupTabVisible = canManageFormFields && !isTemplateDoc;
   const formFillTabVisible = hasForm;
   const draftSetupStep: DraftSetupStep = (() => {
+    if (formSetupTabVisible && !hasForm && !hasWorkflowSteps) return 'form-setup';
+    if (formFillTabVisible && hasForm && !formFilled && !hasWorkflowSteps) {
+      return 'form-fill';
+    }
     if (!hasWorkflowSteps) return 'workflow';
     if (!isTemplateDoc && !allSignersMapped) return 'map';
-    if (formSetupTabVisible && !hasForm) return 'form-setup';
-    if (formFillTabVisible && !formFilled) return 'form-fill';
     return 'send';
   })();
   const viewerFormValues =
@@ -335,6 +344,7 @@ export function DocumentViewerClient({
     setCommentMode(false);
     setPlacementMode(false);
     setFormFieldPlacementMode(false);
+    setSelectedSignatureFieldId(null);
     if (!selectedSignerKey && signerOptions.length > 0) {
       setSelectedSignerKey(signerOptions[0].key);
     }
@@ -346,6 +356,19 @@ export function DocumentViewerClient({
     const selected = signerOptions.find((o) => o.key === selectedSignerKey);
     if (!selected) return;
     setError(null);
+
+    const existing = signatureFields.find(
+      (field) =>
+        field.stepId === selected.stepId &&
+        field.signerId === selected.signerId &&
+        !field.signed,
+    );
+    if (existing) {
+      onFieldMove(existing._id, page, x, y);
+      setSelectedSignatureFieldId(existing._id);
+      return;
+    }
+
     try {
       const field = await api.post<SignatureFieldDto>(
         `/documents/${doc._id}/signature-fields`,
@@ -358,6 +381,7 @@ export function DocumentViewerClient({
         },
       );
       setSignatureFields((prev) => [...prev, field]);
+      setSelectedSignatureFieldId(field._id);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('document.addFieldFailed'));
     }
@@ -368,6 +392,9 @@ export function DocumentViewerClient({
     try {
       await api.delete(`/documents/${doc._id}/signature-fields/${fieldId}`);
       setSignatureFields((prev) => prev.filter((f) => f._id !== fieldId));
+      setSelectedSignatureFieldId((current) =>
+        current === fieldId ? null : current,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : t('document.removeFieldFailed'));
     }
@@ -439,7 +466,13 @@ export function DocumentViewerClient({
         if (linked.fields.length > 0) return mapPdfTemplateFields(linked);
       }
       const templates = await api.get<PdfTemplateDto[]>('/templates');
+      const titleKey = doc.title.trim().toLowerCase();
       const pick =
+        templates.find(
+          (t) =>
+            t.fields.length > 0 &&
+            titleKey.includes(t.name.trim().toLowerCase()),
+        ) ??
         templates.find((t) => t.isDefault && t.fields.length > 0) ??
         templates.find((t) => t.fields.length > 0);
       if (!pick) return undefined;
@@ -462,18 +495,35 @@ export function DocumentViewerClient({
     setError(null);
     try {
       const pdfTemplate = await loadPdfTemplateLayout();
-      const created = await createMissingTemplateFields(
+      const mapped = await applyTemplateFieldMappings(
         doc,
         signatureFields,
-        (mapping) =>
-          api.post<SignatureFieldDto>(
-            `/documents/${doc._id}/signature-fields`,
-            mapping,
-          ),
+        {
+          createField: (mapping) =>
+            api.post<SignatureFieldDto>(
+              `/documents/${doc._id}/signature-fields`,
+              mapping,
+            ),
+          updateField: (fieldId, mapping) =>
+            api.patch<SignatureFieldDto>(
+              `/documents/${doc._id}/signature-fields/${fieldId}`,
+              {
+                pageNumber: mapping.pageNumber,
+                x: mapping.x,
+                y: mapping.y,
+                width: mapping.width,
+                height: mapping.height,
+              },
+            ),
+        },
         pdfTemplate,
       );
-      if (created.length > 0) {
-        setSignatureFields((prev) => [...prev, ...created]);
+      if (mapped.length > 0) {
+        setSignatureFields((prev) => {
+          const byId = new Map(prev.map((field) => [field._id, field]));
+          for (const field of mapped) byId.set(field._id, field);
+          return [...byId.values()];
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('document.mapSignersFailed'));
@@ -552,6 +602,12 @@ export function DocumentViewerClient({
     setSidebarTab('form-fill');
   }
 
+  function goToWorkflow() {
+    setFormFieldPlacementMode(false);
+    setFieldPlacementMode(false);
+    setSidebarTab('workflow');
+  }
+
   function handleSidebarTabChange(tab: DocumentSidebarTab) {
     if (tab !== 'form-setup') setFormFieldPlacementMode(false);
     setSidebarTab(tab);
@@ -610,6 +666,7 @@ export function DocumentViewerClient({
     setFieldPlacementMode(false);
     setPlacementMode(false);
     setCommentMode(false);
+    setSelectedSignatureFieldId(null);
     setFormFieldPlacementMode(true);
     setSidebarTab('form-setup');
   }
@@ -1099,10 +1156,10 @@ export function DocumentViewerClient({
                 isOwner &&
                 isDraft &&
                 !formFieldPlacementMode &&
-                !fieldPlacementMode &&
-                sidebarTab !== 'form-setup' &&
-                sidebarTab !== 'form-fill'
+                sidebarTab !== 'form-setup'
               }
+              movableSignatureFieldId={selectedSignatureFieldId}
+              onSignatureFieldSelect={setSelectedSignatureFieldId}
               commentMode={commentMode}
               activeSignerId={canSign ? mySignerInActiveStep?._id : null}
               onSignaturePlace={onPlace}
@@ -1126,7 +1183,6 @@ export function DocumentViewerClient({
                 isOwner &&
                 isDraft &&
                 hasUploadedPdf &&
-                !formFieldPlacementMode &&
                 !fieldPlacementMode &&
                 sidebarTab === 'form-setup'
               }
@@ -1142,7 +1198,9 @@ export function DocumentViewerClient({
               <div className="mb-2 font-medium text-fg">{t('document.signerMapping')}</div>
               {isDraft && isOwner && signatureFields.length > 0 && (
                 <p className="mb-2 text-xs text-fg-muted">
-                  {t('document.dragToMoveField')}
+                  {fieldPlacementMode
+                    ? t('document.clickOrDragToPlaceField')
+                    : t('document.dragToMoveField')}
                 </p>
               )}
               {canSaveAsTemplate && (
@@ -1194,9 +1252,19 @@ export function DocumentViewerClient({
                     {signatureFields.map((field) => (
                       <li
                         key={field._id}
-                        className="flex items-center justify-between rounded-md bg-surface-muted px-2 py-1 text-xs"
+                        className={cn(
+                          'flex items-center justify-between rounded-md px-2 py-1 text-xs',
+                          selectedSignatureFieldId === field._id
+                            ? 'bg-primary/10 ring-1 ring-primary'
+                            : 'bg-surface-muted',
+                        )}
                       >
-                        <span>
+                        <button
+                          type="button"
+                          className="flex-1 text-left"
+                          disabled={field.signed}
+                          onClick={() => setSelectedSignatureFieldId(field._id)}
+                        >
                           {t('document.page', { n: field.pageNumber })}:{' '}
                           {field.signerName ?? field.signerEmail}
                           {field.signed && (
@@ -1204,7 +1272,7 @@ export function DocumentViewerClient({
                               {t('document.signed')}
                             </span>
                           )}
-                        </span>
+                        </button>
                         {isDraft && isOwner && !field.signed && (
                           <Button
                             type="button"
@@ -1232,7 +1300,7 @@ export function DocumentViewerClient({
                       type="button"
                       variant="outline"
                       onClick={autoMapSignersFromTemplate}
-                      disabled={autoMapBusy || allSignersMapped}
+                      disabled={autoMapBusy}
                       className="border-success/40 text-success hover:bg-success/5"
                     >
                       {autoMapBusy ? t('common.mapping') : t('document.autoMapSigners')}
@@ -1280,13 +1348,18 @@ export function DocumentViewerClient({
                   </select>
                 </label>
                 <span className="text-xs text-fg-muted">
-                  {t('document.clickToPlaceField')} · {t('document.dragToMoveField')}
+                  {t('document.clickOrDragToPlaceField')}
                 </span>
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  onClick={() => setFieldPlacementMode(false)}
+                  onClick={() => {
+                    setFieldPlacementMode(false);
+                    if (selectedSignatureFieldId) return;
+                    const last = signatureFields.at(-1);
+                    if (last && !last.signed) setSelectedSignatureFieldId(last._id);
+                  }}
                 >
                   {t('common.done')}
                 </Button>
@@ -1350,9 +1423,6 @@ export function DocumentViewerClient({
             className="flex min-h-0 flex-1 flex-col"
           >
             <TabsList className="h-auto w-full shrink-0 flex-wrap rounded-none border-b border-border bg-surface-muted p-1">
-              <TabsTrigger value="workflow" className="flex-1">
-                {t('document.workflow')}
-              </TabsTrigger>
               {formSetupTabVisible && (
                 <TabsTrigger value="form-setup" className="flex-1">
                   {t('document.formSetupTab')}
@@ -1363,6 +1433,9 @@ export function DocumentViewerClient({
                   {t('document.formFillTab')}
                 </TabsTrigger>
               )}
+              <TabsTrigger value="workflow" className="flex-1">
+                {t('document.workflow')}
+              </TabsTrigger>
               <TabsTrigger value="comments" className="flex-1">
                 {t('document.comments')}
               </TabsTrigger>
@@ -1386,6 +1459,7 @@ export function DocumentViewerClient({
                 onSelectField={setActiveFormFieldId}
                 activeFieldId={activeFormFieldId}
                 onContinueToFill={hasForm ? goToFormFill : undefined}
+                onSkipToSigners={!hasWorkflowSteps ? goToWorkflow : undefined}
               />
             </div>
           )}
@@ -1400,6 +1474,11 @@ export function DocumentViewerClient({
                 onChange={setFormFillDraft}
                 onSave={saveFormValues}
               />
+              {!hasWorkflowSteps && (
+                <Button type="button" variant="outline" className="w-full" onClick={goToWorkflow}>
+                  {t('document.continueToSigners')}
+                </Button>
+              )}
             </div>
           )}
           {sidebarTab === 'workflow' && isDraft && isOwner && !hasWorkflowSteps && (

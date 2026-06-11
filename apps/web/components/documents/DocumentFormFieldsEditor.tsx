@@ -25,6 +25,7 @@ interface Props {
   onSelectField: (fieldId: string | null) => void;
   activeFieldId: string | null;
   onContinueToFill?: () => void;
+  onSkipToSigners?: () => void;
 }
 
 export function DocumentFormFieldsEditor({
@@ -41,6 +42,7 @@ export function DocumentFormFieldsEditor({
   onSelectField,
   activeFieldId,
   onContinueToFill,
+  onSkipToSigners,
 }: Props) {
   const { t } = useTranslation();
   const hasUploadedPdf = doc.hasPdfFile ?? !!doc.fileUrl;
@@ -52,7 +54,11 @@ export function DocumentFormFieldsEditor({
     <div className="space-y-4 text-sm">
       <p className="text-xs text-fg-muted">{t('document.manualFormFieldsHint')}</p>
       {customFields.length > 0 && !formFieldPlacementMode && (
-        <p className="text-xs text-fg-muted">{t('document.dragFormFieldToMove')}</p>
+        <p className="text-xs text-fg-muted">
+          {activeFieldId
+            ? t('document.dragFormFieldToMove')
+            : t('document.selectFormFieldToMove')}
+        </p>
       )}
       <div className="flex flex-wrap gap-2">
         <Button
@@ -101,6 +107,12 @@ export function DocumentFormFieldsEditor({
       {fields.length > 0 && !formFieldPlacementMode && onContinueToFill && (
         <Button type="button" className="w-full" onClick={onContinueToFill}>
           {t('document.continueToFillForm')}
+        </Button>
+      )}
+
+      {!formFieldPlacementMode && onSkipToSigners && (
+        <Button type="button" variant="outline" className="w-full" onClick={onSkipToSigners}>
+          {t('document.skipFormToSigners')}
         </Button>
       )}
 

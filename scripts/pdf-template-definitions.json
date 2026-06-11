@@ -1,0 +1,130 @@
+[
+  {
+    "slug": "employment_contract",
+    "filename": "employment_contract.pdf",
+    "name": "חוזה העסקה",
+    "pageCount": 1,
+    "fields": [
+      {
+        "label": "העובד",
+        "pageNumber": 1,
+        "x": 22,
+        "y": 66.5,
+        "width": 22,
+        "height": 5
+      },
+      {
+        "label": "המעסיק",
+        "pageNumber": 1,
+        "x": 62,
+        "y": 66.5,
+        "width": 22,
+        "height": 5
+      }
+    ]
+  },
+  {
+    "slug": "loan_agreement",
+    "filename": "loan_agreement.pdf",
+    "name": "הסכם הלוואה",
+    "pageCount": 2,
+    "fields": [
+      {
+        "label": "המלווה",
+        "pageNumber": 2,
+        "x": 66,
+        "y": 53.5,
+        "width": 22,
+        "height": 5
+      },
+      {
+        "label": "הלווה",
+        "pageNumber": 2,
+        "x": 40,
+        "y": 53.5,
+        "width": 22,
+        "height": 5
+      },
+      {
+        "label": "ערב",
+        "pageNumber": 2,
+        "x": 14,
+        "y": 53.5,
+        "width": 22,
+        "height": 5
+      }
+    ]
+  },
+  {
+    "slug": "nda_agreement",
+    "filename": "nda_agreement.pdf",
+    "name": "הסכם סודיות (NDA)",
+    "pageCount": 1,
+    "fields": [
+      {
+        "label": "הצד המגלה",
+        "pageNumber": 1,
+        "x": 62,
+        "y": 60,
+        "width": 22,
+        "height": 5
+      },
+      {
+        "label": "הצד המקבל",
+        "pageNumber": 1,
+        "x": 22,
+        "y": 60,
+        "width": 22,
+        "height": 5
+      }
+    ]
+  },
+  {
+    "slug": "rental_agreement",
+    "filename": "rental_agreement.pdf",
+    "name": "חוזה שכירות",
+    "pageCount": 1,
+    "fields": [
+      {
+        "label": "השוכר",
+        "pageNumber": 1,
+        "x": 22,
+        "y": 71,
+        "width": 22,
+        "height": 5
+      },
+      {
+        "label": "המשכיר",
+        "pageNumber": 1,
+        "x": 62,
+        "y": 71,
+        "width": 22,
+        "height": 5
+      }
+    ]
+  },
+  {
+    "slug": "service_agreement",
+    "filename": "service_agreement.pdf",
+    "name": "הסכם שירות",
+    "pageCount": 1,
+    "fields": [
+      {
+        "label": "נותן השירות",
+        "pageNumber": 1,
+        "x": 22,
+        "y": 63,
+        "width": 22,
+        "height": 5
+      },
+      {
+        "label": "הלקוח",
+        "pageNumber": 1,
+        "x": 62,
+        "y": 63,
+        "width": 22,
+        "height": 5
+      }
+    ]
+  }
+]

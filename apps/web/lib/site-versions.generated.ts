@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.67",
-    "hash": "a6ee018",
-    "fullHash": "a6ee018ffa8273e45535743fb872e03f998a9920",
-    "date": "2026-06-10T20:02:22+03:00",
-    "message": "Sync site versions after home redirect release."
+    "version": "0.1.68",
+    "hash": "43897f6",
+    "fullHash": "43897f6b486621cfe6653738f1dca4893313f993",
+    "date": "2026-06-11T15:25:02+03:00",
+    "message": "Split form setup from signer workflow in upload and draft flows."
   },
   "history": [
+    {
+      "version": "0.1.68",
+      "hash": "43897f6",
+      "fullHash": "43897f6b486621cfe6653738f1dca4893313f993",
+      "date": "2026-06-11T15:25:02+03:00",
+      "message": "Split form setup from signer workflow in upload and draft flows."
+    },
     {
       "version": "0.1.67",
       "hash": "a6ee018",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "44d94309819fba332c2ed705fa550732ab93fef6",
       "date": "2026-06-06T17:44:04+03:00",
       "message": "Add i18n strings for Settings page and Appearance section."
-    },
-    {
-      "version": "0.1.28",
-      "hash": "74e819d",
-      "fullHash": "74e819d05ba9c9e0e4b8ffa2406e9627d036ab6f",
-      "date": "2026-06-06T17:18:22+03:00",
-      "message": "Add Phase 2 implementation plan for UI design system."
     }
   ]
 } as const;

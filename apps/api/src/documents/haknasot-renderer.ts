@@ -13,6 +13,7 @@ import path from 'node:path';
 import {
   HAKNASOT_FORM_FIELDS,
   MUNICIPAL_APPROVAL_SIGNATURE_ROWS,
+  type PdfFormFieldTemplate,
 } from '@docflow/shared';
 
 import {
@@ -72,6 +73,8 @@ export interface RenderHaknasotPdfOpts {
   formValues: Record<string, string>;
   signedRows: SignedRowInput[];
   contractTypeSelection?: string | null;
+  /** Resolved form fields (with per-document position overrides); defaults to the built-in layout. */
+  fields?: readonly PdfFormFieldTemplate[];
 }
 
 function formatRowDate(date: Date | null): string {
@@ -92,13 +95,12 @@ export async function renderHaknasotPdf(
   const latinBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const pages = pdfDoc.getPages();
 
-  const contractTypeField = HAKNASOT_FORM_FIELDS.find(
-    (f) => f.id === 'contract_type',
-  );
+  const fields = opts.fields ?? HAKNASOT_FORM_FIELDS;
+  const contractTypeField = fields.find((f) => f.id === 'contract_type');
 
   await stampFormFieldsOnDocument(
     pdfDoc,
-    HAKNASOT_FORM_FIELDS,
+    fields,
     opts.formValues,
     new Set(['contract_type']),
   );

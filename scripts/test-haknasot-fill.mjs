@@ -134,10 +134,17 @@ async function main() {
     const boxTopFromTop = (field.y / 100) * ph;
     const boxHeight = (field.height / 100) * ph;
 
-    const fontSize = Math.max(7, Math.min(10, boxHeight * 0.75));
     const fieldFont = HEBREW_RE.test(raw) ? font : latinFont;
-    // Let pdf-lib + fontkit handle Hebrew shaping/BiDi — pass the raw string.
-    const textWidth = fieldFont.widthOfTextAtSize(raw, fontSize);
+    // Mirror the API renderer: shrink the font until the value fits the box width.
+    let fontSize = Math.max(7, Math.min(10, boxHeight * 0.75));
+    const maxTextWidth = boxWidth - 2;
+    while (fontSize > 5 && fieldFont.widthOfTextAtSize(raw, fontSize) > maxTextWidth) {
+      fontSize -= 0.5;
+    }
+    const textWidth = Math.min(
+      fieldFont.widthOfTextAtSize(raw, fontSize),
+      maxTextWidth,
+    );
 
     // RTL forms: right-align Hebrew/long fields, left-align numeric for clarity.
     const rightAlign = HEBREW_RE.test(raw);

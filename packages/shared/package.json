@@ -16,9 +16,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');fs.copyFileSync('src/haknasot-pdf-lines.json','dist/haknasot-pdf-lines.json');fs.copyFileSync('src/haknasot-pdf-layout.json','dist/haknasot-pdf-layout.json')\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.9"
   }
 }

@@ -96,14 +96,19 @@ export function resolveDocumentFormFields(doc: {
     const base = getHaknasotFormFields();
     const baseIds = new Set(base.map((f) => f.id));
     const baseKeys = new Set(base.map((f) => formFieldPlacementKey(f)));
-    return dedupeFormFieldsByPlacement([
-      ...base,
-      ...custom.filter(
-        (f) =>
-          !baseIds.has(f.id) &&
-          !baseKeys.has(formFieldPlacementKey(f)),
-      ),
-    ]);
+    // Per-document overrides share the base field's id and replace its
+    // geometry/label; brand-new custom fields use new ids and append.
+    const overridesById = new Map(
+      custom.filter((f) => baseIds.has(f.id)).map((f) => [f.id, f]),
+    );
+    const merged = base.map((f) => {
+      const override = overridesById.get(f.id);
+      return override ? { ...f, ...override } : f;
+    });
+    const extras = custom.filter(
+      (f) => !baseIds.has(f.id) && !baseKeys.has(formFieldPlacementKey(f)),
+    );
+    return dedupeFormFieldsByPlacement([...merged, ...extras]);
   }
   return dedupeFormFieldsByPlacement(custom);
 }
@@ -116,6 +121,11 @@ export function isEditableDocumentFormField(
   },
   fieldId: string,
 ): boolean {
+  // On Haknasot, built-in base fields are editable too (positions can be
+  // overridden per document), so any resolved field id counts as editable.
+  if (doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID) {
+    return resolveDocumentFormFields(doc).some((f) => f.id === fieldId);
+  }
   return (doc.formFields ?? []).some((f) => f.id === fieldId);
 }
 

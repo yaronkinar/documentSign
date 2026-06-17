@@ -206,6 +206,9 @@ export const en = {
   pdf: {
     loading: 'Loading PDF…',
     renderFailed: 'Failed to render PDF',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    zoomReset: 'Reset zoom',
   },
   newDocument: {
     title: 'New Document',
@@ -308,6 +311,10 @@ export const en = {
     signed: 'signed',
     autoMapSigners: 'Auto-map signers',
     assignManually: 'Assign manually',
+    adjustFieldPositions: 'Adjust field positions',
+    adjustFieldsHint:
+      'Drag fields to reposition, corner handle to resize. Select a field to reset it.',
+    resetFieldPosition: 'Reset to default',
     sendToSigners: 'Send to signers',
     assignTo: 'Assign to:',
     clickToPlaceField:

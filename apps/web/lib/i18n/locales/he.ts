@@ -208,6 +208,9 @@ export const he: TranslationDict = {
   pdf: {
     loading: 'טוען PDF…',
     renderFailed: 'הצגת ה-PDF נכשלה',
+    zoomIn: 'הגדל',
+    zoomOut: 'הקטן',
+    zoomReset: 'איפוס זום',
   },
   newDocument: {
     title: 'מסמך חדש',
@@ -310,6 +313,10 @@ export const he: TranslationDict = {
     signed: 'נחתם',
     autoMapSigners: 'מיפוי אוטומטי של חותמים',
     assignManually: 'שיוך ידני',
+    adjustFieldPositions: 'התאמת מיקום השדות',
+    adjustFieldsHint:
+      'גרור שדות לשינוי מיקום, ידית בפינה לשינוי גודל. בחר שדה כדי לאפס אותו.',
+    resetFieldPosition: 'איפוס לברירת מחדל',
     sendToSigners: 'שלח לחותמים',
     assignTo: 'שייך ל:',
     clickToPlaceField: 'לחץ על ה-PDF כדי להציב שדה (לחיצה נוספת להזזה)',

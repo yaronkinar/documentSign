@@ -122,6 +122,43 @@ async function requestFormData(
   }
 }
 
+async function requestBlob(
+  path: string,
+  opts: RequestOptions = {},
+): Promise<Blob> {
+  const url = new URL(`${API_URL}${path}`);
+  if (opts.query) {
+    for (const [k, v] of Object.entries(opts.query)) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
+    }
+  }
+  const headers: Record<string, string> = {};
+  const token = SERVER_BYPASS_TOKEN ?? opts.token;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), { headers, cache: 'no-store' });
+  } catch (err) {
+    const hint =
+      err instanceof TypeError
+        ? ` Cannot reach the API at ${API_URL}. Is "npm run dev:api" running?`
+        : '';
+    throw new Error(`Network error calling GET ${path}.${hint}`, { cause: err });
+  }
+  if (!res.ok) {
+    let message = `Request failed: ${res.status}`;
+    try {
+      const data = await res.json();
+      message = formatApiErrorMessage(data, message);
+    } catch {
+      // ignore
+    }
+    throw new ApiError(res.status, message);
+  }
+  return res.blob();
+}
+
 export const apiClient = {
   get<T>(path: string, opts?: RequestOptions): Promise<T> {
     return request<T>('GET', path, undefined, opts);
@@ -134,6 +171,9 @@ export const apiClient = {
   },
   delete<T>(path: string, opts?: RequestOptions): Promise<T> {
     return request<T>('DELETE', path, undefined, opts);
+  },
+  getBlob(path: string, opts?: RequestOptions): Promise<Blob> {
+    return requestBlob(path, opts);
   },
   postFormData(path: string, formData: FormData, opts?: RequestOptions) {
     return requestFormData(path, formData, opts);
@@ -203,9 +243,18 @@ export function useApiClient() {
       delete<T>(path: string) {
         return withToken<T>((token) => apiClient.delete<T>(path, { token }));
       },
-      async postFormData(path: string, formData: FormData): Promise<Response> {
+      getBlob(path: string, query?: RequestOptions['query']) {
+        return withToken<Blob>((token) =>
+          apiClient.getBlob(path, { token, query }),
+        );
+      },
+      async postFormData(
+        path: string,
+        formData: FormData,
+        query?: RequestOptions['query'],
+      ): Promise<Response> {
         return withToken((token) =>
-          apiClient.postFormData(path, formData, { token }),
+          apiClient.postFormData(path, formData, { token, query }),
         );
       },
     }),

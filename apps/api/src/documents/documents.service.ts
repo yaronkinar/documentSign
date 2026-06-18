@@ -92,7 +92,7 @@ export class DocumentsService {
       description: dto.description ?? null,
       fileKey: null,
       fileSize: null,
-      pageCount: 2,
+      pageCount: 4,
       formTemplateId: templateId,
       formValues: {},
       ownerId: clerkId,

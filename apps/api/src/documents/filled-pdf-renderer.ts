@@ -117,6 +117,65 @@ export function drawFormFieldValue(
   });
 }
 
+/** True when a checkbox form value means "checked". */
+export function isCheckboxChecked(rawValue: string | undefined): boolean {
+  const v = sanitizeFormText(rawValue ?? '').toLowerCase();
+  return v !== '' && v !== 'false' && v !== '0' && v !== 'no';
+}
+
+/** Mask the pre-printed glyph, draw a fresh box, and a check mark when set. */
+export function drawCheckbox(
+  page: PdfPage,
+  field: Pick<PdfFormFieldTemplate, 'x' | 'y' | 'width' | 'height'>,
+  checked: boolean,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rgb: (r: number, g: number, b: number) => any,
+): void {
+  const { width: pw, height: ph } = page.getSize();
+  const boxLeft = (field.x / 100) * pw;
+  const boxWidth = (field.width / 100) * pw;
+  const boxTopFromTop = (field.y / 100) * ph;
+  const boxHeight = (field.height / 100) * ph;
+  const bottom = ph - boxTopFromTop - boxHeight;
+
+  // Cover the form's pre-printed ☐/☑ glyph so selection is fully dynamic.
+  page.drawRectangle({
+    x: boxLeft,
+    y: bottom,
+    width: boxWidth,
+    height: boxHeight,
+    color: rgb(1, 1, 1),
+  });
+
+  const side = Math.min(boxWidth, boxHeight) * 0.72;
+  const sx = boxLeft + (boxWidth - side) / 2;
+  const sy = bottom + (boxHeight - side) / 2;
+  page.drawRectangle({
+    x: sx,
+    y: sy,
+    width: side,
+    height: side,
+    borderColor: rgb(0.25, 0.25, 0.25),
+    borderWidth: 0.8,
+    color: rgb(1, 1, 1),
+  });
+  if (checked) {
+    const green = rgb(0.05, 0.45, 0.12);
+    page.drawLine({
+      start: { x: sx + side * 0.18, y: sy + side * 0.5 },
+      end: { x: sx + side * 0.42, y: sy + side * 0.24 },
+      thickness: 1.3,
+      color: green,
+    });
+    page.drawLine({
+      start: { x: sx + side * 0.42, y: sy + side * 0.24 },
+      end: { x: sx + side * 0.84, y: sy + side * 0.8 },
+      thickness: 1.3,
+      color: green,
+    });
+  }
+}
+
 /** Draw form field values onto an existing PDF document (mutates pdfDoc). */
 export async function stampFormFieldsOnDocument(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,11 +190,17 @@ export async function stampFormFieldsOnDocument(
 
   for (const field of fields) {
     if (skipFieldIds.has(field.id)) continue;
-    const rawVal = formValues[field.id];
-    if (rawVal === undefined || rawVal === '') continue;
-
     const page = pages[field.pageNumber - 1];
     if (!page) continue;
+
+    if (field.type === 'checkbox') {
+      // Always render: masks the pre-printed glyph so state is fully dynamic.
+      drawCheckbox(page, field, isCheckboxChecked(formValues[field.id]), rgb);
+      continue;
+    }
+
+    const rawVal = formValues[field.id];
+    if (rawVal === undefined || rawVal === '') continue;
 
     drawFormFieldValue(page, field, rawVal, fonts, rgb);
   }

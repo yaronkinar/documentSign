@@ -18,7 +18,7 @@ function mockDocument(overrides: Record<string, unknown> = {}) {
     title: 'הכנסות',
     description: null,
     fileSize: null,
-    pageCount: 1,
+    pageCount: 4,
     ownerId: 'user-e2e',
     status: 'draft',
     currentStep: 1,
@@ -352,4 +352,51 @@ test('creates a Haknasot document through the mocked wizard flow', async ({
         call.pathname === '/documents/doc-e2e/form-values',
     ),
   ).toBe(true);
+});
+
+test('Haknasot form step exposes checkbox fields and saves them', async ({
+  page,
+}) => {
+  const apiCalls: ApiCall[] = [];
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('docflow-locale', 'en');
+  });
+  await installPdfMock(page);
+  await installApiMocks(page, apiCalls);
+
+  await gotoApp(page, '/documents/new');
+
+  await expect(page.getByRole('button', { name: 'Start form' })).toBeEnabled();
+  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Start form' }).click({ force: true });
+
+  // The 4-page form exposes contract-type / engagement-type checkboxes.
+  const expand = page.getByLabel('הרחבה', { exact: true });
+  await expect(expand).toBeVisible({ timeout: 20_000 });
+  await expect(expand).not.toBeChecked();
+  await expand.check();
+  await expect(expand).toBeChecked();
+
+  const income = page.getByLabel('הכנסה: משכירות, הקצאות קרקע…', { exact: true });
+  await expect(income).toBeVisible();
+  await income.check();
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Checkbox selections are persisted as 'true' in the form-values PATCH.
+  await expect
+    .poll(() => {
+      const call = [...apiCalls]
+        .reverse()
+        .find(
+          (c) =>
+            c.method === 'PATCH' &&
+            c.pathname === '/documents/doc-e2e/form-values',
+        );
+      const values = (call?.body as { values?: Record<string, string> } | undefined)
+        ?.values;
+      return values ? `${values.ct_expand ?? ''}/${values.rel_income ?? ''}` : '';
+    }, { timeout: 15_000 })
+    .toBe('true/true');
 });

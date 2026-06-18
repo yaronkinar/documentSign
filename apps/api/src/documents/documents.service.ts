@@ -92,7 +92,7 @@ export class DocumentsService {
       description: dto.description ?? null,
       fileKey: null,
       fileSize: null,
-      pageCount: 2,
+      pageCount: 4,
       formTemplateId: templateId,
       formValues: {},
       ownerId: clerkId,
@@ -339,10 +339,16 @@ export class DocumentsService {
     return { fields: merged };
   }
 
-  private assertCanEditFormFields(doc: DocumentDocument): void {
+  /** Editing existing/built-in fields (move, resize, relabel, reset) only needs a draft. */
+  private assertDraftForFormFields(doc: DocumentDocument): void {
     if (doc.status !== 'draft') {
       throw new ForbiddenException('Form fields can only be edited in draft');
     }
+  }
+
+  /** Adding a brand-new custom field still requires an uploaded PDF. */
+  private assertCanAddFormFields(doc: DocumentDocument): void {
+    this.assertDraftForFormFields(doc);
     if (!doc.fileKey && !(doc.formFields?.length)) {
       throw new BadRequestException(
         'Form fields require an uploaded PDF or existing custom fields',
@@ -356,6 +362,14 @@ export class DocumentsService {
         'Add custom fields on haknasot documents with an uploaded PDF only',
       );
     }
+  }
+
+  /** A built-in Haknasot base field id (not a user-added custom field). */
+  private isHaknasotBaseField(doc: DocumentDocument, fieldId: string): boolean {
+    return (
+      doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID &&
+      getHaknasotFormFields().some((f) => f.id === fieldId)
+    );
   }
 
   private docFormFieldSnapshot(
@@ -380,7 +394,7 @@ export class DocumentsService {
     dto: CreateDocumentFormFieldDto,
   ): Promise<DocumentDto> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
-    this.assertCanEditFormFields(doc);
+    this.assertCanAddFormFields(doc);
 
     const existingIds = this.docFormFieldSnapshot(doc).map((f) => f.id);
     const id = allocateFormFieldId(dto.label, existingIds);
@@ -410,7 +424,7 @@ export class DocumentsService {
     dto: UpdateDocumentFormFieldDto,
   ): Promise<DocumentDto> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
-    this.assertCanEditFormFields(doc);
+    this.assertDraftForFormFields(doc);
 
     const snapshot = this.docFormFieldSnapshot(doc);
     if (
@@ -422,7 +436,19 @@ export class DocumentsService {
       throw new NotFoundException('Form field not found or not editable');
     }
 
-    const field = doc.formFields.find((f) => f.id === fieldId);
+    if (!doc.formFields) doc.formFields = [] as never;
+    let field = doc.formFields.find((f) => f.id === fieldId);
+    if (!field) {
+      // Built-in Haknasot base field edited for the first time: materialize an
+      // override copy from the resolved base definition, then patch it.
+      const base = resolveDocumentFormFields({
+        formTemplateId: doc.formTemplateId,
+        formFields: snapshot,
+      }).find((f) => f.id === fieldId);
+      if (!base) throw new NotFoundException('Form field not found');
+      doc.formFields.push({ ...base } as never);
+      field = doc.formFields.find((f) => f.id === fieldId);
+    }
     if (!field) throw new NotFoundException('Form field not found');
 
     if (dto.label !== undefined) field.label = dto.label.trim();
@@ -445,7 +471,7 @@ export class DocumentsService {
     fieldId: string,
   ): Promise<DocumentDto> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
-    this.assertCanEditFormFields(doc);
+    this.assertDraftForFormFields(doc);
 
     const snapshot = this.docFormFieldSnapshot(doc);
     if (
@@ -457,8 +483,14 @@ export class DocumentsService {
       throw new NotFoundException('Form field not found or not editable');
     }
 
-    doc.formFields = doc.formFields.filter((f) => f.id !== fieldId) as never;
-    if (doc.formValues?.[fieldId]) {
+    // For a built-in Haknasot base field this removes the override entry,
+    // resetting it to the default position while keeping its filled value.
+    // For a genuine custom field this deletes the field and its value.
+    const resetOnly = this.isHaknasotBaseField(doc, fieldId);
+    doc.formFields = (doc.formFields ?? []).filter(
+      (f) => f.id !== fieldId,
+    ) as never;
+    if (!resetOnly && doc.formValues?.[fieldId]) {
       const next = { ...doc.formValues };
       delete next[fieldId];
       doc.formValues = next;
@@ -856,6 +888,10 @@ export class DocumentsService {
       formValues: doc.formValues ?? {},
       signedRows,
       contractTypeSelection: (doc.formValues ?? {})['contract_type'] ?? null,
+      fields: resolveDocumentFormFields({
+        formTemplateId: doc.formTemplateId,
+        formFields: this.docFormFieldSnapshot(doc),
+      }),
     });
   }
 

@@ -87,6 +87,10 @@ function computeScale(containerWidth: number, pageWidth: number) {
   return Math.min(1.5, Math.max(0.4, available / pageWidth));
 }
 
+const ZOOM_STEP = 0.25;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4;
+
 interface PageDropTarget {
   pageNumber: number;
   x: number;
@@ -220,8 +224,11 @@ export function PDFViewer(props: PDFViewerProps) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.2);
+  const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const effectiveScale = scale * zoom;
 
   useEffect(() => {
     let cancelled = false;
@@ -280,6 +287,39 @@ export function PDFViewer(props: PDFViewerProps) {
           {error}
         </div>
       )}
+      {pdf && (
+        <div
+          dir="ltr"
+          className="sticky top-2 z-40 mb-2 flex w-fit items-center gap-1 rounded-md border border-border bg-surface/95 px-1.5 py-1 shadow-sm backdrop-blur"
+        >
+          <button
+            type="button"
+            aria-label={t('pdf.zoomOut')}
+            onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+            disabled={zoom <= ZOOM_MIN}
+            className="flex h-7 w-7 items-center justify-center rounded text-base text-fg hover:bg-surface-muted disabled:opacity-40"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            aria-label={t('pdf.zoomReset')}
+            onClick={() => setZoom(1)}
+            className="min-w-[3rem] rounded px-1 text-center text-xs tabular-nums text-fg hover:bg-surface-muted"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            aria-label={t('pdf.zoomIn')}
+            onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+            disabled={zoom >= ZOOM_MAX}
+            className="flex h-7 w-7 items-center justify-center rounded text-base text-fg hover:bg-surface-muted disabled:opacity-40"
+          >
+            +
+          </button>
+        </div>
+      )}
       {pdf &&
         Array.from({ length: numPages }, (_, index) => {
           const pageNumber = index + 1;
@@ -288,7 +328,7 @@ export function PDFViewer(props: PDFViewerProps) {
               key={pageNumber}
               pdf={pdf}
               pageNumber={pageNumber}
-              scale={scale}
+              scale={effectiveScale}
               eager={pageNumber === 1}
               prefetch={pageNumber === 2}
               signatures={(props.signatures ?? []).filter(
@@ -1271,7 +1311,7 @@ function LazyPDFPage({
                         ? '1px solid transparent'
                         : '1px dashed rgba(37, 99, 235, 0.35)',
                   background: value
-                    ? '#fff'
+                    ? 'transparent'
                     : draggable
                       ? 'rgba(37, 99, 235, 0.08)'
                       : 'rgba(37, 99, 235, 0.04)',
@@ -1306,7 +1346,21 @@ function LazyPDFPage({
                     {field.label}
                   </span>
                 )}
-                {value && (
+                {field.type === 'checkbox' ? (
+                  <span
+                    style={{
+                      width: '100%',
+                      textAlign: 'center',
+                      fontSize: 12,
+                      lineHeight: 1,
+                      color: '#15803d',
+                      fontWeight: 700,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {value && value !== 'false' ? '✓' : ''}
+                  </span>
+                ) : value ? (
                   <span
                     style={{
                       fontSize: 10,
@@ -1322,7 +1376,7 @@ function LazyPDFPage({
                   >
                     {value}
                   </span>
-                )}
+                ) : null}
                 {draggable && onFormFieldResize && (
                   <div
                     role="presentation"

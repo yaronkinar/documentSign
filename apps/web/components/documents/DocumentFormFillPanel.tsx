@@ -5,8 +5,11 @@ import type { PdfFormFieldTemplate } from '@docflow/shared';
 
 const SECTION_LABELS: Record<string, string> = {
   header: 'כותרת',
+  contract_type: 'סוג החוזה',
   contract_types: 'סוגי חוזים',
+  relation: 'סוג ההתקשרות',
   details: 'פרטי החוזה',
+  period: 'תקופות החוזה',
   budget: 'תקציב',
   amounts: 'סכומים ואישורים',
   general: 'שדות',
@@ -80,7 +83,23 @@ export function DocumentFormFillPanel({
             {sectionLabel(section)}
           </h3>
           <div className="space-y-3">
-            {sectionFields.map((field) => (
+            {sectionFields.map((field) =>
+              field.type === 'checkbox' ? (
+                <label key={field.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300"
+                    checked={draft[field.id] === 'true'}
+                    disabled={readOnly || saving}
+                    onChange={(e) =>
+                      updateField(field.id, e.target.checked ? 'true' : '')
+                    }
+                  />
+                  <span className="text-xs font-medium text-gray-700">
+                    {field.label}
+                  </span>
+                </label>
+              ) : (
               <label key={field.id} className="block">
                 <span className="text-xs font-medium text-gray-700">{field.label}</span>
                 {field.type === 'textarea' ? (
@@ -101,7 +120,8 @@ export function DocumentFormFillPanel({
                   />
                 )}
               </label>
-            ))}
+              ),
+            )}
           </div>
         </div>
       ))}

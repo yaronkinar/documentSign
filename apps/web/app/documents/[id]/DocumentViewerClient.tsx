@@ -157,6 +157,7 @@ export function DocumentViewerClient({
   const [formSaveBusy, setFormSaveBusy] = useState(false);
   const [attachFormBusy, setAttachFormBusy] = useState(false);
   const [formFieldPlacementMode, setFormFieldPlacementMode] = useState(false);
+  const [adjustFieldsMode, setAdjustFieldsMode] = useState(false);
   const [activeFormFieldId, setActiveFormFieldId] = useState<string | null>(null);
   const [selectedSignatureFieldId, setSelectedSignatureFieldId] = useState<
     string | null
@@ -270,7 +271,12 @@ export function DocumentViewerClient({
     canManageFormFields && !fieldPlacementMode && !formFieldPlacementMode;
   const showDraftStepper =
     isOwner && isDraft && hasUploadedPdf && !isTemplateDoc;
-  const editableFormFieldIds = (doc.formFields ?? []).map((f) => f.id);
+  // On Haknasot (a built-in form template) the owner can reposition the
+  // built-in text fields; in adjust mode all resolved fields are editable.
+  const canAdjustHaknasotFields = isOwner && isDraft && isTemplateDoc && hasForm;
+  const editableFormFieldIds = adjustFieldsMode
+    ? formFields.map((f) => f.id)
+    : (doc.formFields ?? []).map((f) => f.id);
   const formSetupTabVisible = canManageFormFields && !isTemplateDoc;
   const formFillTabVisible = hasForm;
   const draftSetupStep: DraftSetupStep = (() => {
@@ -658,6 +664,22 @@ export function DocumentViewerClient({
     } finally {
       setAttachFormBusy(false);
     }
+  }
+
+  function startAdjustFields() {
+    if (!canAdjustHaknasotFields) return;
+    setError(null);
+    setPlacementMode(false);
+    setCommentMode(false);
+    setFieldPlacementMode(false);
+    setFormFieldPlacementMode(false);
+    setActiveFormFieldId(null);
+    setAdjustFieldsMode(true);
+  }
+
+  function stopAdjustFields() {
+    setAdjustFieldsMode(false);
+    setActiveFormFieldId(null);
   }
 
   function startFormFieldPlacement() {
@@ -1156,6 +1178,7 @@ export function DocumentViewerClient({
                 isOwner &&
                 isDraft &&
                 !formFieldPlacementMode &&
+                !adjustFieldsMode &&
                 sidebarTab !== 'form-setup'
               }
               movableSignatureFieldId={selectedSignatureFieldId}
@@ -1180,11 +1203,12 @@ export function DocumentViewerClient({
               activeFormFieldId={activeFormFieldId}
               formFieldPlacementMode={formFieldPlacementMode}
               formFieldEditMode={
-                isOwner &&
-                isDraft &&
-                hasUploadedPdf &&
-                !fieldPlacementMode &&
-                sidebarTab === 'form-setup'
+                adjustFieldsMode ||
+                (isOwner &&
+                  isDraft &&
+                  hasUploadedPdf &&
+                  !fieldPlacementMode &&
+                  sidebarTab === 'form-setup')
               }
               editableFormFieldIds={editableFormFieldIds}
               onFormFieldPlace={onFormFieldPlace}
@@ -1292,7 +1316,7 @@ export function DocumentViewerClient({
             </div>
           )}
           <div className="sticky bottom-4 mx-auto mt-4 flex max-w-4xl flex-wrap justify-center gap-2 rounded-lg border border-border bg-surface/95 p-2 shadow-sm backdrop-blur">
-            {isOwner && isDraft && !fieldPlacementMode && (
+            {isOwner && isDraft && !fieldPlacementMode && !adjustFieldsMode && (
               <>
                 {!isTemplateDoc && (
                   <>
@@ -1315,6 +1339,16 @@ export function DocumentViewerClient({
                     </Button>
                   </>
                 )}
+                {canAdjustHaknasotFields && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={startAdjustFields}
+                    className="border-info/40 text-info hover:bg-info/5"
+                  >
+                    {t('document.adjustFieldPositions')}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   onClick={submitDocument}
@@ -1330,6 +1364,30 @@ export function DocumentViewerClient({
                   {submitBusy ? t('common.sending') : t('document.sendToSigners')}
                 </Button>
               </>
+            )}
+            {adjustFieldsMode && (
+              <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-sm text-fg">
+                <span>{t('document.adjustFieldsHint')}</span>
+                {activeFormFieldId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void deleteFormField(activeFormFieldId)}
+                    className="border-danger/30 text-danger hover:bg-danger/5"
+                  >
+                    {t('document.resetFieldPosition')}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={stopAdjustFields}
+                >
+                  {t('common.done')}
+                </Button>
+              </div>
             )}
             {!isTemplateDoc && fieldPlacementMode && (
               <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2">

@@ -1,4 +1,4 @@
-export type PdfFormFieldType = 'text' | 'textarea' | 'date';
+export type PdfFormFieldType = 'text' | 'textarea' | 'date' | 'checkbox';
 
 /** Static template field mapped to a region on a PDF (% of page). */
 export interface PdfFormFieldTemplate {

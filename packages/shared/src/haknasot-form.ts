@@ -117,7 +117,7 @@ export const HAKNASOT_FORM_FIELDS = [
   {
     id: 'budget_prev_1',
     label: 'הארכות קודמות – עד 1',
-    type: 'text',
+    type: 'date',
     section: 'period',
     pageNumber: 2,
     x: 49,
@@ -128,7 +128,7 @@ export const HAKNASOT_FORM_FIELDS = [
   {
     id: 'budget_prev_2',
     label: 'הארכות קודמות – עד 2',
-    type: 'text',
+    type: 'date',
     section: 'period',
     pageNumber: 2,
     x: 29.1,
@@ -139,7 +139,7 @@ export const HAKNASOT_FORM_FIELDS = [
   {
     id: 'budget_prev_3',
     label: 'הארכות קודמות – עד 3',
-    type: 'text',
+    type: 'date',
     section: 'period',
     pageNumber: 2,
     x: 9.6,

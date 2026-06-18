@@ -49,8 +49,8 @@ const MOCK_SIGNERS = [
   { name: 'איתן אוחנה',   date: '22/05/2026' }, // 23. מנכ"ל העירייה
 ];
 
-const APPROVAL_NAME_BOX = { x: 52.4, width: 8.7 };
-const APPROVAL_DATE_BOX = { x: 16.9, width: 8.5 };
+const APPROVAL_NAME_BOX = { x: 37.7, width: 19.0 };
+const APPROVAL_DATE_BOX = { x: 8.6, width: 11.0 };
 
 // Sample values keyed by field id. The contract-types section is filled with
 // real bullet descriptions (the "פרט..." dotted lines on the form).
@@ -85,6 +85,11 @@ const SAMPLE_VALUES = {
   budget_balance: '24,000',
   approval_conditions: 'הרחבה הנדרשת לצרכי שירות',
   obligations: 'כל ההתחייבויות מולאו כסדרן',
+  extension_options: 'אופציה לשנה נוספת',
+  // checkboxes
+  ct_expand: 'true',
+  rel_income: 'true',
+  rel_contractor: 'true',
 };
 
 async function main() {
@@ -121,6 +126,28 @@ async function main() {
       missing += 1;
       continue;
     }
+
+    if (field.type === 'checkbox') {
+      const { width: pw, height: ph } = page.getSize();
+      const cbLeft = (field.x / 100) * pw;
+      const cbWidth = (field.width / 100) * pw;
+      const cbTop = (field.y / 100) * ph;
+      const cbHeight = (field.height / 100) * ph;
+      const bottom = ph - cbTop - cbHeight;
+      page.drawRectangle({ x: cbLeft, y: bottom, width: cbWidth, height: cbHeight, color: rgb(1, 1, 1) });
+      const side = Math.min(cbWidth, cbHeight) * 0.72;
+      const sx = cbLeft + (cbWidth - side) / 2;
+      const sy = bottom + (cbHeight - side) / 2;
+      page.drawRectangle({ x: sx, y: sy, width: side, height: side, borderColor: rgb(0.25, 0.25, 0.25), borderWidth: 0.8, color: rgb(1, 1, 1) });
+      const checked = SAMPLE_VALUES[field.id] && SAMPLE_VALUES[field.id] !== 'false';
+      if (checked) {
+        page.drawLine({ start: { x: sx + side * 0.18, y: sy + side * 0.5 }, end: { x: sx + side * 0.42, y: sy + side * 0.24 }, thickness: 1.3, color: rgb(0.05, 0.45, 0.12) });
+        page.drawLine({ start: { x: sx + side * 0.42, y: sy + side * 0.24 }, end: { x: sx + side * 0.84, y: sy + side * 0.8 }, thickness: 1.3, color: rgb(0.05, 0.45, 0.12) });
+      }
+      filled += 1;
+      continue;
+    }
+
     const raw = SAMPLE_VALUES[field.id];
     if (raw === undefined) {
       console.warn(`  ! ${field.id}: no sample value defined`);
@@ -208,10 +235,11 @@ async function main() {
   }
 
   // Stamp each municipal-approval signature row with a labelled placeholder.
-  const sigPage = pages[1];
-  if (sigPage) {
-    const { width: pw, height: ph } = sigPage.getSize();
+  {
     MUNICIPAL_APPROVAL_SIGNATURE_ROWS.forEach((row, idx) => {
+      const sigPage = pages[row.pageNumber - 1];
+      if (!sigPage) return;
+      const { width: pw, height: ph } = sigPage.getSize();
       const boxLeft = (row.x / 100) * pw;
       const boxWidth = (row.width / 100) * pw;
       const boxHeight = (row.height / 100) * ph;

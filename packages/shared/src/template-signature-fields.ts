@@ -80,6 +80,42 @@ export function signerLabelsMatch(
   return slotKey.includes(signerKey) || signerKey.includes(slotKey);
 }
 
+/**
+ * Resolve each ordered approval signer to a municipal-approval row index.
+ *
+ * Rows are role-specific (row 0 = מנהל האגף … row 10 = מנכ"ל), so a signer
+ * carrying a role title is placed on its matching row rather than by position.
+ * Signers whose name does not match a role title fall back to the next free
+ * row, in order. Mirrors `resolveTemplateSlot` so the flattened render lines up
+ * with the placed signature fields (label-match first, then first free slot).
+ */
+export function resolveApprovalRowIndices(
+  signerNames: ReadonlyArray<string | null>,
+): number[] {
+  const rows = HEBREW_MULTI_SIGNER_FIELD_TEMPLATE;
+  const used = new Set<number>();
+  const firstFreeRow = (): number => {
+    for (let i = 0; i < rows.length; i += 1) {
+      if (!used.has(i)) return i;
+    }
+    return used.size;
+  };
+  return signerNames.map((name) => {
+    let row = -1;
+    if (name) {
+      for (let i = 0; i < rows.length; i += 1) {
+        if (!used.has(i) && signerLabelsMatch(rows[i]!.label, name)) {
+          row = i;
+          break;
+        }
+      }
+    }
+    if (row < 0) row = firstFreeRow();
+    used.add(row);
+    return row;
+  });
+}
+
 export function buildTemplateFieldMappings(
   workflowSteps: TemplateWorkflowStep[],
   template: SignatureFieldTemplate[],

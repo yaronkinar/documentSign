@@ -16,13 +16,97 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.68",
-    "hash": "43897f6",
-    "fullHash": "43897f6b486621cfe6653738f1dca4893313f993",
-    "date": "2026-06-11T15:25:02+03:00",
-    "message": "Split form setup from signer workflow in upload and draft flows."
+    "version": "0.1.80",
+    "hash": "f0315da",
+    "fullHash": "f0315daa28a645bf4a751561fa69b371f37c2ce1",
+    "date": "2026-06-18T12:18:20+03:00",
+    "message": "Place Haknasot approvals by role title, not signer order"
   },
   "history": [
+    {
+      "version": "0.1.80",
+      "hash": "f0315da",
+      "fullHash": "f0315daa28a645bf4a751561fa69b371f37c2ce1",
+      "date": "2026-06-18T12:18:20+03:00",
+      "message": "Place Haknasot approvals by role title, not signer order"
+    },
+    {
+      "version": "0.1.79",
+      "hash": "55ed438",
+      "fullHash": "55ed438f5ff6522fa7524cd64ce6af3b804db18a",
+      "date": "2026-06-18T06:53:53+03:00",
+      "message": "Update Haknasot tooling + e2e tests for the 4-page form."
+    },
+    {
+      "version": "0.1.78",
+      "hash": "ffc0eca",
+      "fullHash": "ffc0ecaaa2a24265a9e5e67ae8c4c10c5620f14c",
+      "date": "2026-06-18T06:53:43+03:00",
+      "message": "Web: checkbox form-fill UI + viewer indicator; serve template PDF uncached."
+    },
+    {
+      "version": "0.1.77",
+      "hash": "93d75be",
+      "fullHash": "93d75bece38e2e96cfd57e31b577ed70cf9a72ff",
+      "date": "2026-06-18T06:53:34+03:00",
+      "message": "Render the 4-page Haknasot: dynamic checkboxes + per-page approval stamping."
+    },
+    {
+      "version": "0.1.76",
+      "hash": "6adf356",
+      "fullHash": "6adf35632c70af9017eb710e0a046863170b9324",
+      "date": "2026-06-18T06:53:25+03:00",
+      "message": "Remap Haknasot fields + signature rows for the 4-page form; add checkbox type."
+    },
+    {
+      "version": "0.1.75",
+      "hash": "53eb600",
+      "fullHash": "53eb6008df946cbed3f45947576929eec10b08b8",
+      "date": "2026-06-18T06:53:17+03:00",
+      "message": "Replace Haknasot template with the roomy 4-page municipal form."
+    },
+    {
+      "version": "0.1.74",
+      "hash": "c277c78",
+      "fullHash": "c277c786f92751b969c437bc86021b06b84ce802",
+      "date": "2026-06-17T16:14:31+03:00",
+      "message": "Snap Haknasot default field positions to the form's dotted blanks."
+    },
+    {
+      "version": "0.1.73",
+      "hash": "f3b02f9",
+      "fullHash": "f3b02f99d94429c36c0206df1e101a9b5577fbad",
+      "date": "2026-06-17T16:14:24+03:00",
+      "message": "Add Haknasot field-position editing UX: adjust mode, zoom, transparent fields."
+    },
+    {
+      "version": "0.1.72",
+      "hash": "3aa62f1",
+      "fullHash": "3aa62f1a67532fda1800ae0cf58ce62eec8f4985",
+      "date": "2026-06-17T16:14:15+03:00",
+      "message": "Persist Haknasot field-position overrides via the form-field API + renderer."
+    },
+    {
+      "version": "0.1.71",
+      "hash": "d9b2dd2",
+      "fullHash": "d9b2dd2dcbcc47fb71cf892937983946b5f6c177",
+      "date": "2026-06-17T16:14:05+03:00",
+      "message": "Support per-document Haknasot field overrides in shared resolution."
+    },
+    {
+      "version": "0.1.70",
+      "hash": "099f8ef",
+      "fullHash": "099f8ef4e5e6a23d45de36ac674e5167325838b6",
+      "date": "2026-06-17T14:15:40+03:00",
+      "message": "Add design spec for Haknasot field position overrides."
+    },
+    {
+      "version": "0.1.69",
+      "hash": "112371a",
+      "fullHash": "112371a02bbe8ecac4c03077c28119c3dc9d37c7",
+      "date": "2026-06-11T16:02:42+03:00",
+      "message": "Sync site versions after form workflow split release."
+    },
     {
       "version": "0.1.68",
       "hash": "43897f6",
@@ -218,90 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "340f7d28ad0680f5ede827d26cf81744741185de",
       "date": "2026-06-06T18:10:49+03:00",
       "message": "Add Playwright e2e: theme persistence across reload and tabs."
-    },
-    {
-      "version": "0.1.40",
-      "hash": "7de416e",
-      "fullHash": "7de416e9e2db365230a8a30afc92dc42a29dbde9",
-      "date": "2026-06-06T18:09:05+03:00",
-      "message": "Replace window.confirm with Dialog, inline errors with Sonner toasts."
-    },
-    {
-      "version": "0.1.39",
-      "hash": "59a78f0",
-      "fullHash": "59a78f0c19d8ccb3dac69cb337a97880d0c470cd",
-      "date": "2026-06-06T18:05:07+03:00",
-      "message": "Refactor DashboardClient: ui/Tabs, ui/Checkbox, ui/Button, token card layout."
-    },
-    {
-      "version": "0.1.38",
-      "hash": "ca26f90",
-      "fullHash": "ca26f909179b7c8b54780aaef23c7ac205e27ceb",
-      "date": "2026-06-06T18:02:09+03:00",
-      "message": "Refactor Navbar: token-styled links, custom user dropdown, Settings entry."
-    },
-    {
-      "version": "0.1.37",
-      "hash": "c4c1003",
-      "fullHash": "c4c1003faec265452e1184b539278a70ac03fbd5",
-      "date": "2026-06-06T17:58:25+03:00",
-      "message": "Refactor StatusBadge to wrap ui/Badge with status→variant mapping."
-    },
-    {
-      "version": "0.1.36",
-      "hash": "ae76cb0",
-      "fullHash": "ae76cb0eacfc2e9c4a4f72785360ea4e75619a08",
-      "date": "2026-06-06T17:56:41+03:00",
-      "message": "Add /settings page with Appearance section and ThemePicker."
-    },
-    {
-      "version": "0.1.35",
-      "hash": "c436086",
-      "fullHash": "c436086394cc307f30dd2cf6af62f4b6a267e818",
-      "date": "2026-06-06T17:54:59+03:00",
-      "message": "Wire Clerk persistence: server theme resolver + onPersist callback."
-    },
-    {
-      "version": "0.1.34",
-      "hash": "d9c65b2",
-      "fullHash": "d9c65b266dc12ad2a5b5d4559aad8483ef31b999",
-      "date": "2026-06-06T17:52:16+03:00",
-      "message": "Add Server Action to persist theme to Clerk publicMetadata."
-    },
-    {
-      "version": "0.1.33",
-      "hash": "4962508",
-      "fullHash": "4962508d225f0afa8a1ccf4a193deccdeabb4a7b",
-      "date": "2026-06-06T17:50:49+03:00",
-      "message": "Add server-side theme resolver (cookie → Clerk → default)."
-    },
-    {
-      "version": "0.1.32",
-      "hash": "8844ee0",
-      "fullHash": "8844ee0970dec73315a0a504faf7f02a2b8e01ae",
-      "date": "2026-06-06T17:49:23+03:00",
-      "message": "Mirror locale pattern: theme cookie + early-return bootstrap."
-    },
-    {
-      "version": "0.1.31",
-      "hash": "acb9b40",
-      "fullHash": "acb9b40809356cb2ce8939bd7b06b46d669b0af3",
-      "date": "2026-06-06T17:47:59+03:00",
-      "message": "Use real U+2019 apostrophe in Settings description, restore single-quote delimiter."
-    },
-    {
-      "version": "0.1.30",
-      "hash": "6ccb72d",
-      "fullHash": "6ccb72dce854b63376962b7531992cbd6b0822f2",
-      "date": "2026-06-06T17:46:35+03:00",
-      "message": "Use curly Unicode apostrophe in Settings appearance description."
-    },
-    {
-      "version": "0.1.29",
-      "hash": "44d9430",
-      "fullHash": "44d94309819fba332c2ed705fa550732ab93fef6",
-      "date": "2026-06-06T17:44:04+03:00",
-      "message": "Add i18n strings for Settings page and Appearance section."
     }
   ]
 } as const;

@@ -53,8 +53,9 @@ export async function GET(
   }
 
   // JSON avoids download managers (IDM, etc.) that intercept application/pdf.
+  // no-store so template edits show immediately (the form PDF can change).
   return NextResponse.json(
     { mimeType: 'application/pdf', data: bytes.toString('base64') },
-    { headers: { 'Cache-Control': 'public, max-age=3600' } },
+    { headers: { 'Cache-Control': 'no-store' } },
   );
 }

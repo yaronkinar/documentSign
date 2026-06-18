@@ -1346,7 +1346,21 @@ function LazyPDFPage({
                     {field.label}
                   </span>
                 )}
-                {value && (
+                {field.type === 'checkbox' ? (
+                  <span
+                    style={{
+                      width: '100%',
+                      textAlign: 'center',
+                      fontSize: 12,
+                      lineHeight: 1,
+                      color: '#15803d',
+                      fontWeight: 700,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {value && value !== 'false' ? '✓' : ''}
+                  </span>
+                ) : value ? (
                   <span
                     style={{
                       fontSize: 10,
@@ -1362,7 +1376,7 @@ function LazyPDFPage({
                   >
                     {value}
                   </span>
-                )}
+                ) : null}
                 {draggable && onFormFieldResize && (
                   <div
                     role="presentation"

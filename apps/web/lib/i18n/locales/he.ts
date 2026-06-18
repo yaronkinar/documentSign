@@ -498,6 +498,14 @@ export const he: TranslationDict = {
     removeDuplicatesConfirm:
       'למזג {{count}} רשומות כפולות? שורות עם חתימה יישמרו.',
     removeDuplicatesFailed: 'הסרת הכפילויות נכשלה',
+    downloadTemplate: 'הורד תבנית אקסל',
+    downloadTemplateFailed: 'הורדת תבנית האקסל נכשלה',
+    uploadTemplate: 'העלה אקסל מלא',
+    importSummary: 'נוצרו {{created}}, עודכנו {{updated}}',
+    importSkippedHeading: 'שורות שדולגו:',
+    importReasonMissingTitle: 'חסר תפקיד',
+    importReasonInvalidEmail: 'אימייל לא תקין',
+    importFailed: 'ייבוא קובץ האקסל נכשל',
   },
   notifications: {
     title: 'התראות',

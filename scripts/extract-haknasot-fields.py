@@ -57,9 +57,9 @@ FIELD_DEFS = [
     {"id": "work_nature", "label": "4. מהות עבודה (תקציר פעילות)", "type": "textarea", "section": "details"},
     {"id": "contract_purpose_from", "label": "4. תוקף החוזה מקורי – מיום", "type": "date", "section": "details"},
     {"id": "contract_purpose_until", "label": "4. תוקף החוזה מקורי – עד יום", "type": "date", "section": "details"},
-    {"id": "budget_prev_1", "label": "5. הארכות קודמות – עד 1", "type": "text", "section": "budget"},
-    {"id": "budget_prev_2", "label": "5. הארכות קודמות – עד 2", "type": "text", "section": "budget"},
-    {"id": "budget_prev_3", "label": "5. הארכות קודמות – עד 3", "type": "text", "section": "budget"},
+    {"id": "budget_prev_1", "label": "5. הארכות קודמות – עד 1", "type": "date", "section": "budget"},
+    {"id": "budget_prev_2", "label": "5. הארכות קודמות – עד 2", "type": "date", "section": "budget"},
+    {"id": "budget_prev_3", "label": "5. הארכות קודמות – עד 3", "type": "date", "section": "budget"},
     {"id": "current_budget_from", "label": "6. הארכה/הרחבה נוכחית – מיום", "type": "date", "section": "budget"},
     {"id": "current_budget_until", "label": "6. הארכה/הרחבה נוכחית – עד יום", "type": "date", "section": "budget"},
     # Page 2 — amounts

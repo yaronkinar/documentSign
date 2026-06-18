@@ -86,10 +86,7 @@ const SAMPLE_VALUES = {
   approval_conditions: 'הרחבה הנדרשת לצרכי שירות',
   obligations: 'כל ההתחייבויות מולאו כסדרן',
   extension_options: 'אופציה לשנה נוספת',
-  // checkboxes
-  ct_expand: 'true',
-  rel_income: 'true',
-  rel_contractor: 'true',
+  // checkboxes intentionally left unset — selection comes from the form values.
 };
 
 async function main() {

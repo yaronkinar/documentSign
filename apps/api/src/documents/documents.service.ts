@@ -17,6 +17,7 @@ import {
   isEditableDocumentFormField,
   isKnownFormTemplateId,
   MUNICIPAL_APPROVAL_SIGNER_TITLES,
+  resolveApprovalRowIndices,
   resolveDocumentFormFields,
   type DocumentDto,
   type PdfFormFieldTemplate,
@@ -807,8 +808,19 @@ export class DocumentsService {
     };
 
     // Map signers to their row index by walking workflowSteps in order.
+    // Approval rows are role-specific (row 0 = מנהל האגף … row 10 = מנכ"ל), so
+    // match each signer to its role row by title; a partial/out-of-order signer
+    // set still lands on the correct row instead of a sequential position.
     // Prefer signatureFieldId because the same person can approve multiple rows.
     // Global clerk/email fallbacks are only used when they are unique.
+    const approvalSigners = doc.workflowSteps
+      .filter(
+        (step) => step.stepType === 'signature' || step.stepType === 'approval',
+      )
+      .flatMap((step) => step.signers);
+    const rowIndices = resolveApprovalRowIndices(
+      approvalSigners.map((signer) => signer.name),
+    );
     const rowByFieldId = new Map<string, number>();
     const rowByStepAndClerkId = new Map<string, number>();
     const rowByStepAndEmail = new Map<string, number>();
@@ -816,36 +828,37 @@ export class DocumentsService {
     const rowByEmail = new Map<string, number | null>();
     interface SignerRow { clerkId: string | null; email: string; name: string | null; rowIndex: number }
     const allSigners: SignerRow[] = [];
-    let rowCursor = 0;
+    let signerCursor = 0;
     const setUnique = (map: Map<string, number | null>, key: string, value: number) => {
       map.set(key, map.has(key) ? null : value);
     };
     for (const step of doc.workflowSteps) {
       if (step.stepType !== 'signature' && step.stepType !== 'approval') continue;
       for (const signer of step.signers) {
+        const rowIndex = rowIndices[signerCursor]!;
+        signerCursor += 1;
         const stepId = String(step._id);
         const email = signer.email.toLowerCase();
         if (signer.clerkId) {
-          rowByStepAndClerkId.set(`${stepId}:${signer.clerkId}`, rowCursor);
-          setUnique(rowByClerkId, signer.clerkId, rowCursor);
+          rowByStepAndClerkId.set(`${stepId}:${signer.clerkId}`, rowIndex);
+          setUnique(rowByClerkId, signer.clerkId, rowIndex);
         }
-        rowByStepAndEmail.set(`${stepId}:${email}`, rowCursor);
-        setUnique(rowByEmail, email, rowCursor);
+        rowByStepAndEmail.set(`${stepId}:${email}`, rowIndex);
+        setUnique(rowByEmail, email, rowIndex);
 
         const field = doc.signatureFields?.find(
           (f) =>
             String(f.stepId) === stepId &&
             String(f.signerId) === String(signer._id),
         );
-        if (field) rowByFieldId.set(String(field._id), rowCursor);
+        if (field) rowByFieldId.set(String(field._id), rowIndex);
 
         allSigners.push({
           clerkId: signer.clerkId,
           email: signer.email,
           name: resolveSignerDisplayName(signer),
-          rowIndex: rowCursor,
+          rowIndex,
         });
-        rowCursor += 1;
       }
     }
 

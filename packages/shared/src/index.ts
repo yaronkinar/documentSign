@@ -351,6 +351,7 @@ export {
 export {
   missingTemplateFieldMappings,
   buildTemplateFieldMappings,
+  resolveApprovalRowIndices,
   listTemplateSignatureSigners,
   type TemplateFieldMapping,
   type TemplateSignerRef,

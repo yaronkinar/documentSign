@@ -501,6 +501,7 @@ export const en = {
     downloadTemplate: 'Download Excel template',
     downloadTemplateFailed: 'Failed to download Excel template',
     uploadTemplate: 'Upload filled Excel',
+    dropTemplateHint: 'or drag and drop a filled .xlsx file here',
     importSummary: '{{created}} created, {{updated}} updated',
     importSkippedHeading: 'Skipped rows:',
     importReasonMissingTitle: 'missing title',

@@ -501,6 +501,7 @@ export const he: TranslationDict = {
     downloadTemplate: 'הורד תבנית אקסל',
     downloadTemplateFailed: 'הורדת תבנית האקסל נכשלה',
     uploadTemplate: 'העלה אקסל מלא',
+    dropTemplateHint: 'או גרור לכאן קובץ אקסל מלא',
     importSummary: 'נוצרו {{created}}, עודכנו {{updated}}',
     importSkippedHeading: 'שורות שדולגו:',
     importReasonMissingTitle: 'חסר תפקיד',

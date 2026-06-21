@@ -340,6 +340,33 @@ export class DocumentsService {
     return { fields: merged };
   }
 
+  async extractFormValues(
+    documentId: string,
+    clerkId: string,
+  ): Promise<{ values: Record<string, string> }> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    if (!doc.fileKey) {
+      throw new BadRequestException('Document has no uploaded PDF');
+    }
+
+    const fields = this.docFormFieldSnapshot(doc).map((f) => ({
+      id: f.id,
+      label: f.label,
+    }));
+    if (fields.length === 0) {
+      return { values: doc.formValues ?? {} };
+    }
+
+    const pdfBuffer = await this.storageService.downloadObject(doc.fileKey);
+    const text = await this.aiService.extractPdfText(pdfBuffer);
+    const extracted = await this.aiService.extractFormFieldValues(text, fields);
+
+    doc.formValues = { ...(doc.formValues ?? {}), ...extracted };
+    doc.markModified('formValues');
+    await doc.save();
+    return { values: doc.formValues };
+  }
+
   /** Editing existing/built-in fields (move, resize, relabel, reset) only needs a draft. */
   private assertDraftForFormFields(doc: DocumentDocument): void {
     if (doc.status !== 'draft') {

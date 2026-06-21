@@ -7,7 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import type { PdfTemplateDto } from '@docflow/shared';
+import { allocateFormFieldId, type PdfTemplateDto } from '@docflow/shared';
 
 import { PdfTemplate, PdfTemplateDocument } from './template.schema';
 import { Document, DocumentDocument } from '../documents/document.schema';
@@ -16,8 +16,10 @@ import { AiService, type ExtractedTemplateField } from '../ai/ai.service';
 import {
   ConfirmTemplateUploadDto,
   CreateTemplateDto,
+  CreateTemplateFormFieldDto,
   CreateTemplateFromDocumentDto,
   UpdateTemplateDto,
+  UpdateTemplateFormFieldDto,
 } from './templates.dto';
 
 @Injectable()
@@ -130,6 +132,74 @@ export class TemplatesService {
       template.isDefault = false;
     }
 
+    await template.save();
+    return this.toDto(template);
+  }
+
+  async addFormField(
+    id: string,
+    clerkId: string,
+    dto: CreateTemplateFormFieldDto,
+  ): Promise<PdfTemplateDto> {
+    const template = await this.requireOwner(id, clerkId);
+
+    const existingIds = (template.formFields ?? []).map((f) => f.id);
+    const fieldId = allocateFormFieldId(dto.label, existingIds);
+    const field = {
+      id: fieldId,
+      label: dto.label.trim(),
+      type: dto.type ?? 'text',
+      section: dto.section?.trim() || `page_${dto.pageNumber}`,
+      pageNumber: dto.pageNumber,
+      x: dto.x,
+      y: dto.y,
+      width: dto.width ?? 20,
+      height: dto.height ?? 6,
+    };
+
+    if (!template.formFields) template.formFields = [] as never;
+    template.formFields.push(field as never);
+    template.markModified('formFields');
+    await template.save();
+    return this.toDto(template);
+  }
+
+  async updateFormField(
+    id: string,
+    clerkId: string,
+    fieldId: string,
+    dto: UpdateTemplateFormFieldDto,
+  ): Promise<PdfTemplateDto> {
+    const template = await this.requireOwner(id, clerkId);
+
+    const field = (template.formFields ?? []).find((f) => f.id === fieldId);
+    if (!field) throw new NotFoundException('Form field not found');
+
+    if (dto.label !== undefined) field.label = dto.label.trim();
+    if (dto.type !== undefined) field.type = dto.type;
+    if (dto.section !== undefined) field.section = dto.section.trim();
+    if (dto.pageNumber !== undefined) field.pageNumber = dto.pageNumber;
+    if (dto.x !== undefined) field.x = dto.x;
+    if (dto.y !== undefined) field.y = dto.y;
+    if (dto.width !== undefined) field.width = dto.width;
+    if (dto.height !== undefined) field.height = dto.height;
+
+    template.markModified('formFields');
+    await template.save();
+    return this.toDto(template);
+  }
+
+  async deleteFormField(
+    id: string,
+    clerkId: string,
+    fieldId: string,
+  ): Promise<PdfTemplateDto> {
+    const template = await this.requireOwner(id, clerkId);
+
+    template.formFields = (template.formFields ?? []).filter(
+      (f) => f.id !== fieldId,
+    ) as never;
+    template.markModified('formFields');
     await template.save();
     return this.toDto(template);
   }
@@ -271,6 +341,17 @@ export class TemplatesService {
       fields: template.fields.map((f) => ({
         _id: f._id.toString(),
         label: f.label,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      })),
+      formFields: (template.formFields ?? []).map((f) => ({
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
         pageNumber: f.pageNumber,
         x: f.x,
         y: f.y,

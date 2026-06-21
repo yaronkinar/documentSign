@@ -1,0 +1,62 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - heading "הכנסות" [level=1] [ref=e6]
+        - generic [ref=e8]: Draft
+      - generic [ref=e9]:
+        - button "Download PDF" [disabled]:
+          - img
+          - text: Download PDF
+        - button "Delete document" [ref=e10] [cursor=pointer]:
+          - img
+          - text: Delete document
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: Summary
+      - paragraph [ref=e13]: מסמך זה הוא הסכם הרחבה בין אגף רכש לחברת שירותים עירוניים בע"מ, המתייחס להכנסות משכירות חניון עירוני ולמימוש אופציה למכירת ציוד עירוני. ההסכם כולל התחייבויות לספק שירותי ניקיון ואחזקה למבני ציבור, עם תקופת ההסכם מ-1 בינואר 2024 ועד 31 בדצמבר 2024, והכנסות שנתיות של 45,000 ש"ח. יש לשים לב לכך שההרחבה כוללת את היקף השירות לשני מבנים נוספים, וכי קיימים ביטוחי אחריות מקצועית וצד ג'.
+    - generic [ref=e14]: Signers are assigned to signature fields automatically based on their role. Review the form, then send.
+    - generic [ref=e15]:
+      - generic [ref=e17]:
+        - button "Adjust field positions" [ref=e18] [cursor=pointer]
+        - button "Send to signers" [ref=e19] [cursor=pointer]
+        - button "Download PDF" [disabled]:
+          - img
+          - text: Download PDF
+        - button "Add Comment" [ref=e20] [cursor=pointer]:
+          - img
+          - text: Add Comment
+      - complementary [ref=e21]:
+        - generic [ref=e22]:
+          - tablist [ref=e23]:
+            - tab "Fill form" [ref=e24] [cursor=pointer]
+            - tab "Workflow" [selected] [ref=e25] [cursor=pointer]
+            - tab "Comments" [ref=e26] [cursor=pointer]
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - generic [ref=e30]:
+                - generic [ref=e31]: אישורים
+                - generic [ref=e32]: Pending
+              - list [ref=e33]:
+                - listitem [ref=e34]:
+                  - generic "Pending" [ref=e35]: ⏳david.cohen@demo.local
+                - listitem [ref=e36]:
+                  - generic "Pending" [ref=e37]: ⏳miri.levy@demo.local
+                - listitem [ref=e38]:
+                  - generic "Pending" [ref=e39]: ⏳yosef.avraham@demo.local
+                - listitem [ref=e40]:
+                  - generic "Pending" [ref=e41]: ⏳rina.shemesh@demo.local
+                - listitem [ref=e42]:
+                  - generic "Pending" [ref=e43]: ⏳amit.golan@demo.local
+                - listitem [ref=e44]:
+                  - generic "Pending" [ref=e45]: ⏳eli.rozen@demo.local
+                - listitem [ref=e46]:
+                  - generic "Pending" [ref=e47]: ⏳noa.bar@demo.local
+                - listitem [ref=e48]:
+                  - generic "Pending" [ref=e49]: ⏳erez.cohen@demo.local
+                - listitem [ref=e50]:
+                  - generic "Pending" [ref=e51]: ⏳gil.nahum@demo.local
+                - listitem [ref=e52]:
+                  - generic "Pending" [ref=e53]: ⏳hila.mizrahi@demo.local
+                - listitem [ref=e54]:
+                  - generic "Pending" [ref=e55]: ⏳ron.shapira@demo.local
+  - region "Notifications alt+T"

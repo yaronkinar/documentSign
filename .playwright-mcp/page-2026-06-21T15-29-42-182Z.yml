@@ -1,0 +1,72 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link "DocFlow" [ref=e5] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=e6]:
+            - img [ref=e7]
+            - generic [ref=e12]: DocFlow
+        - navigation [ref=e13]:
+          - link "Documents" [ref=e14] [cursor=pointer]:
+            - /url: /dashboard
+          - link "New Document" [ref=e15] [cursor=pointer]:
+            - /url: /documents/new
+          - link "My Signatures" [ref=e16] [cursor=pointer]:
+            - /url: /signatures
+          - link "Templates" [ref=e17] [cursor=pointer]:
+            - /url: /templates
+          - link "Demo" [ref=e18] [cursor=pointer]:
+            - /url: /demo
+          - link "Users" [ref=e19] [cursor=pointer]:
+            - /url: /signer-profiles
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - button "English" [ref=e23] [cursor=pointer]
+          - generic [ref=e24]:
+            - generic [ref=e25]: "|"
+            - button "Hebrew" [ref=e26] [cursor=pointer]
+        - button "DocFlow" [ref=e27] [cursor=pointer]: "Y"
+  - main [ref=e29]:
+    - generic [ref=e30]:
+      - heading "New Document" [level=1] [ref=e31]
+      - list [ref=e32]:
+        - listitem [ref=e33]:
+          - generic [ref=e34]: "1"
+          - generic [ref=e35]: Start
+          - generic [ref=e36]: ›
+        - listitem [ref=e37]:
+          - generic [ref=e38]: "2"
+          - generic [ref=e39]: Details
+          - generic [ref=e40]: ›
+        - listitem [ref=e41]:
+          - generic [ref=e42]: "3"
+          - generic [ref=e43]: Workflow
+          - generic [ref=e44]: ›
+        - listitem [ref=e45]:
+          - generic [ref=e46]: "4"
+          - generic [ref=e47]: Review
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - heading "Upload your document" [level=2] [ref=e50]
+          - button "Drop a file here or click to upload. PDF, DOC, or DOCX" [ref=e51] [cursor=pointer]:
+            - paragraph [ref=e52]: Drop a file here or click to upload.
+            - paragraph [ref=e53]: PDF, DOC, or DOCX
+          - button "Choose File" [ref=e54]
+        - generic [ref=e57]: Or use a template
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - paragraph [ref=e61]: Municipal income form (הכנסות)
+            - paragraph [ref=e62]: Create a document from the standard municipal form. Fill in the fields, assign approvers, and the PDF is generated automatically — no upload needed.
+            - generic [ref=e63]:
+              - button "Start form" [ref=e64] [cursor=pointer]
+              - button "Download PDF" [ref=e65] [cursor=pointer]
+          - paragraph [ref=e67]: Loading PDF…
+  - contentinfo [ref=e68]:
+    - generic [ref=e69]:
+      - paragraph [ref=e70]:
+        - text: DocFlow · v0.1.104 ·
+        - time [ref=e71]: Jun 21, 2026, 6:17 PM
+      - button "Release notes" [ref=e72] [cursor=pointer]
+  - region "Notifications alt+T"
+  - alert [ref=e73]

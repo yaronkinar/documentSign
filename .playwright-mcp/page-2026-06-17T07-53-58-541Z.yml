@@ -1,0 +1,338 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - heading "Documents" [level=1] [ref=e5]
+    - tablist [ref=e8]:
+      - tab "All" [selected] [ref=e9] [cursor=pointer]
+      - tab "My Documents" [ref=e10] [cursor=pointer]
+      - tab "Pending My Action" [ref=e11] [cursor=pointer]
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - checkbox "Select all" [ref=e15] [cursor=pointer]
+        - checkbox
+        - generic [ref=e16]: Select all
+      - list [ref=e17]:
+        - listitem [ref=e18]:
+          - generic [ref=e19]:
+            - checkbox "Select E2E send-sign-download 1781182998716" [ref=e20] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781182998716 1 signers · Updated Jun 11, 2026" [ref=e21] [cursor=pointer]:
+              - /url: /documents/6a2ab216f0f0e2d5631867ef
+              - generic [ref=e22]: E2E send-sign-download 1781182998716
+              - generic [ref=e23]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e24]:
+              - button "PDF preview" [ref=e25] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e26] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e27] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e28]: Approved
+        - listitem [ref=e29]:
+          - generic [ref=e30]:
+            - checkbox "Select Gmail alias test 1781182986694" [ref=e31] [cursor=pointer]
+            - checkbox
+            - link "Gmail alias test 1781182986694 4 signers · Updated Jun 11, 2026" [ref=e32] [cursor=pointer]:
+              - /url: /documents/6a2ab20cf0f0e2d56318671d
+              - generic [ref=e33]: Gmail alias test 1781182986694
+              - generic [ref=e34]: 4 signers · Updated Jun 11, 2026
+            - generic [ref=e35]:
+              - button "PDF preview" [ref=e36] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e37] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e38] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e39]: Draft
+        - listitem [ref=e40]:
+          - generic [ref=e41]:
+            - checkbox "Select E2E send-sign-download 1781180754739" [ref=e42] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781180754739 1 signers · Updated Jun 11, 2026" [ref=e43] [cursor=pointer]:
+              - /url: /documents/6a2aa952f0f0e2d56318658d
+              - generic [ref=e44]: E2E send-sign-download 1781180754739
+              - generic [ref=e45]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e46]:
+              - button "PDF preview" [ref=e47] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e48] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e49] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e50]: Approved
+        - listitem [ref=e51]:
+          - generic [ref=e52]:
+            - checkbox "Select Gmail alias test 1781180741719" [ref=e53] [cursor=pointer]
+            - checkbox
+            - link "Gmail alias test 1781180741719 4 signers · Updated Jun 11, 2026" [ref=e54] [cursor=pointer]:
+              - /url: /documents/6a2aa949f0f0e2d5631864bb
+              - generic [ref=e55]: Gmail alias test 1781180741719
+              - generic [ref=e56]: 4 signers · Updated Jun 11, 2026
+            - generic [ref=e57]:
+              - button "PDF preview" [ref=e58] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e59] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e60] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e61]: Draft
+        - listitem [ref=e62]:
+          - generic [ref=e63]:
+            - checkbox "Select loan_agreement-new" [ref=e64] [cursor=pointer]
+            - checkbox
+            - link "loan_agreement-new 3 signers · Updated Jun 11, 2026" [ref=e65] [cursor=pointer]:
+              - /url: /documents/6a2aa887f0f0e2d563186296
+              - generic [ref=e66]: loan_agreement-new
+              - generic [ref=e67]: 3 signers · Updated Jun 11, 2026
+            - generic [ref=e68]:
+              - button "PDF preview" [ref=e69] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e70] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e71] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e72]: Draft
+        - listitem [ref=e73]:
+          - generic [ref=e74]:
+            - checkbox "Select הכנסות" [ref=e75] [cursor=pointer]
+            - checkbox
+            - link "הכנסות 0 signers · Updated Jun 11, 2026" [ref=e76] [cursor=pointer]:
+              - /url: /documents/6a2aa59ef0f0e2d563186234
+              - generic [ref=e77]: הכנסות
+              - generic [ref=e78]: 0 signers · Updated Jun 11, 2026
+            - generic [ref=e79]:
+              - button "PDF preview" [ref=e80] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e81] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e82] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e83]: Draft
+        - listitem [ref=e84]:
+          - generic [ref=e85]:
+            - checkbox "Select E2E send-sign-download 1781175646932" [ref=e86] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781175646932 1 signers · Updated Jun 11, 2026" [ref=e87] [cursor=pointer]:
+              - /url: /documents/6a2a955ef0f0e2d563186110
+              - generic [ref=e88]: E2E send-sign-download 1781175646932
+              - generic [ref=e89]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e90]:
+              - button "PDF preview" [ref=e91] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e92] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e93] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e94]: Approved
+        - listitem [ref=e95]:
+          - generic [ref=e96]:
+            - checkbox "Select Gmail alias test 1781175633367" [ref=e97] [cursor=pointer]
+            - checkbox
+            - link "Gmail alias test 1781175633367 4 signers · Updated Jun 11, 2026" [ref=e98] [cursor=pointer]:
+              - /url: /documents/6a2a9554f0f0e2d56318603e
+              - generic [ref=e99]: Gmail alias test 1781175633367
+              - generic [ref=e100]: 4 signers · Updated Jun 11, 2026
+            - generic [ref=e101]:
+              - button "PDF preview" [ref=e102] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e103] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e104] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e105]: Draft
+        - listitem [ref=e106]:
+          - generic [ref=e107]:
+            - checkbox "Select E2E send-sign-download 1781175597949" [ref=e108] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781175597949 1 signers · Updated Jun 11, 2026" [ref=e109] [cursor=pointer]:
+              - /url: /documents/6a2a952df0f0e2d563185f1b
+              - generic [ref=e110]: E2E send-sign-download 1781175597949
+              - generic [ref=e111]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e112]:
+              - button "PDF preview" [ref=e113] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e114] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e115] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e116]: Approved
+        - listitem [ref=e117]:
+          - generic [ref=e118]:
+            - checkbox "Select Gmail alias test 1781175584117" [ref=e119] [cursor=pointer]
+            - checkbox
+            - link "Gmail alias test 1781175584117 4 signers · Updated Jun 11, 2026" [ref=e120] [cursor=pointer]:
+              - /url: /documents/6a2a9524f0f0e2d563185e49
+              - generic [ref=e121]: Gmail alias test 1781175584117
+              - generic [ref=e122]: 4 signers · Updated Jun 11, 2026
+            - generic [ref=e123]:
+              - button "PDF preview" [ref=e124] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e125] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e126] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e127]: Draft
+        - listitem [ref=e128]:
+          - generic [ref=e129]:
+            - checkbox "Select Gmail alias test 1781175548956" [ref=e130] [cursor=pointer]
+            - checkbox
+            - link "Gmail alias test 1781175548956 4 signers · Updated Jun 11, 2026" [ref=e131] [cursor=pointer]:
+              - /url: /documents/6a2a94fff0f0e2d563185d54
+              - generic [ref=e132]: Gmail alias test 1781175548956
+              - generic [ref=e133]: 4 signers · Updated Jun 11, 2026
+            - generic [ref=e134]:
+              - button "PDF preview" [ref=e135] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e136] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e137] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e138]: Draft
+        - listitem [ref=e139]:
+          - generic [ref=e140]:
+            - checkbox "Select loan_agreement" [ref=e141] [cursor=pointer]
+            - checkbox
+            - link "loan_agreement 3 signers · Updated Jun 11, 2026" [ref=e142] [cursor=pointer]:
+              - /url: /documents/6a2a9402f0f0e2d563185839
+              - generic [ref=e143]: loan_agreement
+              - generic [ref=e144]: 3 signers · Updated Jun 11, 2026
+            - generic [ref=e145]:
+              - button "PDF preview" [ref=e146] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e147] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e148] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e149]: Approved
+        - listitem [ref=e150]:
+          - generic [ref=e151]:
+            - checkbox "Select E2E send-sign-download 1781175394671" [ref=e152] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781175394671 1 signers · Updated Jun 11, 2026" [ref=e153] [cursor=pointer]:
+              - /url: /documents/6a2a9462f0f0e2d563185a06
+              - generic [ref=e154]: E2E send-sign-download 1781175394671
+              - generic [ref=e155]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e156]:
+              - button "PDF preview" [ref=e157] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e158] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e159] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e160]: Approved
+        - listitem [ref=e161]:
+          - generic [ref=e162]:
+            - checkbox "Select tiny" [ref=e163] [cursor=pointer]
+            - checkbox
+            - link "tiny 0 signers · Updated Jun 11, 2026" [ref=e164] [cursor=pointer]:
+              - /url: /documents/6a2a9457f0f0e2d5631859b5
+              - generic [ref=e165]: tiny
+              - generic [ref=e166]: 0 signers · Updated Jun 11, 2026
+            - generic [ref=e167]:
+              - button "PDF preview" [ref=e168] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e169] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e170] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e171]: Draft
+        - listitem [ref=e172]:
+          - generic [ref=e173]:
+            - checkbox "Select E2E send-sign-download 1781174600249" [ref=e174] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781174600249 1 signers · Updated Jun 11, 2026" [ref=e175] [cursor=pointer]:
+              - /url: /documents/6a2a9148f0f0e2d56318573f
+              - generic [ref=e176]: E2E send-sign-download 1781174600249
+              - generic [ref=e177]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e178]:
+              - button "PDF preview" [ref=e179] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e180] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e181] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e182]: Approved
+        - listitem [ref=e183]:
+          - generic [ref=e184]:
+            - checkbox "Select tiny" [ref=e185] [cursor=pointer]
+            - checkbox
+            - link "tiny 0 signers · Updated Jun 11, 2026" [ref=e186] [cursor=pointer]:
+              - /url: /documents/6a2a913ff0f0e2d5631856f7
+              - generic [ref=e187]: tiny
+              - generic [ref=e188]: 0 signers · Updated Jun 11, 2026
+            - generic [ref=e189]:
+              - button "PDF preview" [ref=e190] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e191] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e192] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e193]: Draft
+        - listitem [ref=e194]:
+          - generic [ref=e195]:
+            - checkbox "Select E2E send-sign-download 1781174288477" [ref=e196] [cursor=pointer]
+            - checkbox
+            - link "E2E send-sign-download 1781174288477 1 signers · Updated Jun 11, 2026" [ref=e197] [cursor=pointer]:
+              - /url: /documents/6a2a9010f0f0e2d5631855f7
+              - generic [ref=e198]: E2E send-sign-download 1781174288477
+              - generic [ref=e199]: 1 signers · Updated Jun 11, 2026
+            - generic [ref=e200]:
+              - button "PDF preview" [ref=e201] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e202] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e203] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e204]: Approved
+        - listitem [ref=e205]:
+          - generic [ref=e206]:
+            - checkbox "Select Gmail alias test 1781174276513" [ref=e207] [cursor=pointer]
+            - checkbox
+            - link "Gmail alias test 1781174276513 4 signers · Updated Jun 11, 2026" [ref=e208] [cursor=pointer]:
+              - /url: /documents/6a2a9007f0f0e2d563185526
+              - generic [ref=e209]: Gmail alias test 1781174276513
+              - generic [ref=e210]: 4 signers · Updated Jun 11, 2026
+            - generic [ref=e211]:
+              - button "PDF preview" [ref=e212] [cursor=pointer]:
+                - img
+              - button "Download PDF" [ref=e213] [cursor=pointer]:
+                - img
+                - text: Download PDF
+              - button "Delete" [ref=e214] [cursor=pointer]:
+                - img
+                - text: Delete
+              - generic [ref=e215]: Draft
+  - region "Notifications alt+T"

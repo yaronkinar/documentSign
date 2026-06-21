@@ -1,0 +1,134 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link "DocFlow" [ref=e5] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=e6]:
+            - img [ref=e7]
+            - generic [ref=e12]: DocFlow
+        - navigation [ref=e13]:
+          - link "Documents" [ref=e14] [cursor=pointer]:
+            - /url: /dashboard
+          - link "New Document" [ref=e15] [cursor=pointer]:
+            - /url: /documents/new
+          - link "My Signatures" [ref=e16] [cursor=pointer]:
+            - /url: /signatures
+          - link "Templates" [ref=e17] [cursor=pointer]:
+            - /url: /templates
+          - link "Demo" [ref=e18] [cursor=pointer]:
+            - /url: /demo
+          - link "Users" [ref=e19] [cursor=pointer]:
+            - /url: /signer-profiles
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - button "English" [ref=e23] [cursor=pointer]
+          - generic [ref=e24]:
+            - generic [ref=e25]: "|"
+            - button "Hebrew" [ref=e26] [cursor=pointer]
+        - button "DocFlow" [ref=e27] [cursor=pointer]: D
+  - main [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - heading "חוזה שכירות" [level=1] [ref=e32]
+        - generic [ref=e34]: Draft
+      - generic [ref=e35]:
+        - button "Save as template" [ref=e36] [cursor=pointer]
+        - button "Download PDF" [ref=e37] [cursor=pointer]:
+          - img
+          - text: Download PDF
+        - button "Delete document" [ref=e38] [cursor=pointer]:
+          - img
+          - text: Delete document
+    - generic [ref=e39]:
+      - paragraph [ref=e40]: Summary
+      - paragraph [ref=e41]: מסמך זה הוא חוזה שכירות בין יוסף לוי (המשכיר) למיכל כהן (השוכר) עבור דירה ברחוב בן-יהודה בתל-אביב. דמי השכירות החודשיים הם 6,500 ש"ח, עם פיקדון של שני חודשי שכירות. השוכר אחראי לתיקונים עד 500 ש"ח, ולא ניתן לבצע שינויים מבניים או לגדל בעלי חיים ללא אישור מהמשכיר. יש לשים לב כי חיובי ארנונה, חשמל, מים וגז הם על השוכר, בעוד ועד בית וביטוח מבנה הם על המשכיר.
+    - generic [ref=e42]:
+      - strong [ref=e43]: Map signers before sending.
+      - text: Assign each user a signature spot on the PDF, then click Submit. Invites are sent only after every signer has a field.
+    - list [ref=e44]:
+      - listitem [ref=e45]:
+        - generic [ref=e46]: ✓
+        - generic [ref=e47]: Workflow
+        - generic [ref=e48]: ›
+      - listitem [ref=e49]:
+        - generic [ref=e50]: ✓
+        - generic [ref=e51]: Map signers
+        - generic [ref=e52]: ›
+      - listitem [ref=e53]:
+        - generic [ref=e54]: ✓
+        - generic [ref=e55]: Form fields
+        - generic [ref=e56]: ›
+      - listitem [ref=e57]:
+        - generic [ref=e58]: "4"
+        - generic [ref=e59]: Fill form
+        - generic [ref=e60]: ›
+      - listitem [ref=e61]:
+        - generic [ref=e62]: "5"
+        - generic [ref=e63]: Send
+    - generic [ref=e64]:
+      - generic [ref=e65]:
+        - generic "Loading document" [ref=e67]
+        - generic [ref=e70]:
+          - generic [ref=e71]: Signer mapping
+          - paragraph [ref=e72]: Select a placed field, then drag it on the PDF to move
+          - generic [ref=e73]:
+            - paragraph [ref=e74]: Saves this PDF and signature field positions for reuse on future documents.
+            - button "Save as template" [ref=e75] [cursor=pointer]
+          - list [ref=e76]:
+            - listitem [ref=e77]:
+              - generic [ref=e78]:
+                - text: ✓ השוכר
+                - generic [ref=e79]: (אישורים)
+              - generic [ref=e80]: Mapped
+            - listitem [ref=e81]:
+              - generic [ref=e82]:
+                - text: ✓ המשכיר
+                - generic [ref=e83]: (אישורים)
+              - generic [ref=e84]: Mapped
+          - generic [ref=e85]: Placed fields
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - 'button "Page 1: השוכר" [ref=e88] [cursor=pointer]'
+              - button "Remove" [ref=e89] [cursor=pointer]
+            - listitem [ref=e90]:
+              - 'button "Page 1: המשכיר" [ref=e91] [cursor=pointer]'
+              - button "Remove" [ref=e92] [cursor=pointer]
+        - generic [ref=e93]:
+          - button "Auto-map signers" [ref=e94] [cursor=pointer]
+          - button "Assign manually" [ref=e95] [cursor=pointer]
+          - button "Send to signers" [ref=e96] [cursor=pointer]
+          - button "Download PDF" [ref=e97] [cursor=pointer]:
+            - img
+            - text: Download PDF
+          - button "Add Comment" [ref=e98] [cursor=pointer]:
+            - img
+            - text: Add Comment
+      - complementary [ref=e99]:
+        - generic [ref=e100]:
+          - tablist [ref=e101]:
+            - tab "Workflow" [ref=e102] [cursor=pointer]
+            - tab "Form fields" [ref=e103] [cursor=pointer]
+            - tab "Fill form" [selected] [ref=e104] [cursor=pointer]
+            - tab "Comments" [ref=e105] [cursor=pointer]
+          - generic [ref=e107]:
+            - paragraph [ref=e108]: Fill in the form fields — values appear on the PDF as you type.
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - heading "עמוד 1" [level=3] [ref=e111]
+                - generic [ref=e112]:
+                  - generic [ref=e113]:
+                    - text: משכיר
+                    - textbox "משכיר" [ref=e114]
+                  - generic [ref=e115]:
+                    - text: שוכר
+                    - textbox "שוכר" [ref=e116]
+              - button "שמור טופס" [ref=e117] [cursor=pointer]
+  - contentinfo [ref=e118]:
+    - generic [ref=e119]:
+      - paragraph [ref=e120]:
+        - text: DocFlow · v0.1.67 ·
+        - time [ref=e121]: Jun 10, 2026, 8:02 PM
+      - button "Release notes" [ref=e122] [cursor=pointer]
+  - region "Notifications alt+T"
+  - alert [ref=e123]

@@ -69,7 +69,25 @@
       "mcp__ide__getDiagnostics",
       "Bash(ps -W)",
       "Bash(npm start *)",
-      "Bash(PORT=3002 npm run dev)"
+      "Bash(PORT=3002 npm run dev)",
+      "Read(//c/c/Users/yaron/WebstormProjects/documentSign/apps/**)",
+      "Read(//c/c/Users/yaron/WebstormProjects/documentSign/apps/api/**)",
+      "Bash(TEST_TO=hanikinar@gmail.com node scripts/resend-test.mjs)",
+      "Bash(railway --version)",
+      "Bash(railway status *)",
+      "Bash(railway service *)",
+      "Bash(railway variables *)",
+      "Bash(timeout 25 railway logs --service api)",
+      "Bash(timeout 20 railway logs --service api)",
+      "Bash(railway redeploy *)",
+      "Bash(railway environment *)",
+      "Bash(railway list *)",
+      "Bash(railway link *)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('JEST CONFIG:', json.dumps\\(d.get\\('jest','NONE'\\), indent=2\\)\\); dd=d.get\\('devDependencies',{}\\); print\\('ts-jest:', dd.get\\('ts-jest'\\)\\); print\\('@types/jest:', dd.get\\('@types/jest'\\)\\); print\\('jest:', dd.get\\('jest'\\)\\)\")",
+      "Bash(ls node_modules/.bin/jest)",
+      "Bash(ls ../../node_modules/.bin/jest)",
+      "Bash(ls ../../node_modules/.bin/tsx)",
+      "Bash(ls ../../node_modules/.bin/vitest)"
     ]
   }
 }

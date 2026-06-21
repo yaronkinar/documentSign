@@ -1,0 +1,199 @@
+- generic [ref=e1]:
+  - banner [ref=e56]:
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - link "DocFlow" [ref=e59] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=e60]:
+            - img [ref=e61]
+            - generic [ref=e66]: DocFlow
+        - navigation [ref=e67]:
+          - link "Documents" [ref=e68] [cursor=pointer]:
+            - /url: /dashboard
+          - link "New Document" [ref=e69] [cursor=pointer]:
+            - /url: /documents/new
+          - link "My Signatures" [ref=e70] [cursor=pointer]:
+            - /url: /signatures
+          - link "Templates" [ref=e71] [cursor=pointer]:
+            - /url: /templates
+          - link "Demo" [ref=e72] [cursor=pointer]:
+            - /url: /demo
+          - link "Users" [ref=e73] [cursor=pointer]:
+            - /url: /signer-profiles
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - button "English" [ref=e77] [cursor=pointer]
+          - generic [ref=e78]:
+            - generic [ref=e79]: "|"
+            - button "Hebrew" [ref=e80] [cursor=pointer]
+        - button "DocFlow" [ref=e81] [cursor=pointer]: D
+  - main [ref=e83]:
+    - generic [ref=e84]:
+      - generic [ref=e85]:
+        - heading "הכנסות" [level=1] [ref=e86]
+        - generic [ref=e88]: Draft
+      - generic [ref=e89]:
+        - button "Download PDF" [ref=e90] [cursor=pointer]:
+          - img
+          - text: Download PDF
+        - button "Delete document" [ref=e91] [cursor=pointer]:
+          - img
+          - text: Delete document
+    - generic [ref=e92]:
+      - paragraph [ref=e93]: Summary
+      - paragraph [ref=e94]: מסמך זה הוא הסכם הרחבה בין אגף רכש לחברת שירותים עירוניים בע"מ, המתייחס להכנסות משכירות חניון עירוני ולמימוש אופציה למכירת ציוד עירוני. ההסכם כולל התחייבויות לספק שירותי ניקיון ואחזקה למבני ציבור, עם תקופת ההסכם מ-1 בינואר 2024 ועד 31 בדצמבר 2024, והכנסות שנתיות של 45,000 ש"ח. יש לשים לב לכך שההרחבה כוללת את היקף השירות לשני מבנים נוספים, וכי קיימים ביטוחי אחריות מקצועית וצד ג'.
+    - generic [ref=e95]: Signers are assigned to signature fields automatically based on their role. Review the form, then send.
+    - generic [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - button "Zoom out" [ref=e100] [cursor=pointer]: −
+            - button "Reset zoom" [ref=e101] [cursor=pointer]: 125%
+            - button "Zoom in" [active] [ref=e102] [cursor=pointer]: +
+          - generic [ref=e103]:
+            - generic:
+              - generic "תאריך":
+                - generic: 2026-05-21
+              - 'generic "סוג החוזה (סמן בעיגול): חדש / הארכה / הרחבה"':
+                - generic: הרחבה
+              - 'generic "הכנסה: משכירות, הקצאות קרקע, זיכיונות... — פרט"':
+                - generic: הכנסות משכירות חניון עירוני
+              - generic "חוזה מכירה — מכירת נכסים, רכבים אחר — פרט":
+                - generic: מימוש אופציה למכירת ציוד עירוני
+              - generic "חוזה מול משרדי ממשלה — חוזים שאין בגינם הוצאות/הכנסות — לפרט":
+                - generic: התקשרות מול משרד הפנים עבור פרויקט עיר חכמה
+              - generic "חוזה תרומות — קבלת תרומות מגופים חיצוניים — לפרט":
+                - generic: תרומה ייעודית לשיפוץ מרכז קהילתי
+              - generic "חוזה קבלן — בנייה, שיפוץ מבנים — לפרט":
+                - generic: שיפוץ והנגשת מבנה ציבור ברחוב הרצל 10
+              - generic "חוזה שירות — שכירת מבנים לשימוש עירוני (אין שדה פרט)":
+                - generic: שכירת מבנה לשימוש מחלקת רווחה
+              - generic "1. מספר חוזה":
+                - generic: 2024/087
+              - generic "1. מספר מכרז":
+                - generic: מכרז 12/2023
+              - generic "2. אגף אחראי לחוזה":
+                - generic: אגף הכנסות
+              - generic "2. אגף מבצע":
+                - generic: אגף רכש
+              - generic "3. שם ספק":
+                - generic: חברת שירותים עירוניים בע"מ
+              - generic "3. ח.פ/ת.ז":
+                - generic: "512345678"
+              - generic "4. מהות עבודה (תקציר פעילות)":
+                - generic: מתן שירותי ניקיון ואחזקה למבני ציבור
+              - generic "4. תוקף החוזה מקורי – מיום":
+                - generic: 2024-01-01
+              - generic "4. תוקף החוזה מקורי – עד יום":
+                - generic: 2024-12-31
+              - generic "5. הארכות קודמות – עד 1":
+                - generic: 2025-06-30
+              - generic "5. הארכות קודמות – עד 2":
+                - generic: 2025-09-30
+              - generic "5. הארכות קודמות – עד 3":
+                - generic: 2025-12-31
+              - generic "6. הארכה/הרחבה נוכחית – מיום":
+                - generic: 2026-01-01
+              - generic "6. הארכה/הרחבה נוכחית – עד יום":
+                - generic: 2026-12-31
+          - generic [ref=e107]:
+            - generic "אישור מנהל האגף – david.cohen@demo.local" [ref=e108]:
+              - generic: אישור מנהל האגף
+              - generic "drag boxes to move, corner handle to resize" [ref=e109]
+            - generic "אישור ראש המנהל – miri.levy@demo.local" [ref=e110]:
+              - generic: אישור ראש המנהל
+              - generic "drag boxes to move, corner handle to resize" [ref=e111]
+            - generic "אישור יועץ משפטי – yosef.avraham@demo.local" [ref=e112]:
+              - generic: אישור יועץ משפטי
+              - generic "drag boxes to move, corner handle to resize" [ref=e113]
+            - generic "אישור מנהל אגף נכסים – rina.shemesh@demo.local" [ref=e114]:
+              - generic: אישור מנהל אגף נכסים
+              - generic "drag boxes to move, corner handle to resize" [ref=e115]
+            - generic "אישור חשב האגף – amit.golan@demo.local" [ref=e116]:
+              - generic: אישור חשב האגף
+              - generic "drag boxes to move, corner handle to resize" [ref=e117]
+            - generic "אישור מהנדס העירייה – eli.rozen@demo.local" [ref=e118]:
+              - generic: אישור מהנדס העירייה
+              - generic "drag boxes to move, corner handle to resize" [ref=e119]
+            - generic "אישור מ. אגף מכרזים – noa.bar@demo.local" [ref=e120]:
+              - generic: אישור מ. אגף מכרזים
+              - generic "drag boxes to move, corner handle to resize" [ref=e121]
+            - generic "אישור מנהל אגף תכנון ופיתוח כלכלי – erez.cohen@demo.local" [ref=e122]:
+              - generic: אישור מנהל אגף תכנון ופיתוח כלכלי
+              - generic "drag boxes to move, corner handle to resize" [ref=e123]
+            - generic "אישור מ.אגף גזברות – gil.nahum@demo.local" [ref=e124]:
+              - generic: אישור מ.אגף גזברות
+              - generic "drag boxes to move, corner handle to resize" [ref=e125]
+            - generic "אישור גזבר העירייה – hila.mizrahi@demo.local" [ref=e126]:
+              - generic: אישור גזבר העירייה
+              - generic "drag boxes to move, corner handle to resize" [ref=e127]
+            - generic "אישור מנכ\"ל העירייה – ron.shapira@demo.local" [ref=e128]:
+              - generic: אישור מנכ"ל העירייה
+              - generic "drag boxes to move, corner handle to resize" [ref=e129]
+            - generic "7. סכום החוזה מקורי כולל מע\"מ לחודש":
+              - generic: 45,000
+            - generic "8. סכום ההרחבה/הארכה כולל מע\"מ לחודש":
+              - generic: 12,500
+            - generic "9. סעיף תקציבי – הוצאה":
+              - generic: 3.14.001
+            - generic "9. הכנסה":
+              - generic: 1.21.450
+            - generic "10. סה\"כ חיוב שנת תקציב נוכחית כולל מע\"מ":
+              - generic: 690,000
+            - generic "11. גובה ערבות סכום ותוקף":
+              - generic: 50,000 עד 31/12/2026
+            - generic "12. שיקולים להארכה/הרחבה":
+              - generic: הרחבת היקף השירות לשני מבנים נוספים
+            - generic "11. אישור קיום ביטוחים":
+              - generic: קיימים ביטוחי אחריות מקצועית וצד ג'
+        - generic [ref=e130]:
+          - button "Adjust field positions" [ref=e131] [cursor=pointer]
+          - button "Send to signers" [ref=e132] [cursor=pointer]
+          - button "Download PDF" [ref=e133] [cursor=pointer]:
+            - img
+            - text: Download PDF
+          - button "Add Comment" [ref=e134] [cursor=pointer]:
+            - img
+            - text: Add Comment
+      - complementary [ref=e135]:
+        - generic [ref=e136]:
+          - tablist [ref=e137]:
+            - tab "Fill form" [ref=e138] [cursor=pointer]
+            - tab "Workflow" [selected] [ref=e139] [cursor=pointer]
+            - tab "Comments" [ref=e140] [cursor=pointer]
+          - list [ref=e142]:
+            - listitem [ref=e143]:
+              - generic [ref=e144]:
+                - generic [ref=e145]: אישורים
+                - generic [ref=e146]: Pending
+              - list [ref=e147]:
+                - listitem [ref=e148]:
+                  - generic "Pending" [ref=e149]: ⏳david.cohen@demo.local
+                - listitem [ref=e150]:
+                  - generic "Pending" [ref=e151]: ⏳miri.levy@demo.local
+                - listitem [ref=e152]:
+                  - generic "Pending" [ref=e153]: ⏳yosef.avraham@demo.local
+                - listitem [ref=e154]:
+                  - generic "Pending" [ref=e155]: ⏳rina.shemesh@demo.local
+                - listitem [ref=e156]:
+                  - generic "Pending" [ref=e157]: ⏳amit.golan@demo.local
+                - listitem [ref=e158]:
+                  - generic "Pending" [ref=e159]: ⏳eli.rozen@demo.local
+                - listitem [ref=e160]:
+                  - generic "Pending" [ref=e161]: ⏳noa.bar@demo.local
+                - listitem [ref=e162]:
+                  - generic "Pending" [ref=e163]: ⏳erez.cohen@demo.local
+                - listitem [ref=e164]:
+                  - generic "Pending" [ref=e165]: ⏳gil.nahum@demo.local
+                - listitem [ref=e166]:
+                  - generic "Pending" [ref=e167]: ⏳hila.mizrahi@demo.local
+                - listitem [ref=e168]:
+                  - generic "Pending" [ref=e169]: ⏳ron.shapira@demo.local
+  - contentinfo [ref=e170]:
+    - generic [ref=e171]:
+      - paragraph [ref=e172]:
+        - text: DocFlow · v0.1.70 ·
+        - time [ref=e173]: Jun 17, 2026, 2:15 PM
+      - button "Release notes" [ref=e174] [cursor=pointer]
+  - region "Notifications alt+T"
+  - alert [ref=e175]

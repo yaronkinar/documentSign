@@ -1,0 +1,138 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - heading "mock-lease-he template template" [level=1] [ref=e6]
+        - generic [ref=e8]: Draft
+      - generic [ref=e9]:
+        - button "Save as template" [ref=e10] [cursor=pointer]
+        - button "Download PDF" [disabled]:
+          - img
+          - text: Download PDF
+        - button "Delete document" [ref=e11] [cursor=pointer]:
+          - img
+          - text: Delete document
+    - generic [ref=e12]:
+      - paragraph [ref=e13]: Summary
+      - paragraph [ref=e14]: "סוג המסמך: חוזה שכירות לדירת מגורים. הצדדים המעורבים: המשכיר ישראל ישראלי והשוכר שרה כהן. תנאים עיקריים: תקופת השכירות היא למשך מספר חודשים עם דמי שכירות חודשיים של 6,500 ש\"ח, והפיקדון ישולם עם חתימת החוזה. יש לשים לב להתחייבויות השוכר לשמור על הנכס ולשלם ארנונה וחשבונות שירותים, וכן להתחייבות המשכיר למסור את הנכס פנוי ומתאים למגורים."
+    - generic [ref=e15]:
+      - strong [ref=e16]: Map signers before sending.
+      - text: Assign each user a signature spot on the PDF, then click Submit. Invites are sent only after every signer has a field.
+    - generic [ref=e17]:
+      - text: Fill in the form in the sidebar before sending.
+      - button "Fill form" [ref=e18] [cursor=pointer]
+    - list [ref=e19]:
+      - listitem [ref=e20]:
+        - generic [ref=e21]: ✓
+        - generic [ref=e22]: Workflow
+        - generic [ref=e23]: ›
+      - listitem [ref=e24]:
+        - generic [ref=e25]: ✓
+        - generic [ref=e26]: Map signers
+        - generic [ref=e27]: ›
+      - listitem [ref=e28]:
+        - generic [ref=e29]: ✓
+        - generic [ref=e30]: Form fields
+        - generic [ref=e31]: ›
+      - listitem [ref=e32]:
+        - generic [ref=e33]: "4"
+        - generic [ref=e34]: Fill form
+        - generic [ref=e35]: ›
+      - listitem [ref=e36]:
+        - generic [ref=e37]: "5"
+        - generic [ref=e38]: Send
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]: Signer mapping
+          - paragraph [ref=e43]: Select a placed field, then drag it on the PDF to move
+          - generic [ref=e44]:
+            - paragraph [ref=e45]: Saves this PDF and signature field positions for reuse on future documents.
+            - button "Save as template" [ref=e46] [cursor=pointer]
+          - list [ref=e47]:
+            - listitem [ref=e48]:
+              - generic [ref=e49]:
+                - text: ✓ המשכיר
+                - generic [ref=e50]: (אישורים)
+              - generic [ref=e51]: Mapped
+            - listitem [ref=e52]:
+              - generic [ref=e53]:
+                - text: ✓ השוכר
+                - generic [ref=e54]: (אישורים)
+              - generic [ref=e55]: Mapped
+            - listitem [ref=e56]:
+              - generic [ref=e57]:
+                - text: ✓ עורך דין מטעם השוכר
+                - generic [ref=e58]: (אישורים)
+              - generic [ref=e59]: Mapped
+            - listitem [ref=e60]:
+              - generic [ref=e61]:
+                - text: ✓ עורך דין מטעם המשכיר
+                - generic [ref=e62]: (אישורים)
+              - generic [ref=e63]: Mapped
+            - listitem [ref=e64]:
+              - generic [ref=e65]:
+                - text: ✓ עד ראשון
+                - generic [ref=e66]: (אישורים)
+              - generic [ref=e67]: Mapped
+            - listitem [ref=e68]:
+              - generic [ref=e69]:
+                - text: ✓ עד שני
+                - generic [ref=e70]: (אישורים)
+              - generic [ref=e71]: Mapped
+          - generic [ref=e72]: Placed fields
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - 'button "Page 1: המשכיר" [ref=e75] [cursor=pointer]'
+              - button "Remove" [ref=e76] [cursor=pointer]
+            - listitem [ref=e77]:
+              - 'button "Page 2: השוכר" [ref=e78] [cursor=pointer]'
+              - button "Remove" [ref=e79] [cursor=pointer]
+            - listitem [ref=e80]:
+              - 'button "Page 2: עורך דין מטעם השוכר" [ref=e81] [cursor=pointer]'
+              - button "Remove" [ref=e82] [cursor=pointer]
+            - listitem [ref=e83]:
+              - 'button "Page 2: עורך דין מטעם המשכיר" [ref=e84] [cursor=pointer]'
+              - button "Remove" [ref=e85] [cursor=pointer]
+            - listitem [ref=e86]:
+              - 'button "Page 2: עד ראשון" [ref=e87] [cursor=pointer]'
+              - button "Remove" [ref=e88] [cursor=pointer]
+            - listitem [ref=e89]:
+              - 'button "Page 2: עד שני" [ref=e90] [cursor=pointer]'
+              - button "Remove" [ref=e91] [cursor=pointer]
+        - generic [ref=e92]:
+          - button "Auto-map signers" [disabled]
+          - button "Assign manually" [ref=e93] [cursor=pointer]
+          - button "Send to signers" [ref=e94] [cursor=pointer]
+          - button "Download PDF" [disabled]:
+            - img
+            - text: Download PDF
+          - button "Add Comment" [ref=e95] [cursor=pointer]:
+            - img
+            - text: Add Comment
+      - complementary [ref=e96]:
+        - generic [ref=e97]:
+          - tablist [ref=e98]:
+            - tab "Workflow" [selected] [ref=e99] [cursor=pointer]
+            - tab "Form fields" [ref=e100] [cursor=pointer]
+            - tab "Fill form" [ref=e101] [cursor=pointer]
+            - tab "Comments" [ref=e102] [cursor=pointer]
+          - list [ref=e104]:
+            - listitem [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e107]: אישורים
+                - generic [ref=e108]: Pending
+              - list [ref=e109]:
+                - listitem [ref=e110]:
+                  - generic "Pending" [ref=e111]: ⏳yaronkinar@gmail.com
+                - listitem [ref=e112]:
+                  - generic "Pending" [ref=e113]: ⏳yaronkinar@gmail.com
+                - listitem [ref=e114]:
+                  - generic "Pending" [ref=e115]: ⏳yaronkinar@gmail.com
+                - listitem [ref=e116]:
+                  - generic "Pending" [ref=e117]: ⏳yaronkinar@gmail.com
+                - listitem [ref=e118]:
+                  - generic "Pending" [ref=e119]: ⏳yaronkinar@gmail.com
+                - listitem [ref=e120]:
+                  - generic "Pending" [ref=e121]: ⏳yaronkinar@gmail.com
+  - region "Notifications alt+T"

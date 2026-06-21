@@ -1,0 +1,45 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link "DocFlow" [ref=e5] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=e6]:
+            - img [ref=e7]
+            - generic [ref=e12]: DocFlow
+        - navigation [ref=e13]:
+          - link "Documents" [ref=e14] [cursor=pointer]:
+            - /url: /dashboard
+          - link "New Document" [ref=e15] [cursor=pointer]:
+            - /url: /documents/new
+          - link "My Signatures" [ref=e16] [cursor=pointer]:
+            - /url: /signatures
+          - link "Templates" [ref=e17] [cursor=pointer]:
+            - /url: /templates
+          - link "Demo" [ref=e18] [cursor=pointer]:
+            - /url: /demo
+          - link "Users" [ref=e19] [cursor=pointer]:
+            - /url: /signer-profiles
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - button "English" [ref=e23] [cursor=pointer]
+          - generic [ref=e24]:
+            - generic [ref=e25]: "|"
+            - button "Hebrew" [ref=e26] [cursor=pointer]
+        - button "DocFlow" [ref=e27] [cursor=pointer]: "Y"
+  - main [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - heading "Templates" [level=1] [ref=e32]
+        - button "New Templates" [ref=e33] [cursor=pointer]
+      - generic [ref=e34]:
+        - paragraph [ref=e35]: No templates yet.
+        - button "Upload your first templates" [ref=e36] [cursor=pointer]
+  - contentinfo [ref=e37]:
+    - generic [ref=e38]:
+      - paragraph [ref=e39]:
+        - text: DocFlow · v0.1.104 ·
+        - time [ref=e40]: Jun 21, 2026, 6:17 PM
+      - button "Release notes" [ref=e41] [cursor=pointer]
+  - region "Notifications alt+T"
+  - alert [ref=e42]

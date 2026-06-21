@@ -16,19 +16,285 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.80",
-    "hash": "f0315da",
-    "fullHash": "f0315daa28a645bf4a751561fa69b371f37c2ce1",
-    "date": "2026-06-18T12:18:20+03:00",
-    "message": "Place Haknasot approvals by role title, not signer order"
+    "version": "0.1.118",
+    "hash": "d1894de",
+    "fullHash": "d1894de4b9731d739a3ceff17f1a26a827687acd",
+    "date": "2026-06-21T18:50:26+03:00",
+    "message": "Merge remote-tracking branch 'origin/fix/haknasot-checkboxes-and-date-fields' into fix/haknasot-checkboxes-and-date-fields"
   },
   "history": [
     {
-      "version": "0.1.80",
+      "version": "0.1.118",
+      "hash": "d1894de",
+      "fullHash": "d1894de4b9731d739a3ceff17f1a26a827687acd",
+      "date": "2026-06-21T18:50:26+03:00",
+      "message": "Merge remote-tracking branch 'origin/fix/haknasot-checkboxes-and-date-fields' into fix/haknasot-checkboxes-and-date-fields"
+    },
+    {
+      "version": "0.1.117",
+      "hash": "9fa4bad",
+      "fullHash": "9fa4badfaf8688046eb4ce37872e06bc79cdb404",
+      "date": "2026-06-21T18:37:46+03:00",
+      "message": "Merge pull request #13 from yaronkinar/worktree-sequential-signer-order"
+    },
+    {
+      "version": "0.1.116",
+      "hash": "2c557d9",
+      "fullHash": "2c557d9f30064972b5eecf2231c1341bc009032c",
+      "date": "2026-06-21T15:25:10Z",
+      "message": "fix: update package-lock.json to include jest dependencies"
+    },
+    {
+      "version": "0.1.115",
+      "hash": "83969aa",
+      "fullHash": "83969aaf82e866929370ff2f2caa6d000e273cc2",
+      "date": "2026-06-21T18:17:37+03:00",
+      "message": "Address review feedback for form fields editor panel"
+    },
+    {
+      "version": "0.1.114",
+      "hash": "429a97c",
+      "fullHash": "429a97c4e44bdafd4eaa871f8e378ad6f425b010",
+      "date": "2026-06-21T18:16:10+03:00",
+      "message": "fix: regenerate CI .env in cleanup step if missing"
+    },
+    {
+      "version": "0.1.113",
+      "hash": "f63e7b2",
+      "fullHash": "f63e7b2cbce120a1fed1e194324ec702f4cd4041",
+      "date": "2026-06-21T13:38:44+03:00",
+      "message": "Add form fields editor panel to TemplateEditorClient"
+    },
+    {
+      "version": "0.1.112",
+      "hash": "dbd91d5",
+      "fullHash": "dbd91d51785887fa6ba16ed5c82c977edcec5021",
+      "date": "2026-06-21T13:34:34+03:00",
+      "message": "fix: suppress waiting label when a rejection halts the sequential chain"
+    },
+    {
+      "version": "0.1.111",
+      "hash": "7cea2f6",
+      "fullHash": "7cea2f65a4b6f21e4b5bfe6900a5c5d8e6b0fee5",
+      "date": "2026-06-21T13:32:26+03:00",
+      "message": "Add template form field endpoints"
+    },
+    {
+      "version": "0.1.110",
+      "hash": "45c32f5",
+      "fullHash": "45c32f5e2143eec13ebc26cdffcbb91b8c3613ad",
+      "date": "2026-06-21T13:30:32+03:00",
+      "message": "feat: show signer turn order and gate signing UI for sequential steps"
+    },
+    {
+      "version": "0.1.109",
+      "hash": "1ba9b97",
+      "fullHash": "1ba9b976693f5caa099b16bb15b0495ef205bcde",
+      "date": "2026-06-21T13:25:21+03:00",
+      "message": "Copy template formFields onto documents created from a saved template"
+    },
+    {
+      "version": "0.1.108",
+      "hash": "32f994a",
+      "fullHash": "32f994a4a7e714a07ef7ac82b39faad844f9ac4e",
+      "date": "2026-06-21T13:24:44+03:00",
+      "message": "feat: enforce sequential signer turn order in recordSignature/recordRejection"
+    },
+    {
+      "version": "0.1.107",
+      "hash": "4e3e8f4",
+      "fullHash": "4e3e8f4cff74d7a463416d9fca6b5b725a6e6bc8",
+      "date": "2026-06-21T13:23:12+03:00",
+      "message": "feat: gate final document approval on resolved comments"
+    },
+    {
+      "version": "0.1.106",
+      "hash": "8428175",
+      "fullHash": "8428175532e25f2278fcbac291e15b60aabf1d02",
+      "date": "2026-06-21T13:20:26+03:00",
+      "message": "Add AI-driven form field extraction for saved templates"
+    },
+    {
+      "version": "0.1.105",
+      "hash": "20ed4c1",
+      "fullHash": "20ed4c18659376a1b575a4f0160697d88c529906",
+      "date": "2026-06-21T13:14:32+03:00",
+      "message": "Add TemplatesService form field CRUD methods"
+    },
+    {
+      "version": "0.1.104",
+      "hash": "5a77bbc",
+      "fullHash": "5a77bbc44d0b27c5083ac2690ae412da1921d23e",
+      "date": "2026-06-21T13:10:24+03:00",
+      "message": "feat: only invite the active signer for sequential workflow steps"
+    },
+    {
+      "version": "0.1.103",
+      "hash": "a586023",
+      "fullHash": "a5860238903eb97ba47f15ef1fe32baaf28c9de3",
+      "date": "2026-06-21T13:10:15+03:00",
+      "message": "Add CreateTemplateFormFieldDto and UpdateTemplateFormFieldDto"
+    },
+    {
+      "version": "0.1.102",
+      "hash": "179229e",
+      "fullHash": "179229e120eb2405b5deffb73e4f52d4b3c5f722",
+      "date": "2026-06-21T13:06:22+03:00",
+      "message": "Add formFields to PdfTemplateDto"
+    },
+    {
+      "version": "0.1.101",
+      "hash": "dd154f7",
+      "fullHash": "dd154f7774f5a199394a1160d141866111ab4bf3",
+      "date": "2026-06-21T13:04:36+03:00",
+      "message": "feat: add getActiveSequentialSigner shared helper for in-step signer order"
+    },
+    {
+      "version": "0.1.100",
+      "hash": "4fee68f",
+      "fullHash": "4fee68fd7445adcdf35d692cbacdc38952a762ce",
+      "date": "2026-06-21T13:03:36+03:00",
+      "message": "Add formFields array to PdfTemplate schema"
+    },
+    {
+      "version": "0.1.99",
+      "hash": "57b5d05",
+      "fullHash": "57b5d05c6ee6fbfc78cda477f37cb443636e005d",
+      "date": "2026-06-21T13:02:32+03:00",
+      "message": "Add jest test infrastructure to apps/api"
+    },
+    {
+      "version": "0.1.98",
+      "hash": "0ae90f4",
+      "fullHash": "0ae90f4b95a99896c18ddd58f8fa7aebbfc29d1d",
+      "date": "2026-06-21T12:58:53+03:00",
+      "message": "docs: add implementation plan for sequential signer turn order"
+    },
+    {
+      "version": "0.1.97",
+      "hash": "c21e12b",
+      "fullHash": "c21e12bd4eec0f46cd0540bc282b7cedf7527daf",
+      "date": "2026-06-21T12:58:53+03:00",
+      "message": "docs: add design spec for sequential signer ordering within a step"
+    },
+    {
+      "version": "0.1.96",
+      "hash": "03c6e6f",
+      "fullHash": "03c6e6f01c763bbc524ed4049a1c479cadc54945",
+      "date": "2026-06-21T12:53:56+03:00",
+      "message": "docs: add implementation plan for sequential signer turn order"
+    },
+    {
+      "version": "0.1.95",
+      "hash": "37ddff1",
+      "fullHash": "37ddff11ba3b2e8045c399f044ca26bc3a78434f",
+      "date": "2026-06-21T12:52:12+03:00",
+      "message": "Ignore .claude/worktrees/ directory"
+    },
+    {
+      "version": "0.1.94",
+      "hash": "f711310",
+      "fullHash": "f71131051cf313b17547e9d91c7a6f68c6384c6e",
+      "date": "2026-06-21T12:48:08+03:00",
+      "message": "docs: add design spec for sequential signer ordering within a step"
+    },
+    {
+      "version": "0.1.93",
+      "hash": "fe91610",
+      "fullHash": "fe916102e99028239643cc22a2999c05d6812782",
+      "date": "2026-06-21T12:45:08+03:00",
+      "message": "Add design spec for saved-template fillable form fields"
+    },
+    {
+      "version": "0.1.92",
+      "hash": "2d1b92e",
+      "fullHash": "2d1b92ef9e134f8d0c02c6e9714cb9eb2bb31dda",
+      "date": "2026-06-21T12:15:14+03:00",
+      "message": "feat: pre-fill form-fill step from AI-extracted contract values"
+    },
+    {
+      "version": "0.1.91",
+      "hash": "e3b3a12",
+      "fullHash": "e3b3a12a9a9722a78e0bb54325121cd4f7610662",
+      "date": "2026-06-21T12:11:32+03:00",
+      "message": "feat: add POST /documents/:id/extract-form-values endpoint"
+    },
+    {
+      "version": "0.1.90",
+      "hash": "1e7ce53",
+      "fullHash": "1e7ce530efe573abebf35ad6ac34e7b55309cb35",
+      "date": "2026-06-21T12:06:33+03:00",
+      "message": "feat: extract and merge form field values from the uploaded contract"
+    },
+    {
+      "version": "0.1.89",
+      "hash": "705fa4c",
+      "fullHash": "705fa4c88d357e0d8087b49378b458bb6db059b0",
+      "date": "2026-06-21T12:01:46+03:00",
+      "message": "feat: add AiService.extractFormFieldValues for contract data auto-fill"
+    },
+    {
+      "version": "0.1.88",
+      "hash": "23b8356",
+      "fullHash": "23b8356559a9ef0f19f842074e431bf5b09c7664",
+      "date": "2026-06-21T11:58:10+03:00",
+      "message": "feat: lengthen AI document summary to about 5 sentences"
+    },
+    {
+      "version": "0.1.87",
+      "hash": "69d5820",
+      "fullHash": "69d58203738c3614471ebfb697a0db11da326348",
+      "date": "2026-06-21T11:45:06+03:00",
+      "message": "Add design spec for mandatory contract attachment + AI summary/auto-fill"
+    },
+    {
+      "version": "0.1.86",
+      "hash": "99d725c",
+      "fullHash": "99d725c0f0ba81f09ec6a8ec1a33101c40af4567",
+      "date": "2026-06-18T14:38:34+03:00",
+      "message": "Add implementation plan for signer profiles Excel import"
+    },
+    {
+      "version": "0.1.85",
+      "hash": "1bd7384",
+      "fullHash": "1bd7384c21896cf0b02a4c247c0d5e70cc1ab74c",
+      "date": "2026-06-18T14:28:18+03:00",
+      "message": "Add design spec for signer profiles Excel import"
+    },
+    {
+      "version": "0.1.84",
+      "hash": "c0ef3d2",
+      "fullHash": "c0ef3d22694ea6fd965843546c91b6cf421a796e",
+      "date": "2026-06-18T13:45:48+03:00",
+      "message": "Fix Haknasot template pre-checked boxes; make extension dates date fields"
+    },
+    {
+      "version": "0.1.83",
+      "hash": "a5418e1",
+      "fullHash": "a5418e1d9123429610417aed59415e344d1c7cba",
+      "date": "2026-06-18T12:29:24+03:00",
+      "message": "Merge pull request #8 from yaronkinar/fix/haknasot-approval-row-by-role"
+    },
+    {
+      "version": "0.1.82",
+      "hash": "3d7567b",
+      "fullHash": "3d7567bb9a986b2b509495fa20f28c0df9c0eb84",
+      "date": "2026-06-18T12:19:49+03:00",
+      "message": "Regenerate site version changelog"
+    },
+    {
+      "version": "0.1.81",
       "hash": "f0315da",
       "fullHash": "f0315daa28a645bf4a751561fa69b371f37c2ce1",
       "date": "2026-06-18T12:18:20+03:00",
       "message": "Place Haknasot approvals by role title, not signer order"
+    },
+    {
+      "version": "0.1.80",
+      "hash": "e29294a",
+      "fullHash": "e29294a84c9ed88b1c1d46689c75d2f1907403df",
+      "date": "2026-06-18T06:59:06+03:00",
+      "message": "Merge pull request #7 from yaronkinar/feat/haknasot-field-position-overrides"
     },
     {
       "version": "0.1.79",
@@ -36,272 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "55ed438f5ff6522fa7524cd64ce6af3b804db18a",
       "date": "2026-06-18T06:53:53+03:00",
       "message": "Update Haknasot tooling + e2e tests for the 4-page form."
-    },
-    {
-      "version": "0.1.78",
-      "hash": "ffc0eca",
-      "fullHash": "ffc0ecaaa2a24265a9e5e67ae8c4c10c5620f14c",
-      "date": "2026-06-18T06:53:43+03:00",
-      "message": "Web: checkbox form-fill UI + viewer indicator; serve template PDF uncached."
-    },
-    {
-      "version": "0.1.77",
-      "hash": "93d75be",
-      "fullHash": "93d75bece38e2e96cfd57e31b577ed70cf9a72ff",
-      "date": "2026-06-18T06:53:34+03:00",
-      "message": "Render the 4-page Haknasot: dynamic checkboxes + per-page approval stamping."
-    },
-    {
-      "version": "0.1.76",
-      "hash": "6adf356",
-      "fullHash": "6adf35632c70af9017eb710e0a046863170b9324",
-      "date": "2026-06-18T06:53:25+03:00",
-      "message": "Remap Haknasot fields + signature rows for the 4-page form; add checkbox type."
-    },
-    {
-      "version": "0.1.75",
-      "hash": "53eb600",
-      "fullHash": "53eb6008df946cbed3f45947576929eec10b08b8",
-      "date": "2026-06-18T06:53:17+03:00",
-      "message": "Replace Haknasot template with the roomy 4-page municipal form."
-    },
-    {
-      "version": "0.1.74",
-      "hash": "c277c78",
-      "fullHash": "c277c786f92751b969c437bc86021b06b84ce802",
-      "date": "2026-06-17T16:14:31+03:00",
-      "message": "Snap Haknasot default field positions to the form's dotted blanks."
-    },
-    {
-      "version": "0.1.73",
-      "hash": "f3b02f9",
-      "fullHash": "f3b02f99d94429c36c0206df1e101a9b5577fbad",
-      "date": "2026-06-17T16:14:24+03:00",
-      "message": "Add Haknasot field-position editing UX: adjust mode, zoom, transparent fields."
-    },
-    {
-      "version": "0.1.72",
-      "hash": "3aa62f1",
-      "fullHash": "3aa62f1a67532fda1800ae0cf58ce62eec8f4985",
-      "date": "2026-06-17T16:14:15+03:00",
-      "message": "Persist Haknasot field-position overrides via the form-field API + renderer."
-    },
-    {
-      "version": "0.1.71",
-      "hash": "d9b2dd2",
-      "fullHash": "d9b2dd2dcbcc47fb71cf892937983946b5f6c177",
-      "date": "2026-06-17T16:14:05+03:00",
-      "message": "Support per-document Haknasot field overrides in shared resolution."
-    },
-    {
-      "version": "0.1.70",
-      "hash": "099f8ef",
-      "fullHash": "099f8ef4e5e6a23d45de36ac674e5167325838b6",
-      "date": "2026-06-17T14:15:40+03:00",
-      "message": "Add design spec for Haknasot field position overrides."
-    },
-    {
-      "version": "0.1.69",
-      "hash": "112371a",
-      "fullHash": "112371a02bbe8ecac4c03077c28119c3dc9d37c7",
-      "date": "2026-06-11T16:02:42+03:00",
-      "message": "Sync site versions after form workflow split release."
-    },
-    {
-      "version": "0.1.68",
-      "hash": "43897f6",
-      "fullHash": "43897f6b486621cfe6653738f1dca4893313f993",
-      "date": "2026-06-11T15:25:02+03:00",
-      "message": "Split form setup from signer workflow in upload and draft flows."
-    },
-    {
-      "version": "0.1.67",
-      "hash": "a6ee018",
-      "fullHash": "a6ee018ffa8273e45535743fb872e03f998a9920",
-      "date": "2026-06-10T20:02:22+03:00",
-      "message": "Sync site versions after home redirect release."
-    },
-    {
-      "version": "0.1.66",
-      "hash": "e6090e3",
-      "fullHash": "e6090e3433646f7ee054119c54ac247aa96d74d8",
-      "date": "2026-06-10T20:01:38+03:00",
-      "message": "Sync site versions after home redirect and dashboard preview changes."
-    },
-    {
-      "version": "0.1.65",
-      "hash": "d20af0a",
-      "fullHash": "d20af0afc7d49a6e2714504231879ed1bd7d7c0c",
-      "date": "2026-06-10T20:01:04+03:00",
-      "message": "Redirect signed-in users from home to dashboard and refine dashboard PDF preview UX."
-    },
-    {
-      "version": "0.1.64",
-      "hash": "b7f5f32",
-      "fullHash": "b7f5f326362a802b4567922e988082caefa9efc4",
-      "date": "2026-06-10T17:22:50+03:00",
-      "message": "Sync site versions after form workflow release."
-    },
-    {
-      "version": "0.1.63",
-      "hash": "d2c1048",
-      "fullHash": "d2c10482bcdce8c336d5030cf33e04f642d822c2",
-      "date": "2026-06-10T17:22:21+03:00",
-      "message": "Add uploaded-PDF form workflow, PDF baking, and dashboard preview."
-    },
-    {
-      "version": "0.1.62",
-      "hash": "717e513",
-      "fullHash": "717e51389cafca3abb583a2d8e3c8cc6ebdd6de9",
-      "date": "2026-06-09T21:52:14+03:00",
-      "message": "Clean up site-versions hook and sync generated versions"
-    },
-    {
-      "version": "0.1.61",
-      "hash": "d58e098",
-      "fullHash": "d58e0985346bcbb8b73558ae1f59080a3088d691",
-      "date": "2026-06-09T21:42:45+03:00",
-      "message": "Always upload Playwright report artifact in CI"
-    },
-    {
-      "version": "0.1.60",
-      "hash": "0adfc3f",
-      "fullHash": "0adfc3fd99e98a25de1367582c7fed2e9595cc6b",
-      "date": "2026-06-09T21:26:18+03:00",
-      "message": "Enable Playwright video and screenshot capture on failure"
-    },
-    {
-      "version": "0.1.59",
-      "hash": "47be78e",
-      "fullHash": "47be78e55f60017bcafdcbc63af9c879c113981b",
-      "date": "2026-06-07T18:28:58+03:00",
-      "message": "Sync release notes after logo branding commit."
-    },
-    {
-      "version": "0.1.58",
-      "hash": "5faf32f",
-      "fullHash": "5faf32fb423344820df70584a327c22b7169e5a6",
-      "date": "2026-06-07T18:28:13+03:00",
-      "message": "Add DocFlow logo, favicon, and navbar branding."
-    },
-    {
-      "version": "0.1.57",
-      "hash": "e015d11",
-      "fullHash": "e015d11801975ea9023fb7791a9b85e9bbf757d2",
-      "date": "2026-06-07T17:46:27+03:00",
-      "message": "Merge pull request #6 from yaronkinar/feature/ui-design-system"
-    },
-    {
-      "version": "0.1.56",
-      "hash": "1666d3b",
-      "fullHash": "1666d3b984af0cccb1c5fc4e81fc3ea4bcd2c195",
-      "date": "2026-06-07T17:36:00+03:00",
-      "message": "Sync release notes and add local dev artifacts."
-    },
-    {
-      "version": "0.1.55",
-      "hash": "f7ecdbf",
-      "fullHash": "f7ecdbf2f9c9be3a851023f0ccc76070a750cfe4",
-      "date": "2026-06-07T17:21:30+03:00",
-      "message": "Refresh release notes and stabilize Gmail signer E2E selectors."
-    },
-    {
-      "version": "0.1.54",
-      "hash": "ebfa019",
-      "fullHash": "ebfa019f10e1ef4ed066357ff1211003ba3165cd",
-      "date": "2026-06-07T17:20:23+03:00",
-      "message": "Fix CI Docker startup when git history is unavailable."
-    },
-    {
-      "version": "0.1.53",
-      "hash": "1365a54",
-      "fullHash": "1365a545bce7c25f7a47c9bc66a2986595ac3f48",
-      "date": "2026-06-07T17:15:09+03:00",
-      "message": "Merge pull request #5 from yaronkinar/feature/ui-design-system"
-    },
-    {
-      "version": "0.1.52",
-      "hash": "74a88cf",
-      "fullHash": "74a88cfa83743dc2cb03b3c8f622947fcce507cd",
-      "date": "2026-06-07T17:13:15+03:00",
-      "message": "Add footer release notes synced from git commits."
-    },
-    {
-      "version": "0.1.51",
-      "hash": "a125d18",
-      "fullHash": "a125d1858c4f2c1db0b6c0226f0a54346b3c740c",
-      "date": "2026-06-07T17:05:20+03:00",
-      "message": "Fix E2E reliability and refresh Hebrew product demo."
-    },
-    {
-      "version": "0.1.50",
-      "hash": "29bbe97",
-      "fullHash": "29bbe97e1fb9fb39bc6ca9ddb4a8816a15998ece",
-      "date": "2026-06-07T15:54:48+03:00",
-      "message": "Merge pull request #4 from yaronkinar/feature/ui-design-system"
-    },
-    {
-      "version": "0.1.49",
-      "hash": "c69f23c",
-      "fullHash": "c69f23cc69b3686de2b9d8b6f35ec47b46dc6354",
-      "date": "2026-06-07T15:53:36+03:00",
-      "message": "Add skippable onboarding tour with embedded demo video."
-    },
-    {
-      "version": "0.1.48",
-      "hash": "bfe8d01",
-      "fullHash": "bfe8d01431c9766a610954cdfe6af57d98d6e32a",
-      "date": "2026-06-07T14:19:01+03:00",
-      "message": "Merge pull request #3 from yaronkinar/railway/fix-deploy-9afc86"
-    },
-    {
-      "version": "0.1.47",
-      "hash": "d69927f",
-      "fullHash": "d69927f3819d814afdf28a932ad2e3e46d2d625f",
-      "date": "2026-06-07T11:10:05Z",
-      "message": "fix: remove invalid disableWorker property from pdfjsLib.getDocument call"
-    },
-    {
-      "version": "0.1.46",
-      "hash": "0a390c8",
-      "fullHash": "0a390c8f8f773129ef27b20aab1b7cc3f25f9f24",
-      "date": "2026-06-07T14:05:10+03:00",
-      "message": "Merge pull request #2 from yaronkinar/feature/ui-design-system"
-    },
-    {
-      "version": "0.1.45",
-      "hash": "529d87e",
-      "fullHash": "529d87e54179c92fbb19e34813f8baa2eb8b35c1",
-      "date": "2026-06-07T13:51:17+03:00",
-      "message": "Add GitHub Actions E2E workflow with Docker Compose."
-    },
-    {
-      "version": "0.1.44",
-      "hash": "d933ec2",
-      "fullHash": "d933ec21bf83e5e0fcf02c3d9ac8b915b40d3e5b",
-      "date": "2026-06-07T13:45:26+03:00",
-      "message": "Improve PDF loading, document wizard, and AI provider support."
-    },
-    {
-      "version": "0.1.43",
-      "hash": "45169fd",
-      "fullHash": "45169fd312eaabf90fc7ab59d883dc02fd328a65",
-      "date": "2026-06-06T19:29:58+03:00",
-      "message": "Add Motion-orchestrated entries for Settings and Dashboard."
-    },
-    {
-      "version": "0.1.42",
-      "hash": "b2110ee",
-      "fullHash": "b2110ee99c5d7a8004afc88fe8a39c41098a7dd2",
-      "date": "2026-06-06T19:26:13+03:00",
-      "message": "Add 200ms color transitions for smooth theme switching."
-    },
-    {
-      "version": "0.1.41",
-      "hash": "340f7d2",
-      "fullHash": "340f7d28ad0680f5ede827d26cf81744741185de",
-      "date": "2026-06-06T18:10:49+03:00",
-      "message": "Add Playwright e2e: theme persistence across reload and tabs."
     }
   ]
 } as const;

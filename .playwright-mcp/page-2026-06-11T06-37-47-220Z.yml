@@ -1,0 +1,6 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - heading "Could not load document" [level=1] [ref=e4]
+    - paragraph [ref=e5]: Network error calling GET /documents/6a2a54fb62c8eb5c857bba3b. Cannot reach the API at http://api:3001. Is "npm run dev:api" running?
+    - paragraph [ref=e6]: If the API is down, restart with npm run dev from the project root.
+  - region "Notifications alt+T"

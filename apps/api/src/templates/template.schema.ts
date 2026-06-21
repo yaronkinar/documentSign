@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { DocumentFormField, DocumentFormFieldSchema } from '../documents/document.schema';
 
 @Schema({ _id: true, timestamps: false })
 export class TemplateField {
@@ -49,6 +50,10 @@ export class PdfTemplate {
 
   @Prop({ type: [TemplateFieldSchema], default: [] })
   fields!: Types.DocumentArray<TemplateField>;
+
+  /** Fillable data-entry regions (text/textarea/date) — independent of `fields` (signature placements). */
+  @Prop({ type: [DocumentFormFieldSchema], default: [] })
+  formFields!: Types.DocumentArray<DocumentFormField>;
 }
 
 export type PdfTemplateDocument = HydratedDocument<PdfTemplate>;

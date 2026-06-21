@@ -122,7 +122,7 @@ export class DocumentsService {
     dto: CreateDocumentDto,
   ): Promise<DocumentDto> {
     const pdfTemplateId = dto.pdfTemplateId!.trim();
-    const { buffer, fileSize, pageCount, name } =
+    const { buffer, fileSize, pageCount, name, formFields } =
       await this.templatesService.readTemplatePdf(pdfTemplateId, clerkId);
 
     const documentId = new Types.ObjectId();
@@ -137,6 +137,7 @@ export class DocumentsService {
       fileSize,
       pageCount: pageCount ?? 1,
       pdfTemplateId,
+      formFields,
       ownerId: clerkId,
       status: 'draft',
       currentStep: 0,

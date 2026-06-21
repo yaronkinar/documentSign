@@ -86,3 +86,53 @@ describe('DocumentsService.extractFormValues', () => {
     expect(aiService.extractFormFieldValues).not.toHaveBeenCalled();
   });
 });
+
+describe('DocumentsService.createFromPdfTemplate', () => {
+  it('copies the template formFields onto the new document', async () => {
+    const documentModel = jest.fn().mockImplementation((data: Record<string, unknown>) => ({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      workflowSteps: [],
+      save: jest.fn().mockResolvedValue(undefined),
+    }));
+    const storageService = {
+      uploadBuffer: jest.fn().mockResolvedValue(undefined),
+      getDownloadUrl: jest.fn().mockResolvedValue('https://example.com/doc.pdf'),
+    };
+    const auditService = { log: jest.fn() };
+    const templatesService = {
+      readTemplatePdf: jest.fn().mockResolvedValue({
+        buffer: Buffer.from('pdf bytes'),
+        fileSize: 100,
+        pageCount: 2,
+        name: 'My template',
+        formFields: [
+          { id: 'supplier_name', label: 'שם ספק', type: 'text', section: 'general', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
+        ],
+      }),
+    };
+
+    const service = new DocumentsService(
+      documentModel as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      storageService as never,
+      auditService as never,
+      {} as never,
+      {} as never,
+      templatesService as never,
+    );
+
+    const result = await service.createFromPdfTemplate('owner1', 'owner1@example.com', {
+      title: 'New doc',
+      pdfTemplateId: 'template-1',
+    } as never);
+
+    expect(result.formFields).toEqual([
+      { id: 'supplier_name', label: 'שם ספק', type: 'text', section: 'general', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
+    ]);
+  });
+});

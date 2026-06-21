@@ -93,6 +93,7 @@ export class TemplatesService {
     fileSize: number;
     pageCount: number | null;
     name: string;
+    formFields: PdfFormFieldTemplate[];
   }> {
     const template = await this.requireOwner(id, clerkId);
     if (!template.fileKey) {
@@ -104,6 +105,17 @@ export class TemplatesService {
       fileSize: template.fileSize ?? buffer.length,
       pageCount: template.pageCount ?? null,
       name: template.name,
+      formFields: (template.formFields ?? []).map((f) => ({
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      })),
     };
   }
 

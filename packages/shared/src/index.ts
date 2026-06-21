@@ -307,6 +307,7 @@ export interface PdfTemplateDto {
   pageCount: number | null;
   isDefault: boolean;
   fields: TemplateFieldDto[];
+  formFields: PdfFormFieldTemplate[];
   createdAt: string;
   updatedAt: string;
 }

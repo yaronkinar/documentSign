@@ -57,6 +57,8 @@ export interface UserMeDto {
 
 export type ExecutionMode = 'sequential' | 'parallel';
 
+export { getActiveSequentialSigner } from './signer-order.js';
+
 // ---------------------------------------------------------------------------
 // Audit event types
 // ---------------------------------------------------------------------------

@@ -16,3 +16,4 @@ coverage/
 .superpowers/
 playwright-report/
 test-results/
+.claude/worktrees/

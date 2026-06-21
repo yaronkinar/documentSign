@@ -230,14 +230,14 @@ export class DocumentsService {
     clerkId: string,
   ): Promise<{ uploadUrl: string; fileKey: string }> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
-    const fileKey = `docs/${documentId}/source-contract/${uuidv4()}.pdf`;
-    doc.sourceContractKey = fileKey;
+    const contractKey = `docs/${documentId}/source-contract/${uuidv4()}.pdf`;
+    doc.sourceContractKey = contractKey;
     await doc.save();
     const uploadUrl = await this.storageService.getUploadUrl(
-      fileKey,
+      contractKey,
       'application/pdf',
     );
-    return { uploadUrl, fileKey };
+    return { uploadUrl, fileKey: contractKey };
   }
 
   async confirmSourceContract(

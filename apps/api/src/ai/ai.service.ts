@@ -29,6 +29,11 @@ export interface TemplateSignerHint {
   email?: string | null;
 }
 
+export interface FormFieldHint {
+  id: string;
+  label: string;
+}
+
 export interface SummarizeSigner {
   name: string | null;
   email: string;
@@ -384,6 +389,104 @@ export class AiService {
       // fall through
     }
     return [];
+  }
+
+  async extractFormFieldValues(
+    text: string,
+    fields: FormFieldHint[],
+  ): Promise<Record<string, string>> {
+    const trimmed = text.slice(0, MAX_TEXT_CHARS);
+    if (!trimmed || fields.length === 0) return {};
+
+    const fieldList = fields.map((f) => `- ${f.id}: ${f.label}`).join('\n');
+    const system =
+      'You fill in values for form fields using ONLY information explicitly stated in the document text. ' +
+      'Return ONLY a JSON object with a single key "values" whose value is an object mapping field id to the extracted value (string). ' +
+      'Only include a field if its value is explicitly stated in the document text — never invent, guess, or default a value. ' +
+      'Skip fields that are for signing now rather than data already in the document (e.g. signature, initials, "sign here", "date signed"). ' +
+      'Keep values in the original language and format found in the document. ' +
+      'Example: {"values": {"contract_number": "CN-2026-789"}}';
+    const user = `Fields (id: label):\n${fieldList}\n\nDocument text:\n${trimmed}`;
+
+    if (preferAnthropic()) {
+      try {
+        const raw = await anthropicCompleteText({
+          label: 'form-values',
+          system,
+          user,
+        });
+        return this.parseFormFieldValues(raw, fields);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new InternalServerErrorException(
+          `AI form-value extraction failed (Claude): ${message.slice(0, 200)}`,
+        );
+      }
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new ServiceUnavailableException(
+        'AI form-value extraction is not configured (set OPENAI_API_KEY or AI_PROVIDER=anthropic with ANTHROPIC_API_KEY)',
+      );
+    }
+
+    const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
+    const model = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new InternalServerErrorException(
+        `AI form-value extraction failed (${res.status}): ${errBody.slice(0, 200)}`,
+      );
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const raw = data.choices?.[0]?.message?.content?.trim();
+    if (!raw) return {};
+    return this.parseFormFieldValues(raw, fields);
+  }
+
+  private parseFormFieldValues(
+    raw: string,
+    fields: FormFieldHint[],
+  ): Record<string, string> {
+    const validIds = new Set(fields.map((f) => f.id));
+    try {
+      const parsed = JSON.parse(raw) as { values?: unknown };
+      if (parsed.values && typeof parsed.values === 'object') {
+        const out: Record<string, string> = {};
+        for (const [key, value] of Object.entries(
+          parsed.values as Record<string, unknown>,
+        )) {
+          if (validIds.has(key) && typeof value === 'string' && value.trim()) {
+            out[key] = value.trim();
+          }
+        }
+        return out;
+      }
+    } catch {
+      // fall through
+    }
+    return {};
   }
 
   async extractTemplateFieldsFromPdf(

@@ -1672,7 +1672,8 @@ function WorkflowSidebar({
                 const isWaiting =
                   step.executionMode === 'sequential' &&
                   s.status === 'pending' &&
-                  activeSigner?._id !== s._id;
+                  activeSigner != null &&
+                  activeSigner._id !== s._id;
                 return (
                   <SignerRow
                     key={s._id}

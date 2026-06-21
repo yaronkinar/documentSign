@@ -11,9 +11,14 @@ import { Model, Types } from 'mongoose';
 
 import { findSignerOnStep } from '../documents/signer.utils';
 import { User, UserDocument } from '../users/user.schema';
-import { AuditEventType, missingTemplateFieldMappings, type DocumentStatus } from '@docflow/shared';
+import {
+  AuditEventType,
+  missingTemplateFieldMappings,
+  type DocumentStatus,
+} from '@docflow/shared';
 
 import { Document, DocumentDocument, WorkflowStep } from '../documents/document.schema';
+import { Comment, CommentDocument } from '../comments/comment.schema';
 import { InvitesService } from '../invites/invites.service';
 import { AuditService } from '../audit/audit.service';
 import { WorkflowGateway } from './workflow.gateway';
@@ -27,6 +32,8 @@ export class WorkflowService {
     private readonly documentModel: Model<DocumentDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(Comment.name)
+    private readonly commentModel: Model<CommentDocument>,
     private readonly invitesService: InvitesService,
     private readonly auditService: AuditService,
     private readonly gateway: WorkflowGateway,
@@ -184,6 +191,7 @@ export class WorkflowService {
           metadata: { stepId: String(nextStep._id), stepNumber: nextStep.stepNumber },
         });
       } else {
+        await this.assertNoUnresolvedComments(doc._id);
         const previousStatus = doc.status;
         doc.status = 'approved';
         await doc.save();
@@ -323,6 +331,7 @@ export class WorkflowService {
           });
         }
       } else {
+        await this.assertNoUnresolvedComments(doc._id);
         const previousStatus = doc.status;
         doc.status = 'approved';
         await doc.save();
@@ -454,6 +463,20 @@ export class WorkflowService {
       .lean()
       .exec();
     return user?.clerkId ?? null;
+  }
+
+  private async assertNoUnresolvedComments(
+    documentId: Types.ObjectId,
+  ): Promise<void> {
+    const count = await this.commentModel.countDocuments({
+      documentId,
+      resolved: false,
+    });
+    if (count > 0) {
+      throw new BadRequestException(
+        'Resolve all comments before this document can be approved',
+      );
+    }
   }
 
   private assertAllSignersMapped(doc: DocumentDocument): void {

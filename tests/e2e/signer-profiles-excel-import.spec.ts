@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Download } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -35,13 +35,21 @@ test.describe('signer profiles Excel import', () => {
     ).toBeVisible();
 
     // Haknasot is selected by default. Download its template.
+    //
+    // Next dev can serve a route's HTML before the client bundle finishes
+    // hydrating, so a click right after the button becomes visible can land
+    // before React has attached its handler. Retry the click until the
+    // download actually fires.
     const downloadButton = page.getByRole('button', { name: 'Download Excel template' });
     await expect(downloadButton).toBeVisible({ timeout: 15_000 });
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      downloadButton.click(),
-    ]);
-    const downloadPath = await download.path();
+    let download: Download | undefined;
+    await expect(async () => {
+      [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 5_000 }),
+        downloadButton.click(),
+      ]);
+    }).toPass({ timeout: 30_000 });
+    const downloadPath = await download!.path();
     expect(downloadPath).toBeTruthy();
 
     const workbook = new ExcelJS.Workbook();

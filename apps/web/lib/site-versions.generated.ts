@@ -16,292 +16,292 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.119",
-    "hash": "4deb6ab",
-    "fullHash": "4deb6abf5ed5efd6485614967b7155a63114a0c0",
-    "date": "2026-06-21T18:51:56+03:00",
-    "message": "Sync local Claude settings/skills and dev artifacts after template-form-fields merge"
+    "version": "0.1.135",
+    "hash": "00a0865",
+    "fullHash": "00a0865b13b903aadb0efd298e2f9547da2a6a6b",
+    "date": "2026-06-21T19:03:58+03:00",
+    "message": "Merge remote-tracking branch 'origin/main' into fix/haknasot-checkboxes-and-date-fields"
   },
   "history": [
     {
-      "version": "0.1.119",
+      "version": "0.1.135",
+      "hash": "00a0865",
+      "fullHash": "00a0865b13b903aadb0efd298e2f9547da2a6a6b",
+      "date": "2026-06-21T19:03:58+03:00",
+      "message": "Merge remote-tracking branch 'origin/main' into fix/haknasot-checkboxes-and-date-fields"
+    },
+    {
+      "version": "0.1.134",
       "hash": "4deb6ab",
       "fullHash": "4deb6abf5ed5efd6485614967b7155a63114a0c0",
       "date": "2026-06-21T18:51:56+03:00",
       "message": "Sync local Claude settings/skills and dev artifacts after template-form-fields merge"
     },
     {
-      "version": "0.1.118",
+      "version": "0.1.133",
       "hash": "d1894de",
       "fullHash": "d1894de4b9731d739a3ceff17f1a26a827687acd",
       "date": "2026-06-21T18:50:26+03:00",
       "message": "Merge remote-tracking branch 'origin/fix/haknasot-checkboxes-and-date-fields' into fix/haknasot-checkboxes-and-date-fields"
     },
     {
-      "version": "0.1.117",
+      "version": "0.1.132",
       "hash": "9fa4bad",
       "fullHash": "9fa4badfaf8688046eb4ce37872e06bc79cdb404",
       "date": "2026-06-21T18:37:46+03:00",
       "message": "Merge pull request #13 from yaronkinar/worktree-sequential-signer-order"
     },
     {
-      "version": "0.1.116",
+      "version": "0.1.131",
       "hash": "2c557d9",
       "fullHash": "2c557d9f30064972b5eecf2231c1341bc009032c",
       "date": "2026-06-21T15:25:10Z",
       "message": "fix: update package-lock.json to include jest dependencies"
     },
     {
-      "version": "0.1.115",
+      "version": "0.1.130",
       "hash": "83969aa",
       "fullHash": "83969aaf82e866929370ff2f2caa6d000e273cc2",
       "date": "2026-06-21T18:17:37+03:00",
       "message": "Address review feedback for form fields editor panel"
     },
     {
-      "version": "0.1.114",
+      "version": "0.1.129",
       "hash": "429a97c",
       "fullHash": "429a97c4e44bdafd4eaa871f8e378ad6f425b010",
       "date": "2026-06-21T18:16:10+03:00",
       "message": "fix: regenerate CI .env in cleanup step if missing"
     },
     {
-      "version": "0.1.113",
+      "version": "0.1.128",
       "hash": "f63e7b2",
       "fullHash": "f63e7b2cbce120a1fed1e194324ec702f4cd4041",
       "date": "2026-06-21T13:38:44+03:00",
       "message": "Add form fields editor panel to TemplateEditorClient"
     },
     {
-      "version": "0.1.112",
+      "version": "0.1.127",
       "hash": "dbd91d5",
       "fullHash": "dbd91d51785887fa6ba16ed5c82c977edcec5021",
       "date": "2026-06-21T13:34:34+03:00",
       "message": "fix: suppress waiting label when a rejection halts the sequential chain"
     },
     {
-      "version": "0.1.111",
+      "version": "0.1.126",
       "hash": "7cea2f6",
       "fullHash": "7cea2f65a4b6f21e4b5bfe6900a5c5d8e6b0fee5",
       "date": "2026-06-21T13:32:26+03:00",
       "message": "Add template form field endpoints"
     },
     {
-      "version": "0.1.110",
+      "version": "0.1.125",
       "hash": "45c32f5",
       "fullHash": "45c32f5e2143eec13ebc26cdffcbb91b8c3613ad",
       "date": "2026-06-21T13:30:32+03:00",
       "message": "feat: show signer turn order and gate signing UI for sequential steps"
     },
     {
-      "version": "0.1.109",
+      "version": "0.1.124",
       "hash": "1ba9b97",
       "fullHash": "1ba9b976693f5caa099b16bb15b0495ef205bcde",
       "date": "2026-06-21T13:25:21+03:00",
       "message": "Copy template formFields onto documents created from a saved template"
     },
     {
-      "version": "0.1.108",
+      "version": "0.1.123",
       "hash": "32f994a",
       "fullHash": "32f994a4a7e714a07ef7ac82b39faad844f9ac4e",
       "date": "2026-06-21T13:24:44+03:00",
       "message": "feat: enforce sequential signer turn order in recordSignature/recordRejection"
     },
     {
-      "version": "0.1.107",
+      "version": "0.1.122",
       "hash": "4e3e8f4",
       "fullHash": "4e3e8f4cff74d7a463416d9fca6b5b725a6e6bc8",
       "date": "2026-06-21T13:23:12+03:00",
       "message": "feat: gate final document approval on resolved comments"
     },
     {
-      "version": "0.1.106",
+      "version": "0.1.121",
       "hash": "8428175",
       "fullHash": "8428175532e25f2278fcbac291e15b60aabf1d02",
       "date": "2026-06-21T13:20:26+03:00",
       "message": "Add AI-driven form field extraction for saved templates"
     },
     {
-      "version": "0.1.105",
+      "version": "0.1.120",
       "hash": "20ed4c1",
       "fullHash": "20ed4c18659376a1b575a4f0160697d88c529906",
       "date": "2026-06-21T13:14:32+03:00",
       "message": "Add TemplatesService form field CRUD methods"
     },
     {
-      "version": "0.1.104",
+      "version": "0.1.119",
       "hash": "5a77bbc",
       "fullHash": "5a77bbc44d0b27c5083ac2690ae412da1921d23e",
       "date": "2026-06-21T13:10:24+03:00",
       "message": "feat: only invite the active signer for sequential workflow steps"
     },
     {
-      "version": "0.1.103",
+      "version": "0.1.118",
       "hash": "a586023",
       "fullHash": "a5860238903eb97ba47f15ef1fe32baaf28c9de3",
       "date": "2026-06-21T13:10:15+03:00",
       "message": "Add CreateTemplateFormFieldDto and UpdateTemplateFormFieldDto"
     },
     {
-      "version": "0.1.102",
+      "version": "0.1.117",
       "hash": "179229e",
       "fullHash": "179229e120eb2405b5deffb73e4f52d4b3c5f722",
       "date": "2026-06-21T13:06:22+03:00",
       "message": "Add formFields to PdfTemplateDto"
     },
     {
-      "version": "0.1.101",
+      "version": "0.1.116",
       "hash": "dd154f7",
       "fullHash": "dd154f7774f5a199394a1160d141866111ab4bf3",
       "date": "2026-06-21T13:04:36+03:00",
       "message": "feat: add getActiveSequentialSigner shared helper for in-step signer order"
     },
     {
-      "version": "0.1.100",
+      "version": "0.1.115",
       "hash": "4fee68f",
       "fullHash": "4fee68fd7445adcdf35d692cbacdc38952a762ce",
       "date": "2026-06-21T13:03:36+03:00",
       "message": "Add formFields array to PdfTemplate schema"
     },
     {
-      "version": "0.1.99",
+      "version": "0.1.114",
       "hash": "57b5d05",
       "fullHash": "57b5d05c6ee6fbfc78cda477f37cb443636e005d",
       "date": "2026-06-21T13:02:32+03:00",
       "message": "Add jest test infrastructure to apps/api"
     },
     {
-      "version": "0.1.98",
+      "version": "0.1.113",
       "hash": "0ae90f4",
       "fullHash": "0ae90f4b95a99896c18ddd58f8fa7aebbfc29d1d",
       "date": "2026-06-21T12:58:53+03:00",
       "message": "docs: add implementation plan for sequential signer turn order"
     },
     {
-      "version": "0.1.97",
+      "version": "0.1.112",
       "hash": "c21e12b",
       "fullHash": "c21e12bd4eec0f46cd0540bc282b7cedf7527daf",
       "date": "2026-06-21T12:58:53+03:00",
       "message": "docs: add design spec for sequential signer ordering within a step"
     },
     {
-      "version": "0.1.96",
+      "version": "0.1.111",
       "hash": "03c6e6f",
       "fullHash": "03c6e6f01c763bbc524ed4049a1c479cadc54945",
       "date": "2026-06-21T12:53:56+03:00",
       "message": "docs: add implementation plan for sequential signer turn order"
     },
     {
-      "version": "0.1.95",
+      "version": "0.1.110",
       "hash": "37ddff1",
       "fullHash": "37ddff11ba3b2e8045c399f044ca26bc3a78434f",
       "date": "2026-06-21T12:52:12+03:00",
       "message": "Ignore .claude/worktrees/ directory"
     },
     {
-      "version": "0.1.94",
+      "version": "0.1.109",
       "hash": "f711310",
       "fullHash": "f71131051cf313b17547e9d91c7a6f68c6384c6e",
       "date": "2026-06-21T12:48:08+03:00",
       "message": "docs: add design spec for sequential signer ordering within a step"
     },
     {
-      "version": "0.1.93",
+      "version": "0.1.108",
       "hash": "fe91610",
       "fullHash": "fe916102e99028239643cc22a2999c05d6812782",
       "date": "2026-06-21T12:45:08+03:00",
       "message": "Add design spec for saved-template fillable form fields"
     },
     {
-      "version": "0.1.92",
+      "version": "0.1.107",
       "hash": "2d1b92e",
       "fullHash": "2d1b92ef9e134f8d0c02c6e9714cb9eb2bb31dda",
       "date": "2026-06-21T12:15:14+03:00",
       "message": "feat: pre-fill form-fill step from AI-extracted contract values"
     },
     {
-      "version": "0.1.91",
+      "version": "0.1.106",
       "hash": "e3b3a12",
       "fullHash": "e3b3a12a9a9722a78e0bb54325121cd4f7610662",
       "date": "2026-06-21T12:11:32+03:00",
       "message": "feat: add POST /documents/:id/extract-form-values endpoint"
     },
     {
-      "version": "0.1.90",
+      "version": "0.1.105",
       "hash": "1e7ce53",
       "fullHash": "1e7ce530efe573abebf35ad6ac34e7b55309cb35",
       "date": "2026-06-21T12:06:33+03:00",
       "message": "feat: extract and merge form field values from the uploaded contract"
     },
     {
-      "version": "0.1.89",
+      "version": "0.1.104",
       "hash": "705fa4c",
       "fullHash": "705fa4c88d357e0d8087b49378b458bb6db059b0",
       "date": "2026-06-21T12:01:46+03:00",
       "message": "feat: add AiService.extractFormFieldValues for contract data auto-fill"
     },
     {
-      "version": "0.1.88",
+      "version": "0.1.103",
       "hash": "23b8356",
       "fullHash": "23b8356559a9ef0f19f842074e431bf5b09c7664",
       "date": "2026-06-21T11:58:10+03:00",
       "message": "feat: lengthen AI document summary to about 5 sentences"
     },
     {
-      "version": "0.1.87",
+      "version": "0.1.102",
       "hash": "69d5820",
       "fullHash": "69d58203738c3614471ebfb697a0db11da326348",
       "date": "2026-06-21T11:45:06+03:00",
       "message": "Add design spec for mandatory contract attachment + AI summary/auto-fill"
     },
     {
-      "version": "0.1.86",
-      "hash": "99d725c",
-      "fullHash": "99d725c0f0ba81f09ec6a8ec1a33101c40af4567",
-      "date": "2026-06-18T14:38:34+03:00",
-      "message": "Add implementation plan for signer profiles Excel import"
+      "version": "0.1.101",
+      "hash": "c5d03f1",
+      "fullHash": "c5d03f151727941928753323803b1b20c8c81fe2",
+      "date": "2026-06-19T08:05:28+03:00",
+      "message": "Merge pull request #11 from yaronkinar/worktree-signer-profiles-excel-import"
     },
     {
-      "version": "0.1.85",
-      "hash": "1bd7384",
-      "fullHash": "1bd7384c21896cf0b02a4c247c0d5e70cc1ab74c",
-      "date": "2026-06-18T14:28:18+03:00",
-      "message": "Add design spec for signer profiles Excel import"
+      "version": "0.1.100",
+      "hash": "5777bb4",
+      "fullHash": "5777bb4e0e4f986b195715ddb7896ecf6aeddb2e",
+      "date": "2026-06-19T08:03:36+03:00",
+      "message": "Add drag-and-drop support for uploading the signer profile Excel template"
     },
     {
-      "version": "0.1.84",
-      "hash": "c0ef3d2",
-      "fullHash": "c0ef3d22694ea6fd965843546c91b6cf421a796e",
-      "date": "2026-06-18T13:45:48+03:00",
-      "message": "Fix Haknasot template pre-checked boxes; make extension dates date fields"
+      "version": "0.1.99",
+      "hash": "738a763",
+      "fullHash": "738a763ae4837db7b2be7c870ae9ff39ab04a54c",
+      "date": "2026-06-18T20:59:08+03:00",
+      "message": "Merge pull request #10 from yaronkinar/worktree-signer-profiles-excel-import"
     },
     {
-      "version": "0.1.83",
-      "hash": "a5418e1",
-      "fullHash": "a5418e1d9123429610417aed59415e344d1c7cba",
-      "date": "2026-06-18T12:29:24+03:00",
-      "message": "Merge pull request #8 from yaronkinar/fix/haknasot-approval-row-by-role"
+      "version": "0.1.98",
+      "hash": "9b7bce4",
+      "fullHash": "9b7bce448363e71cee8606c157b6199e81a9f8b8",
+      "date": "2026-06-18T20:18:28+03:00",
+      "message": "Add e2e test for signer profile Excel import"
     },
     {
-      "version": "0.1.82",
-      "hash": "3d7567b",
-      "fullHash": "3d7567bb9a986b2b509495fa20f28c0df9c0eb84",
-      "date": "2026-06-18T12:19:49+03:00",
-      "message": "Regenerate site version changelog"
+      "version": "0.1.97",
+      "hash": "ff77f4c",
+      "fullHash": "ff77f4ccf4fb8f305989a4bfd7e7df05d3bf5bb8",
+      "date": "2026-06-18T20:09:11+03:00",
+      "message": "Add Excel template download/upload UI to signer profiles page"
     },
     {
-      "version": "0.1.81",
-      "hash": "f0315da",
-      "fullHash": "f0315daa28a645bf4a751561fa69b371f37c2ce1",
-      "date": "2026-06-18T12:18:20+03:00",
-      "message": "Place Haknasot approvals by role title, not signer order"
-    },
-    {
-      "version": "0.1.80",
-      "hash": "e29294a",
-      "fullHash": "e29294a84c9ed88b1c1d46689c75d2f1907403df",
-      "date": "2026-06-18T06:59:06+03:00",
-      "message": "Merge pull request #7 from yaronkinar/feat/haknasot-field-position-overrides"
+      "version": "0.1.96",
+      "hash": "da5b947",
+      "fullHash": "da5b9478fd7d17f3deb0f037f1b2fd268a74c7a5",
+      "date": "2026-06-18T20:02:50+03:00",
+      "message": "Add i18n strings for signer profile Excel import"
     }
   ]
 } as const;

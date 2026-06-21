@@ -2,8 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
-import type { PdfTemplateDto } from '@docflow/shared';
-import type { PdfFormFieldTemplate, PdfFormFieldType } from '@docflow/shared';
+import type { PdfFormFieldTemplate, PdfFormFieldType, PdfTemplateDto } from '@docflow/shared';
 
 import { PDFViewer, type TemplateEditField } from '@/components/pdf/PDFViewer';
 import { useApiClient } from '@/lib/api-client';
@@ -163,52 +162,60 @@ export function TemplateEditorClient({ template }: Props) {
     }
   }
 
-  async function onFormFieldPlace(page: number, x: number, y: number) {
-    if (!formFieldPlacementMode) return;
-    setFormFieldError(null);
-    try {
-      const res = await api.post<{ formFields: PdfFormFieldTemplate[] }>(
-        `/templates/${template._id}/form-fields`,
-        {
-          label: `Field ${formFields.length + 1}`,
-          pageNumber: page,
-          x: Number(x.toFixed(2)),
-          y: Number(y.toFixed(2)),
-        },
-      );
-      setFormFields(res.formFields);
-      setActiveFormFieldId(res.formFields.at(-1)?.id ?? null);
-      setFormFieldPlacementMode(false);
-    } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to add field');
-    }
-  }
+  const onFormFieldPlace = useCallback(
+    async (page: number, x: number, y: number) => {
+      setFormFieldError(null);
+      try {
+        const res = await api.post<{ formFields: PdfFormFieldTemplate[] }>(
+          `/templates/${template._id}/form-fields`,
+          {
+            label: `Field ${formFields.length + 1}`,
+            pageNumber: page,
+            x: Number(x.toFixed(2)),
+            y: Number(y.toFixed(2)),
+          },
+        );
+        setFormFields(res.formFields);
+        setActiveFormFieldId(res.formFields.at(-1)?.id ?? null);
+        setFormFieldPlacementMode(false);
+      } catch (err) {
+        setFormFieldError(err instanceof Error ? err.message : 'Failed to add field');
+      }
+    },
+    [formFieldPlacementMode, formFields.length, api, template._id],
+  );
 
-  async function onFormFieldMove(fieldId: string, page: number, x: number, y: number) {
-    setFormFieldError(null);
-    try {
-      const res = await api.patch<{ formFields: PdfFormFieldTemplate[] }>(
-        `/templates/${template._id}/form-fields/${fieldId}`,
-        { pageNumber: page, x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) },
-      );
-      setFormFields(res.formFields);
-    } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to move field');
-    }
-  }
+  const onFormFieldMove = useCallback(
+    async (fieldId: string, page: number, x: number, y: number) => {
+      setFormFieldError(null);
+      try {
+        const res = await api.patch<{ formFields: PdfFormFieldTemplate[] }>(
+          `/templates/${template._id}/form-fields/${fieldId}`,
+          { pageNumber: page, x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) },
+        );
+        setFormFields(res.formFields);
+      } catch (err) {
+        setFormFieldError(err instanceof Error ? err.message : 'Failed to move field');
+      }
+    },
+    [api, template._id],
+  );
 
-  async function onFormFieldResize(fieldId: string, width: number, height: number) {
-    setFormFieldError(null);
-    try {
-      const res = await api.patch<{ formFields: PdfFormFieldTemplate[] }>(
-        `/templates/${template._id}/form-fields/${fieldId}`,
-        { width: Number(width.toFixed(2)), height: Number(height.toFixed(2)) },
-      );
-      setFormFields(res.formFields);
-    } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to resize field');
-    }
-  }
+  const onFormFieldResize = useCallback(
+    async (fieldId: string, width: number, height: number) => {
+      setFormFieldError(null);
+      try {
+        const res = await api.patch<{ formFields: PdfFormFieldTemplate[] }>(
+          `/templates/${template._id}/form-fields/${fieldId}`,
+          { width: Number(width.toFixed(2)), height: Number(height.toFixed(2)) },
+        );
+        setFormFields(res.formFields);
+      } catch (err) {
+        setFormFieldError(err instanceof Error ? err.message : 'Failed to resize field');
+      }
+    },
+    [api, template._id],
+  );
 
   async function updateFormFieldLabel(fieldId: string, label: string) {
     setFormFieldBusy(true);
@@ -355,6 +362,7 @@ export function TemplateEditorClient({ template }: Props) {
             onTemplateFieldMove={mode === 'signatures' ? handleFieldMove : undefined}
             onTemplateFieldResize={mode === 'signatures' ? handleFieldResize : undefined}
             formFields={mode === 'form-fields' ? formFields : undefined}
+            activeFormFieldId={mode === 'form-fields' ? activeFormFieldId : null}
             formFieldPlacementMode={mode === 'form-fields' && formFieldPlacementMode}
             formFieldEditMode={mode === 'form-fields' && !formFieldPlacementMode}
             editableFormFieldIds={mode === 'form-fields' ? formFields.map((f) => f.id) : undefined}

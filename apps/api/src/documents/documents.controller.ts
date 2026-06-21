@@ -140,6 +140,11 @@ export class DocumentsController {
     return this.documentsService.extractFormFields(id, user.clerkId);
   }
 
+  @Post(':id/extract-form-values')
+  extractFormValues(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
+    return this.documentsService.extractFormValues(id, user.clerkId);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: CurrentUserPayload,

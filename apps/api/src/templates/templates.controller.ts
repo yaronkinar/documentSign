@@ -15,7 +15,9 @@ import { TemplatesService } from './templates.service';
 import {
   ConfirmTemplateUploadDto,
   CreateTemplateDto,
+  CreateTemplateFormFieldDto,
   UpdateTemplateDto,
+  UpdateTemplateFormFieldDto,
 } from './templates.dto';
 
 @Controller('templates')
@@ -40,6 +42,44 @@ export class TemplatesController {
   @Post(':id/extract-fields')
   extractFields(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.templatesService.extractFields(id, user.clerkId);
+  }
+
+  @Post(':id/extract-form-fields')
+  extractFormFields(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
+    return this.templatesService.extractFormFields(id, user.clerkId);
+  }
+
+  @Post(':id/form-fields')
+  addFormField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateTemplateFormFieldDto,
+  ) {
+    return this.templatesService.addFormField(id, user.clerkId, dto);
+  }
+
+  @Patch(':id/form-fields/:fieldId')
+  updateFormField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Param('fieldId') fieldId: string,
+    @Body() dto: UpdateTemplateFormFieldDto,
+  ) {
+    return this.templatesService.updateFormField(
+      id,
+      user.clerkId,
+      fieldId,
+      dto,
+    );
+  }
+
+  @Delete(':id/form-fields/:fieldId')
+  deleteFormField(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Param('fieldId') fieldId: string,
+  ) {
+    return this.templatesService.deleteFormField(id, user.clerkId, fieldId);
   }
 
   @Get()

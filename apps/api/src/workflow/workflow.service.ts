@@ -13,6 +13,7 @@ import { findSignerOnStep } from '../documents/signer.utils';
 import { User, UserDocument } from '../users/user.schema';
 import {
   AuditEventType,
+  getActiveSequentialSigner,
   missingTemplateFieldMappings,
   type DocumentStatus,
 } from '@docflow/shared';
@@ -117,6 +118,12 @@ export class WorkflowService {
     if (signer.status !== 'pending') {
       throw new BadRequestException('Signer is not pending');
     }
+    if (step.executionMode === 'sequential') {
+      const active = getActiveSequentialSigner(step.signers);
+      if (!active || String(active._id) !== String(signer._id)) {
+        throw new BadRequestException('Not your turn to sign yet');
+      }
+    }
 
     signer.status = 'signed';
     signer.signedAt = new Date();
@@ -210,6 +217,9 @@ export class WorkflowService {
       }
     } else {
       await doc.save();
+      if (step.executionMode === 'sequential') {
+        await this.invitesService.sendStepInvites(doc, step);
+      }
     }
   }
 
@@ -229,6 +239,12 @@ export class WorkflowService {
     if (!signer) throw new NotFoundException('Signer not found');
     if (signer.status !== 'pending') {
       throw new BadRequestException('Signer already responded');
+    }
+    if (step.executionMode === 'sequential') {
+      const active = getActiveSequentialSigner(step.signers);
+      if (!active || String(active._id) !== String(signer._id)) {
+        throw new BadRequestException('Not your turn to respond yet');
+      }
     }
 
     signer.status = 'rejected';
@@ -341,6 +357,8 @@ export class WorkflowService {
           previousStatus,
         });
       }
+    } else if (step.executionMode === 'sequential') {
+      await this.invitesService.sendStepInvites(doc, step);
     }
   }
 

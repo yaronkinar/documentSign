@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 
 import { Document, DocumentSchema } from '../documents/document.schema';
 import { User, UserSchema } from '../users/user.schema';
+import { Comment, CommentSchema } from '../comments/comment.schema';
 import { WorkflowService } from './workflow.service';
 import { WorkflowGateway } from './workflow.gateway';
 import { InvitesModule } from '../invites/invites.module';
@@ -14,6 +15,7 @@ import { NOTIFICATIONS_QUEUE } from '../notifications/notifications.constants';
     MongooseModule.forFeature([
       { name: Document.name, schema: DocumentSchema },
       { name: User.name, schema: UserSchema },
+      { name: Comment.name, schema: CommentSchema },
     ]),
     BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE }),
     InvitesModule,

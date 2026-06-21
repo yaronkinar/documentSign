@@ -15,7 +15,7 @@ import type {
   SignerDto,
   SignatureFieldTemplate,
 } from '@docflow/shared';
-import { resolveDocumentFormFields } from '@docflow/shared';
+import { getActiveSequentialSigner, resolveDocumentFormFields } from '@docflow/shared';
 
 import {
   CommentComposer,
@@ -259,7 +259,11 @@ export function DocumentViewerClient({
       s.status === 'pending' &&
       (s.clerkId === myClerkId || s.email === myEmail),
   );
-  const canSign = !!mySignerInActiveStep && doc.status === 'pending_signature';
+  const isMySignerActiveTurn =
+    !!mySignerInActiveStep &&
+    (activeStep?.executionMode !== 'sequential' ||
+      getActiveSequentialSigner(activeStep.signers)?._id === mySignerInActiveStep._id);
+  const canSign = isMySignerActiveTurn && doc.status === 'pending_signature';
   const isOwner = doc.ownerId === myClerkId;
   const isDraft = doc.status === 'draft';
   const hasWorkflowSteps = doc.workflowSteps.length > 0;
@@ -1650,40 +1654,59 @@ function WorkflowSidebar({
 
   return (
     <ol className="space-y-4 overflow-auto p-4">
-      {doc.workflowSteps.map((step) => (
-        <li key={step._id} className="rounded-lg border border-border bg-surface p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between text-sm font-medium text-fg">
-            <span>{step.label}</span>
-            <span className="text-xs text-fg-muted">
-              {t(`workflowStepStatus.${step.status}`)}
-            </span>
-          </div>
-          <ul className="space-y-1 text-xs">
-            {step.signers.map((s) => (
-              <SignerRow
-                key={s._id}
-                signer={s}
-                showOwnerControls={isOwner && step.status === 'in_progress' && s.status === 'pending'}
-                resendLoading={resendBusy === s._id}
-                onSkip={() => onSkip(step._id, s._id, s.email)}
-                onResend={() => onResend(step._id, s._id, s.email)}
-              />
-            ))}
-          </ul>
-        </li>
-      ))}
+      {doc.workflowSteps.map((step) => {
+        const activeSigner =
+          step.executionMode === 'sequential'
+            ? getActiveSequentialSigner(step.signers)
+            : null;
+        return (
+          <li key={step._id} className="rounded-lg border border-border bg-surface p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between text-sm font-medium text-fg">
+              <span>{step.label}</span>
+              <span className="text-xs text-fg-muted">
+                {t(`workflowStepStatus.${step.status}`)}
+              </span>
+            </div>
+            <ul className="space-y-1 text-xs">
+              {step.signers.map((s) => {
+                const isWaiting =
+                  step.executionMode === 'sequential' &&
+                  s.status === 'pending' &&
+                  activeSigner != null &&
+                  activeSigner._id !== s._id;
+                return (
+                  <SignerRow
+                    key={s._id}
+                    signer={s}
+                    isWaiting={isWaiting}
+                    waitingForLabel={activeSigner ? activeSigner.name ?? activeSigner.email : ''}
+                    showOwnerControls={isOwner && step.status === 'in_progress' && s.status === 'pending'}
+                    resendLoading={resendBusy === s._id}
+                    onSkip={() => onSkip(step._id, s._id, s.email)}
+                    onResend={() => onResend(step._id, s._id, s.email)}
+                  />
+                );
+              })}
+            </ul>
+          </li>
+        );
+      })}
     </ol>
   );
 }
 
 function SignerRow({
   signer,
+  isWaiting,
+  waitingForLabel,
   showOwnerControls,
   resendLoading,
   onSkip,
   onResend,
 }: {
   signer: SignerDto;
+  isWaiting: boolean;
+  waitingForLabel: string;
   showOwnerControls: boolean;
   resendLoading: boolean;
   onSkip: () => void;
@@ -1691,6 +1714,7 @@ function SignerRow({
 }) {
   const { t } = useTranslation();
   const icon = (() => {
+    if (isWaiting) return '⏸';
     switch (signer.status) {
       case 'signed':
         return '✓';
@@ -1702,11 +1726,17 @@ function SignerRow({
         return '⏳';
     }
   })();
+  const title = isWaiting
+    ? t('signerStatus.waiting', { name: waitingForLabel })
+    : t(`signerStatus.${signer.status}`);
   return (
     <li className="flex items-center justify-between rounded-md bg-surface-muted px-2 py-1">
-      <span title={t(`signerStatus.${signer.status}`)}>
+      <span title={title}>
         <span className="me-1">{icon}</span>
         {signer.email}
+        {isWaiting && (
+          <span className="ms-1 text-fg-muted">({title})</span>
+        )}
       </span>
       {showOwnerControls && (
         <span className="flex gap-1">

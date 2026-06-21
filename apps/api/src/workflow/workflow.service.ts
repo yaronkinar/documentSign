@@ -11,9 +11,15 @@ import { Model, Types } from 'mongoose';
 
 import { findSignerOnStep } from '../documents/signer.utils';
 import { User, UserDocument } from '../users/user.schema';
-import { AuditEventType, missingTemplateFieldMappings, type DocumentStatus } from '@docflow/shared';
+import {
+  AuditEventType,
+  getActiveSequentialSigner,
+  missingTemplateFieldMappings,
+  type DocumentStatus,
+} from '@docflow/shared';
 
 import { Document, DocumentDocument, WorkflowStep } from '../documents/document.schema';
+import { Comment, CommentDocument } from '../comments/comment.schema';
 import { InvitesService } from '../invites/invites.service';
 import { AuditService } from '../audit/audit.service';
 import { WorkflowGateway } from './workflow.gateway';
@@ -27,6 +33,8 @@ export class WorkflowService {
     private readonly documentModel: Model<DocumentDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(Comment.name)
+    private readonly commentModel: Model<CommentDocument>,
     private readonly invitesService: InvitesService,
     private readonly auditService: AuditService,
     private readonly gateway: WorkflowGateway,
@@ -110,6 +118,12 @@ export class WorkflowService {
     if (signer.status !== 'pending') {
       throw new BadRequestException('Signer is not pending');
     }
+    if (step.executionMode === 'sequential') {
+      const active = getActiveSequentialSigner(step.signers);
+      if (!active || String(active._id) !== String(signer._id)) {
+        throw new BadRequestException('Not your turn to sign yet');
+      }
+    }
 
     signer.status = 'signed';
     signer.signedAt = new Date();
@@ -184,6 +198,7 @@ export class WorkflowService {
           metadata: { stepId: String(nextStep._id), stepNumber: nextStep.stepNumber },
         });
       } else {
+        await this.assertNoUnresolvedComments(doc._id);
         const previousStatus = doc.status;
         doc.status = 'approved';
         await doc.save();
@@ -202,6 +217,9 @@ export class WorkflowService {
       }
     } else {
       await doc.save();
+      if (step.executionMode === 'sequential') {
+        await this.invitesService.sendStepInvites(doc, step);
+      }
     }
   }
 
@@ -221,6 +239,12 @@ export class WorkflowService {
     if (!signer) throw new NotFoundException('Signer not found');
     if (signer.status !== 'pending') {
       throw new BadRequestException('Signer already responded');
+    }
+    if (step.executionMode === 'sequential') {
+      const active = getActiveSequentialSigner(step.signers);
+      if (!active || String(active._id) !== String(signer._id)) {
+        throw new BadRequestException('Not your turn to respond yet');
+      }
     }
 
     signer.status = 'rejected';
@@ -323,6 +347,7 @@ export class WorkflowService {
           });
         }
       } else {
+        await this.assertNoUnresolvedComments(doc._id);
         const previousStatus = doc.status;
         doc.status = 'approved';
         await doc.save();
@@ -332,6 +357,8 @@ export class WorkflowService {
           previousStatus,
         });
       }
+    } else if (step.executionMode === 'sequential') {
+      await this.invitesService.sendStepInvites(doc, step);
     }
   }
 
@@ -454,6 +481,20 @@ export class WorkflowService {
       .lean()
       .exec();
     return user?.clerkId ?? null;
+  }
+
+  private async assertNoUnresolvedComments(
+    documentId: Types.ObjectId,
+  ): Promise<void> {
+    const count = await this.commentModel.countDocuments({
+      documentId,
+      resolved: false,
+    });
+    if (count > 0) {
+      throw new BadRequestException(
+        'Resolve all comments before this document can be approved',
+      );
+    }
   }
 
   private assertAllSignersMapped(doc: DocumentDocument): void {

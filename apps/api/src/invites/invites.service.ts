@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { Document, DocumentDocument } from '../documents/document.schema';
 import type { WorkflowStep } from '../documents/document.schema';
 import { findSignerOnStep } from '../documents/signer.utils';
+import { getActiveSequentialSigner } from '@docflow/shared';
 import {
   NotificationsService,
   type SendInviteEmailJob,
@@ -57,7 +58,12 @@ export class InvitesService {
     doc: DocumentDocument,
     step: WorkflowStep,
   ): Promise<void> {
-    const pending = step.signers.filter((s) => s.status === 'pending');
+    const pending =
+      step.executionMode === 'sequential'
+        ? [getActiveSequentialSigner(step.signers)].filter(
+            (s): s is NonNullable<typeof s> => s !== null,
+          )
+        : step.signers.filter((s) => s.status === 'pending');
     if (pending.length === 0) return;
 
     const jobs: SendInviteEmailJob[] = [];

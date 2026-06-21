@@ -204,6 +204,7 @@ export const he: TranslationDict = {
     signed: 'נחתם',
     rejected: 'נדחה',
     skipped: 'דולג',
+    waiting: 'מחכה ל{{name}}',
   },
   pdf: {
     loading: 'טוען PDF…',

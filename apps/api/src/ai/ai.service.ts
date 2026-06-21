@@ -226,7 +226,7 @@ export class AiService {
         return await anthropicCompleteText({
           label: 'summarize',
           system:
-            'You summarize documents for a signing workflow. Write 2-4 concise sentences covering: document type, parties involved, key terms or obligations, and anything signers should notice. Use BOTH the extracted PDF text AND the structured form values and signer list when present — these are authoritative and may contain details (amounts, dates, parties) that are clearer than the PDF text. Use the same language as the document (Hebrew if the document is in Hebrew). Do not invent facts not present in the inputs.',
+            'You summarize documents for a signing workflow. Write about 5 concise sentences covering: document type, parties involved, key terms or obligations, and anything signers should notice. Use BOTH the extracted PDF text AND the structured form values and signer list when present — these are authoritative and may contain details (amounts, dates, parties) that are clearer than the PDF text. Use the same language as the document (Hebrew if the document is in Hebrew). Do not invent facts not present in the inputs.',
           user: userMessage,
         });
       } catch (err) {
@@ -260,7 +260,7 @@ export class AiService {
           {
             role: 'system',
             content:
-              'You summarize documents for a signing workflow. Write 2-4 concise sentences covering: document type, parties involved, key terms or obligations, and anything signers should notice. Use BOTH the extracted PDF text AND the structured form values and signer list when present — these are authoritative and may contain details (amounts, dates, parties) that are clearer than the PDF text. Use the same language as the document (Hebrew if the document is in Hebrew). Do not invent facts not present in the inputs.',
+              'You summarize documents for a signing workflow. Write about 5 concise sentences covering: document type, parties involved, key terms or obligations, and anything signers should notice. Use BOTH the extracted PDF text AND the structured form values and signer list when present — these are authoritative and may contain details (amounts, dates, parties) that are clearer than the PDF text. Use the same language as the document (Hebrew if the document is in Hebrew). Do not invent facts not present in the inputs.',
           },
           {
             role: 'user',

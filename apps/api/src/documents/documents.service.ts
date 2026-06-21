@@ -274,8 +274,9 @@ export class DocumentsService {
     }
 
     let text = '';
-    if (doc.fileKey) {
-      const pdfBuffer = await this.storageService.downloadObject(doc.fileKey);
+    const sourceKey = this.resolveTextSourceKey(doc);
+    if (sourceKey) {
+      const pdfBuffer = await this.storageService.downloadObject(sourceKey);
       text = await this.aiService.extractPdfText(pdfBuffer);
     }
 
@@ -385,11 +386,12 @@ export class DocumentsService {
     clerkId: string,
   ): Promise<{ values: Record<string, string> }> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
-    if (!doc.fileKey) {
-      throw new BadRequestException('Document has no uploaded PDF');
+    const sourceKey = this.resolveTextSourceKey(doc);
+    if (!sourceKey) {
+      throw new BadRequestException('Document has no contract to extract values from');
     }
 
-    const fields = this.docFormFieldSnapshot(doc).map((f) => ({
+    const fields = this.toFormFieldTemplates(doc).map((f) => ({
       id: f.id,
       label: f.label,
     }));
@@ -397,7 +399,7 @@ export class DocumentsService {
       return { values: doc.formValues ?? {} };
     }
 
-    const pdfBuffer = await this.storageService.downloadObject(doc.fileKey);
+    const pdfBuffer = await this.storageService.downloadObject(sourceKey);
     const text = await this.aiService.extractPdfText(pdfBuffer);
     const extracted = await this.aiService.extractFormFieldValues(text, fields);
 
@@ -438,6 +440,10 @@ export class DocumentsService {
       doc.formTemplateId === HAKNASOT_FORM_TEMPLATE_ID &&
       getHaknasotFormFields().some((f) => f.id === fieldId)
     );
+  }
+
+  private resolveTextSourceKey(doc: DocumentDocument): string | null {
+    return doc.sourceContractKey ?? doc.fileKey ?? null;
   }
 
   private docFormFieldSnapshot(

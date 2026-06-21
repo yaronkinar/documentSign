@@ -1,6 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { AuditEventType } from '@docflow/shared';
+import {
+  AuditEventType,
+  HAKNASOT_FORM_TEMPLATE_ID,
+  getHaknasotFormFields,
+} from '@docflow/shared';
 
 import { DocumentsService } from './documents.service';
 
@@ -43,6 +47,7 @@ function buildService(doc: unknown) {
     extractFormFieldValues: jest
       .fn()
       .mockResolvedValue({ supplier_name: 'חברת דוגמה בע"מ' }),
+    summarizeDocumentText: jest.fn().mockResolvedValue('a short summary'),
   };
   const auditService = { log: jest.fn() };
 
@@ -62,6 +67,34 @@ function buildService(doc: unknown) {
   return { service, documentModel, storageService, aiService, auditService };
 }
 
+describe('DocumentsService.summarizeDocument', () => {
+  it('reads text from sourceContractKey when present, even if fileKey is also set', async () => {
+    const doc = buildDoc({
+      description: null,
+      fileKey: 'docs/abc/original.pdf',
+      sourceContractKey: 'docs/abc/source-contract/c.pdf',
+    });
+    const { service, storageService } = buildService(doc);
+
+    await service.summarizeDocument(doc._id.toString(), doc.ownerId);
+
+    expect(storageService.downloadObject).toHaveBeenCalledWith('docs/abc/source-contract/c.pdf');
+  });
+
+  it('falls back to fileKey when sourceContractKey is absent', async () => {
+    const doc = buildDoc({
+      description: null,
+      fileKey: 'docs/abc/original.pdf',
+      sourceContractKey: null,
+    });
+    const { service, storageService } = buildService(doc);
+
+    await service.summarizeDocument(doc._id.toString(), doc.ownerId);
+
+    expect(storageService.downloadObject).toHaveBeenCalledWith('docs/abc/original.pdf');
+  });
+});
+
 describe('DocumentsService.extractFormValues', () => {
   it('throws when the document has no uploaded PDF', async () => {
     const doc = buildDoc({ fileKey: null });
@@ -70,6 +103,31 @@ describe('DocumentsService.extractFormValues', () => {
     await expect(
       service.extractFormValues(String(doc._id), 'owner1'),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('uses sourceContractKey as the text source when fileKey is null', async () => {
+    const doc = buildDoc({
+      fileKey: null,
+      sourceContractKey: 'docs/abc/source-contract/c.pdf',
+      formTemplateId: HAKNASOT_FORM_TEMPLATE_ID,
+      formFields: [],
+    });
+    const { service, storageService, aiService } = buildService(doc);
+
+    await service.extractFormValues(doc._id.toString(), doc.ownerId);
+
+    expect(storageService.downloadObject).toHaveBeenCalledWith('docs/abc/source-contract/c.pdf');
+    const [, fields] = aiService.extractFormFieldValues.mock.calls[0];
+    expect(fields.length).toBe(getHaknasotFormFields().length);
+  });
+
+  it('throws when there is no fileKey and no sourceContractKey', async () => {
+    const doc = buildDoc({ fileKey: null, sourceContractKey: null });
+    const { service } = buildService(doc);
+
+    await expect(
+      service.extractFormValues(doc._id.toString(), doc.ownerId),
+    ).rejects.toThrow('Document has no contract to extract values from');
   });
 
   it('merges extracted values into doc.formValues and persists', async () => {

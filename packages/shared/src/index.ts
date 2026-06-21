@@ -68,6 +68,7 @@ export { getActiveSequentialSigner } from './signer-order.js';
 export enum AuditEventType {
   DocumentCreated = 'document_created',
   DocumentUploaded = 'document_uploaded',
+  DocumentSourceContractAttached = 'document_source_contract_attached',
   DocumentViewed = 'document_viewed',
   DocumentDeleted = 'document_deleted',
   StatusChanged = 'status_changed',

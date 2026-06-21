@@ -176,6 +176,10 @@ export class Document {
   @Prop({ type: String, default: null })
   completedFileKey!: string | null;
 
+  /** Storage key for an attached contract used as an AI text-extraction source. Never rendered/stamped — distinct from fileKey. */
+  @Prop({ type: String, default: null })
+  sourceContractKey!: string | null;
+
   /** Clerk user id of the owner. */
   @Prop({ required: true, index: true })
   ownerId!: string;

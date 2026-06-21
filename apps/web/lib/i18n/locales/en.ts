@@ -202,6 +202,7 @@ export const en = {
     signed: 'Signed',
     rejected: 'Rejected',
     skipped: 'Skipped',
+    waiting: 'Waiting for {{name}}',
   },
   pdf: {
     loading: 'Loading PDF…',

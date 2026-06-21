@@ -223,6 +223,7 @@ export function NewDocumentClient() {
       setExtractingSigners(true);
       setExtractingFormFields(true);
       let latestDoc = confirmed;
+      let detectedFields: ReturnType<typeof resolveFormTemplateFields> = [];
       try {
         const [signersResult, formResult, docWithUrl] = await Promise.all([
           api.post<{ signers: string[] }>(`/documents/${newId}/extract-signers`),
@@ -234,6 +235,7 @@ export function NewDocumentClient() {
           api.get<DocumentDto>(`/documents/${newId}`),
         ]);
         const { signers } = signersResult;
+        detectedFields = formResult.fields;
         latestDoc = docWithUrl;
         if (docWithUrl.fileUrl) setUploadPdfUrl(docWithUrl.fileUrl);
         if (signers.length > 0) {
@@ -272,7 +274,17 @@ export function NewDocumentClient() {
         setExtractingFormFields(false);
       }
 
+      if (detectedFields.length > 0) {
+        try {
+          await api.post(`/documents/${newId}/extract-form-values`);
+          latestDoc = await api.get<DocumentDto>(`/documents/${newId}`);
+        } catch {
+          // Leave form values blank — same as today when there's no AI data.
+        }
+      }
+
       setDoc(latestDoc);
+      setFormValues(latestDoc.formValues ?? {});
       const resolvedFields = resolveDocumentFormFields(latestDoc);
       if (resolvedFields.length > 0) {
         setFormFields(resolvedFields);

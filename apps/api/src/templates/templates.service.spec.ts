@@ -27,6 +27,7 @@ function buildService(template: unknown) {
     tryGetDownloadUrl: jest.fn().mockResolvedValue(null),
   };
   const aiService = {
+    extractPdfText: jest.fn().mockResolvedValue('שם ספק: חברת דוגמה'),
     extractTemplateFieldsFromPdf: jest.fn().mockResolvedValue([
       { label: 'שם ספק', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
     ]),
@@ -124,5 +125,48 @@ describe('TemplatesService.deleteFormField', () => {
 
     expect(result.formFields).toHaveLength(0);
     expect(template.save).toHaveBeenCalled();
+  });
+});
+
+describe('TemplatesService.extractFormFields', () => {
+  it('throws when the template has no uploaded PDF', async () => {
+    const template = buildTemplate({ fileKey: null });
+    const { service } = buildService(template);
+
+    await expect(
+      service.extractFormFields(String(template._id), 'owner1'),
+    ).rejects.toThrow('Template PDF not found');
+  });
+
+  it('extracts fields from the PDF and merges them with existing ones', async () => {
+    const template = buildTemplate();
+    const { service, storageService, aiService } = buildService(template);
+
+    const result = await service.extractFormFields(String(template._id), 'owner1');
+
+    expect(storageService.downloadObject).toHaveBeenCalledWith('templates/abc/file.pdf');
+    expect(aiService.extractTemplateFieldsFromPdf).toHaveBeenCalledWith(
+      Buffer.from('pdf bytes'),
+      2,
+      [],
+      'saved_template',
+    );
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0]).toMatchObject({ label: 'שם ספק', pageNumber: 1 });
+    expect(template.save).toHaveBeenCalled();
+  });
+
+  it('does not duplicate a field already present at the same placement', async () => {
+    const template = buildTemplate({
+      formFields: [
+        { id: 'existing', label: 'שם ספק', type: 'text', section: 'page_1', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
+      ],
+    });
+    const { service } = buildService(template);
+
+    const result = await service.extractFormFields(String(template._id), 'owner1');
+
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0].id).toBe('existing');
   });
 });

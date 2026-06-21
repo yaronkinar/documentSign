@@ -7,12 +7,18 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { allocateFormFieldId, type PdfTemplateDto } from '@docflow/shared';
+import {
+  allocateFormFieldId,
+  buildPdfFormFieldsFromExtracted,
+  type PdfFormFieldTemplate,
+  type PdfTemplateDto,
+} from '@docflow/shared';
 
 import { PdfTemplate, PdfTemplateDocument } from './template.schema';
 import { Document, DocumentDocument } from '../documents/document.schema';
 import { StorageService } from '../storage/storage.service';
 import { AiService, type ExtractedTemplateField } from '../ai/ai.service';
+import { fieldLabelAppearsInPdfText } from '../ai/pdf-field-label';
 import {
   ConfirmTemplateUploadDto,
   CreateTemplateDto,
@@ -202,6 +208,59 @@ export class TemplatesService {
     template.markModified('formFields');
     await template.save();
     return this.toDto(template);
+  }
+
+  async extractFormFields(
+    id: string,
+    clerkId: string,
+  ): Promise<{ fields: PdfFormFieldTemplate[] }> {
+    const template = await this.requireOwner(id, clerkId);
+    if (!template.fileKey) {
+      throw new NotFoundException('Template PDF not found');
+    }
+
+    const pdfBuffer = await this.storageService.downloadObject(template.fileKey);
+    const pdfText = await this.aiService.extractPdfText(pdfBuffer);
+    const extracted = await this.aiService.extractTemplateFieldsFromPdf(
+      pdfBuffer,
+      template.pageCount,
+      [],
+      'saved_template',
+    );
+    const filtered = extracted.filter((field) =>
+      fieldLabelAppearsInPdfText(field.label, pdfText),
+    );
+    const extractedFields = buildPdfFormFieldsFromExtracted(filtered);
+
+    const existing = (template.formFields ?? []).map((f) => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      section: f.section,
+      pageNumber: f.pageNumber,
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+    }));
+    const existingIds = new Set(existing.map((f) => f.id));
+    const existingPlacementKeys = new Set(
+      existing.map((f) => `${f.pageNumber}:${f.label.trim().toLowerCase()}`),
+    );
+    const merged = [
+      ...existing,
+      ...extractedFields.filter((f) => {
+        if (existingIds.has(f.id)) return false;
+        const key = `${f.pageNumber}:${f.label.trim().toLowerCase()}`;
+        if (existingPlacementKeys.has(key)) return false;
+        existingPlacementKeys.add(key);
+        return true;
+      }),
+    ];
+    template.formFields = merged as never;
+    template.markModified('formFields');
+    await template.save();
+    return { fields: merged };
   }
 
   async extractFields(

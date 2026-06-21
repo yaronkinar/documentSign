@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { AuditEventType } from '@docflow/shared';
 
 import { DocumentsService } from './documents.service';
 
@@ -8,11 +9,20 @@ function buildDoc(overrides: Record<string, unknown> = {}) {
     _id: new Types.ObjectId(),
     ownerId: 'owner1',
     fileKey: 'docs/abc/file.pdf',
+    sourceContractKey: null as string | null,
     pageCount: 2,
     formFields: [
       { id: 'supplier_name', label: 'שם ספק', type: 'text', section: 'details', pageNumber: 1, x: 0, y: 0, width: 1, height: 1 },
     ],
     formValues: {},
+    title: 'Test doc',
+    status: 'draft',
+    currentStep: 0,
+    workflowSteps: [],
+    participantEmails: ['owner1@example.com'],
+    participantClerkIds: ['owner1'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
     save: jest.fn().mockResolvedValue(undefined),
     markModified: jest.fn(),
     ...overrides,
@@ -25,6 +35,8 @@ function buildService(doc: unknown) {
   };
   const storageService = {
     downloadObject: jest.fn().mockResolvedValue(Buffer.from('pdf bytes')),
+    getUploadUrl: jest.fn().mockResolvedValue('https://upload.example/signed-url'),
+    objectExists: jest.fn().mockResolvedValue(true),
   };
   const aiService = {
     extractPdfText: jest.fn().mockResolvedValue('contract text mentioning חברת דוגמה'),
@@ -32,6 +44,7 @@ function buildService(doc: unknown) {
       .fn()
       .mockResolvedValue({ supplier_name: 'חברת דוגמה בע"מ' }),
   };
+  const auditService = { log: jest.fn() };
 
   const service = new DocumentsService(
     documentModel as never,
@@ -40,13 +53,13 @@ function buildService(doc: unknown) {
     {} as never,
     {} as never,
     storageService as never,
-    {} as never,
+    auditService as never,
     aiService as never,
     {} as never,
     {} as never,
   );
 
-  return { service, documentModel, storageService, aiService };
+  return { service, documentModel, storageService, aiService, auditService };
 }
 
 describe('DocumentsService.extractFormValues', () => {
@@ -134,5 +147,68 @@ describe('DocumentsService.createFromPdfTemplate', () => {
     expect(result.formFields).toEqual([
       { id: 'supplier_name', label: 'שם ספק', type: 'text', section: 'general', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
     ]);
+  });
+});
+
+describe('DocumentsService.attachSourceContract', () => {
+  it('generates a fileKey, persists it, and returns an upload URL', async () => {
+    const doc = buildDoc({ sourceContractKey: null });
+    const { service, storageService } = buildService(doc);
+
+    const result = await service.attachSourceContract(doc._id.toString(), doc.ownerId);
+
+    expect(doc.sourceContractKey).toMatch(
+      new RegExp(`^docs/${doc._id.toString()}/source-contract/`),
+    );
+    expect(doc.save).toHaveBeenCalled();
+    expect(storageService.getUploadUrl).toHaveBeenCalledWith(
+      doc.sourceContractKey,
+      'application/pdf',
+    );
+    expect(result).toEqual({
+      uploadUrl: 'https://upload.example/signed-url',
+      fileKey: doc.sourceContractKey,
+    });
+  });
+});
+
+describe('DocumentsService.confirmSourceContract', () => {
+  it('throws when no contract attachment is pending', async () => {
+    const doc = buildDoc({ sourceContractKey: null });
+    const { service } = buildService(doc);
+
+    await expect(
+      service.confirmSourceContract(doc._id.toString(), doc.ownerId, 'owner@example.com'),
+    ).rejects.toThrow('No source contract attachment pending');
+  });
+
+  it('throws when the uploaded object is missing from storage', async () => {
+    const doc = buildDoc({ sourceContractKey: 'docs/abc/source-contract/c.pdf' });
+    const { service, storageService } = buildService(doc);
+    storageService.objectExists.mockResolvedValue(false);
+
+    await expect(
+      service.confirmSourceContract(doc._id.toString(), doc.ownerId, 'owner@example.com'),
+    ).rejects.toThrow('Contract upload was not found in storage. Please upload the file again.');
+  });
+
+  it('logs an audit event and returns the document DTO when the object exists', async () => {
+    const doc = buildDoc({ sourceContractKey: 'docs/abc/source-contract/c.pdf' });
+    const { service, auditService } = buildService(doc);
+
+    const result = await service.confirmSourceContract(
+      doc._id.toString(),
+      doc.ownerId,
+      'owner@example.com',
+    );
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: doc._id,
+        actorEmail: 'owner@example.com',
+        eventType: AuditEventType.DocumentSourceContractAttached,
+      }),
+    );
+    expect(result._id).toBe(doc._id.toString());
   });
 });

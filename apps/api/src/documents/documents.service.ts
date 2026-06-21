@@ -225,6 +225,45 @@ export class DocumentsService {
     return toDocumentDto(doc, { fileUrl });
   }
 
+  async attachSourceContract(
+    documentId: string,
+    clerkId: string,
+  ): Promise<{ uploadUrl: string; fileKey: string }> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    const fileKey = `docs/${documentId}/source-contract/${uuidv4()}.pdf`;
+    doc.sourceContractKey = fileKey;
+    await doc.save();
+    const uploadUrl = await this.storageService.getUploadUrl(
+      fileKey,
+      'application/pdf',
+    );
+    return { uploadUrl, fileKey };
+  }
+
+  async confirmSourceContract(
+    documentId: string,
+    clerkId: string,
+    actorEmail: string,
+  ): Promise<DocumentDto> {
+    const doc = await this.findOwnedDocument(documentId, clerkId);
+    if (!doc.sourceContractKey) {
+      throw new BadRequestException('No source contract attachment pending');
+    }
+    if (!(await this.storageService.objectExists(doc.sourceContractKey))) {
+      throw new BadRequestException(
+        'Contract upload was not found in storage. Please upload the file again.',
+      );
+    }
+    this.auditService.log({
+      documentId: doc._id,
+      actorId: clerkId,
+      actorEmail,
+      eventType: AuditEventType.DocumentSourceContractAttached,
+      metadata: { fileKey: doc.sourceContractKey },
+    });
+    return toDocumentDto(doc);
+  }
+
   async summarizeDocument(
     documentId: string,
     clerkId: string,

@@ -125,6 +125,23 @@ export class DocumentsController {
     return this.documentsService.confirmUpload(id, user.clerkId, user.email, dto);
   }
 
+  @Post(':id/source-contract')
+  attachSourceContract(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    return this.documentsService.attachSourceContract(id, user.clerkId);
+  }
+
+  @Post(':id/source-contract/confirm')
+  confirmSourceContract(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    if (!user.email) throw new BadRequestException('No email on token');
+    return this.documentsService.confirmSourceContract(id, user.clerkId, user.email);
+  }
+
   @Post(':id/summarize')
   summarize(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.documentsService.summarizeDocument(id, user.clerkId);

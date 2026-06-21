@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs';
+import path from 'node:path';
 
 import { gotoApp } from './helpers/navigation';
 
@@ -81,6 +82,16 @@ async function createHaknasotDocAsSelfSigner(page: Page) {
   if (await startError.isVisible().catch(() => false)) {
     throw new Error(`Start form failed: ${await startError.innerText()}`);
   }
+
+  // Attach-contract step: attach a real sample PDF before the wizard advances
+  // to the form step. This hits the real dev API, so the attach -> confirm ->
+  // summarize -> extract-form-values round trip takes real network time.
+  await expect(
+    page.getByRole('heading', { name: 'Attach the contract' }),
+  ).toBeVisible({ timeout: 30_000 });
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles(path.join(process.cwd(), 'apps/web/public/samples/haknasot.pdf'));
 
   // Form step: skip filling values (avoids the AI summary round-trip).
   const skipButton = page.getByRole('button', { name: 'Skip for now' });

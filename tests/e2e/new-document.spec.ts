@@ -139,6 +139,46 @@ async function installApiMocks(page: Page, calls: ApiCall[]) {
     }
 
     if (
+      request.method() === 'POST' &&
+      url.pathname === '/documents/doc-e2e/source-contract'
+    ) {
+      await fulfillJson(route, {
+        uploadUrl: 'http://127.0.0.1:3001/storage/local/mock-source-contract-upload',
+        fileKey: 'docs/doc-e2e/source-contract/mock.pdf',
+      });
+      return;
+    }
+
+    if (
+      request.method() === 'PUT' &&
+      url.pathname === '/storage/local/mock-source-contract-upload'
+    ) {
+      await route.fulfill({ status: 200, body: '' });
+      return;
+    }
+
+    if (
+      request.method() === 'POST' &&
+      url.pathname === '/documents/doc-e2e/source-contract/confirm'
+    ) {
+      await fulfillJson(route, mockDocument());
+      return;
+    }
+
+    if (
+      request.method() === 'POST' &&
+      url.pathname === '/documents/doc-e2e/extract-form-values'
+    ) {
+      await fulfillJson(route, { values: {} });
+      return;
+    }
+
+    if (request.method() === 'GET' && url.pathname === '/documents/doc-e2e') {
+      await fulfillJson(route, mockDocument());
+      return;
+    }
+
+    if (
       request.method() === 'PATCH' &&
       url.pathname === '/documents/doc-e2e/form-values'
     ) {
@@ -290,6 +330,14 @@ test('creates a Haknasot document through the mocked wizard flow', async ({
     throw new Error(`Start form failed: ${await startError.innerText()}`);
   }
 
+  // Attach the source contract before the wizard advances to the form step.
+  await expect(
+    page.getByRole('heading', { name: 'Attach the contract' }),
+  ).toBeVisible({ timeout: 10_000 });
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles(path.join(process.cwd(), 'apps/web/public/samples/haknasot.pdf'));
+
   await expect(
     page.getByRole('button', { name: 'Fill automatically' }),
   ).toBeVisible({ timeout: 20_000 });
@@ -370,6 +418,14 @@ test('Haknasot form step exposes checkbox fields and saves them', async ({
   await expect(page.getByRole('button', { name: 'Start form' })).toBeEnabled();
   await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Start form' }).click({ force: true });
+
+  // Attach the source contract before the wizard advances to the form step.
+  await expect(
+    page.getByRole('heading', { name: 'Attach the contract' }),
+  ).toBeVisible({ timeout: 10_000 });
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles(path.join(process.cwd(), 'apps/web/public/samples/haknasot.pdf'));
 
   // The 4-page form exposes contract-type / engagement-type checkboxes.
   const expand = page.getByLabel('הרחבה', { exact: true });

@@ -216,6 +216,7 @@ export const he: TranslationDict = {
   newDocument: {
     title: 'מסמך חדש',
     stepStart: 'התחלה',
+    stepAttachContract: 'צירוף חוזה',
     stepForm: 'מילוי טופס',
     stepFormSetup: 'שדות טופס',
     stepFormFill: 'מילוי טופס',
@@ -225,6 +226,9 @@ export const he: TranslationDict = {
     dropPdf: 'גרור קובץ לכאן או לחץ להעלאה.',
     uploadYourPdf: 'העלאת מסמך',
     supportedFormats: 'PDF, DOC או DOCX',
+    attachContractTitle: 'צרפו את החוזה',
+    attachContractBody:
+      'העלו את החוזה או ההסכם החתום שעליו מבוסס המסמך. נשתמש בו כדי לכתוב תקציר ולמלא את הטופס באופן אוטומטי.',
     convertingToPdf: 'ממיר מסמך Word ל-PDF…',
     uploadingDocument: 'מעלה את המסמך…',
     processingDocument: 'מעבד את המסמך ומזהה שדות…',

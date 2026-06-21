@@ -214,6 +214,7 @@ export const en = {
   newDocument: {
     title: 'New Document',
     stepStart: 'Start',
+    stepAttachContract: 'Attach contract',
     stepForm: 'Fill form',
     stepFormSetup: 'Form fields',
     stepFormFill: 'Fill form',
@@ -223,6 +224,9 @@ export const en = {
     dropPdf: 'Drop a file here or click to upload.',
     uploadYourPdf: 'Upload your document',
     supportedFormats: 'PDF, DOC, or DOCX',
+    attachContractTitle: 'Attach the contract',
+    attachContractBody:
+      'Upload the signed contract or agreement this document is based on. We use it to write a summary and pre-fill the form for you.',
     convertingToPdf: 'Converting Word document to PDF…',
     uploadingDocument: 'Uploading your document…',
     processingDocument: 'Processing document and detecting fields…',

@@ -44,6 +44,7 @@ import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 
 type Step =
   | 'start'
+  | 'attach-contract'
   | 'form'
   | 'form-setup'
   | 'form-fill'
@@ -162,7 +163,7 @@ export function NewDocumentClient() {
       const fields = resolveFormTemplateFields(doc.formTemplateId);
       setFormFields(fields);
       setFormValues(doc.formValues ?? {});
-      setStep('form');
+      setStep('attach-contract');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('newDocument.startFormFailed'));
     } finally {
@@ -299,6 +300,62 @@ export function NewDocumentClient() {
     }
   }
 
+  async function attachSourceContract(file: File) {
+    if (!documentId) return;
+    if (!isSupportedDocumentUpload(file)) {
+      setError(t('newDocument.unsupportedFile'));
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    setUploadPhase(isWordFile(file) ? 'converting' : 'uploading');
+    try {
+      let pdfFile = file;
+      if (isWordFile(file)) {
+        const pdfBlob = await convertWordToPdf(file, api.postFormData);
+        pdfFile = pdfFileFromBlob(pdfBlob, file.name);
+        setUploadPhase('uploading');
+      }
+
+      const { uploadUrl } = await api.post<{ uploadUrl: string; fileKey: string }>(
+        `/documents/${documentId}/source-contract`,
+      );
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: pdfFile,
+        headers: { 'Content-Type': 'application/pdf' },
+      });
+      if (!uploadRes.ok) {
+        throw new Error(t('newDocument.uploadFailed'));
+      }
+
+      setUploadPhase('processing');
+      await api.post(`/documents/${documentId}/source-contract/confirm`);
+
+      try {
+        await api.post(`/documents/${documentId}/summarize`);
+      } catch {
+        // Description stays blank — same fallback behavior as the upload flow.
+      }
+      try {
+        await api.post(`/documents/${documentId}/extract-form-values`);
+      } catch {
+        // Leave form values blank — same fallback behavior as the upload flow.
+      }
+
+      const latestDoc = await api.get<DocumentDto>(`/documents/${documentId}`);
+      setDoc(latestDoc);
+      setDescription(latestDoc.description ?? '');
+      setFormValues(latestDoc.formValues ?? {});
+      setStep(docSource === 'template' ? 'form' : 'details');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('newDocument.uploadFailed'));
+    } finally {
+      setBusy(false);
+      setUploadPhase('idle');
+    }
+  }
+
   function signerNamesFromTemplateFields(template: PdfTemplateDto): string[] {
     const seen = new Set<string>();
     const names: string[] = [];
@@ -387,8 +444,7 @@ export function NewDocumentClient() {
         signers,
       );
       setSteps(hydrated);
-      setStep('details');
-      void requestSummarize(doc._id);
+      setStep('attach-contract');
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t('newDocument.startTemplateFailed'),
@@ -725,6 +781,15 @@ export function NewDocumentClient() {
         />
       )}
 
+      {step === 'attach-contract' && (
+        <AttachContractStep
+          busy={busy}
+          uploadPhase={uploadPhase}
+          onAttach={attachSourceContract}
+          onBack={() => setStep('start')}
+        />
+      )}
+
       {(extractingSigners || extractingFormFields) && step !== 'start' && (
         <p className="text-sm text-gray-500">
           {extractingFormFields
@@ -741,6 +806,7 @@ export function NewDocumentClient() {
           busy={busy}
           onNext={handleFormNext}
           onSkip={goToDetails}
+          onBack={() => setStep('attach-contract')}
         />
       )}
 
@@ -796,6 +862,8 @@ export function NewDocumentClient() {
             } else if (docSource === 'upload') {
               const fields = doc ? resolveDocumentFormFields(doc) : [];
               setStep(fields.length > 0 ? 'form-fill' : 'form-setup');
+            } else if (docSource === 'saved_pdf') {
+              setStep('attach-contract');
             } else {
               setStep('start');
             }
@@ -838,10 +906,13 @@ export function NewDocumentClient() {
 
 function progressOrder(docSource: DocSource | null): Step[] {
   if (docSource === 'template') {
-    return ['start', 'form', 'details', 'workflow', 'review'];
+    return ['start', 'attach-contract', 'form', 'details', 'workflow', 'review'];
   }
   if (docSource === 'upload') {
     return ['start', 'form-setup', 'form-fill', 'details', 'workflow', 'review'];
+  }
+  if (docSource === 'saved_pdf') {
+    return ['start', 'attach-contract', 'details', 'workflow', 'review'];
   }
   return ['start', 'details', 'workflow', 'review'];
 }
@@ -857,6 +928,7 @@ function ProgressIndicator({
   const order = progressOrder(docSource);
   const stepLabels: Record<Step, string> = {
     start: t('newDocument.stepStart'),
+    'attach-contract': t('newDocument.stepAttachContract'),
     form: t('newDocument.stepForm'),
     'form-setup': t('newDocument.stepFormSetup'),
     'form-fill': t('newDocument.stepFormFill'),
@@ -1148,6 +1220,105 @@ function StartStep({
           )}
           {pdfUrl && <PDFViewer pdfUrl={pdfUrl} />}
         </section>
+      </div>
+    </div>
+  );
+}
+
+function AttachContractStep({
+  busy,
+  uploadPhase,
+  onAttach,
+  onBack,
+}: {
+  busy: boolean;
+  uploadPhase: UploadPhase;
+  onAttach: (file: File) => void;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  const fileInputEl = useRef<HTMLInputElement | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleFile(file: File | undefined) {
+    if (!file || busy) return;
+    onAttach(file);
+  }
+
+  const uploadStatusMessage =
+    uploadPhase === 'converting'
+      ? t('newDocument.convertingToPdf')
+      : uploadPhase === 'uploading'
+        ? t('newDocument.uploadingDocument')
+        : uploadPhase === 'processing'
+          ? t('newDocument.processingDocument')
+          : null;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-medium">{t('newDocument.attachContractTitle')}</h2>
+        <p className="mt-1 text-sm text-gray-600">{t('newDocument.attachContractBody')}</p>
+      </div>
+      {uploadPhase !== 'idle' ? (
+        <div
+          className="rounded-lg border border-gray-200 bg-gray-50 px-6 py-8"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <PdfLoadingSkeleton />
+          {uploadStatusMessage && (
+            <p className="mt-4 text-center text-sm text-gray-600">{uploadStatusMessage}</p>
+          )}
+        </div>
+      ) : (
+        <div
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') fileInputEl.current?.click();
+          }}
+          onClick={() => !busy && fileInputEl.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            handleFile(e.dataTransfer.files[0]);
+          }}
+          className={`flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors ${
+            dragOver
+              ? 'border-black bg-gray-50'
+              : 'border-gray-300 bg-white hover:border-gray-400'
+          } ${busy ? 'pointer-events-none opacity-50' : ''}`}
+        >
+          <p className="text-sm text-gray-600">{t('newDocument.dropPdf')}</p>
+          <p className="mt-2 text-xs text-gray-400">{t('newDocument.supportedFormats')}</p>
+        </div>
+      )}
+      <input
+        ref={fileInputEl}
+        type="file"
+        accept={DOCUMENT_UPLOAD_ACCEPT}
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          handleFile(file);
+          e.target.value = '';
+        }}
+      />
+      <div className="flex justify-start">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={busy}
+          className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {t('common.back')}
+        </button>
       </div>
     </div>
   );

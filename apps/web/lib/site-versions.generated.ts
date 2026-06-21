@@ -16,13 +16,20 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.118",
-    "hash": "d1894de",
-    "fullHash": "d1894de4b9731d739a3ceff17f1a26a827687acd",
-    "date": "2026-06-21T18:50:26+03:00",
-    "message": "Merge remote-tracking branch 'origin/fix/haknasot-checkboxes-and-date-fields' into fix/haknasot-checkboxes-and-date-fields"
+    "version": "0.1.119",
+    "hash": "4deb6ab",
+    "fullHash": "4deb6abf5ed5efd6485614967b7155a63114a0c0",
+    "date": "2026-06-21T18:51:56+03:00",
+    "message": "Sync local Claude settings/skills and dev artifacts after template-form-fields merge"
   },
   "history": [
+    {
+      "version": "0.1.119",
+      "hash": "4deb6ab",
+      "fullHash": "4deb6abf5ed5efd6485614967b7155a63114a0c0",
+      "date": "2026-06-21T18:51:56+03:00",
+      "message": "Sync local Claude settings/skills and dev artifacts after template-form-fields merge"
+    },
     {
       "version": "0.1.118",
       "hash": "d1894de",
@@ -295,13 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "e29294a84c9ed88b1c1d46689c75d2f1907403df",
       "date": "2026-06-18T06:59:06+03:00",
       "message": "Merge pull request #7 from yaronkinar/feat/haknasot-field-position-overrides"
-    },
-    {
-      "version": "0.1.79",
-      "hash": "55ed438",
-      "fullHash": "55ed438f5ff6522fa7524cd64ce6af3b804db18a",
-      "date": "2026-06-18T06:53:53+03:00",
-      "message": "Update Haknasot tooling + e2e tests for the 4-page form."
     }
   ]
 } as const;

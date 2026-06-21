@@ -3,6 +3,8 @@
 // Consumed by apps/api (NestJS) and apps/web (Next.js).
 // ============================================================================
 
+import type { SignerProfileImportSkipReason } from './signer-profile-import.js';
+
 // ---------------------------------------------------------------------------
 // Domain enums
 // ---------------------------------------------------------------------------
@@ -224,6 +226,13 @@ export interface SignerProfileDto {
   updatedAt: string;
 }
 
+export interface ImportSignerProfilesResultDto {
+  created: number;
+  updated: number;
+  skipped: { row: number; reason: SignerProfileImportSkipReason }[];
+  profiles: SignerProfileDto[];
+}
+
 export interface SignatureDto {
   _id: string;
   documentId: string;
@@ -415,3 +424,10 @@ export {
   allowedDocumentFormFieldIds,
   isEditableDocumentFormField,
 } from './document-form-fields.js';
+
+export {
+  classifySignerProfileImportRow,
+  type SignerProfileImportRow,
+  type SignerProfileImportRowResult,
+  type SignerProfileImportSkipReason,
+} from './signer-profile-import.js';

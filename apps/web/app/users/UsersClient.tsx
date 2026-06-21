@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PdfTemplateDto, SignerProfileDto } from '@docflow/shared';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import type { PdfTemplateDto, SignerProfileDto, ImportSignerProfilesResultDto } from '@docflow/shared';
 import {
   HAKNASOT_FORM_TEMPLATE_ID,
   MUNICIPAL_APPROVAL_SIGNER_TITLES,
@@ -43,6 +43,11 @@ export function UsersClient() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deduping, setDeduping] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportSignerProfilesResultDto | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
   const [customTitle, setCustomTitle] = useState('');
@@ -335,6 +340,83 @@ export function UsersClient() {
     }
   }
 
+  async function downloadTemplate() {
+    if (!selectedTemplateId) return;
+    setDownloadingTemplate(true);
+    setError(null);
+    try {
+      const blob = await api.getBlob('/signer-profiles/template.xlsx', {
+        templateId: selectedTemplateId,
+      });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = 'signer-profiles-template.xlsx';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t('users.downloadTemplateFailed'),
+      );
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
+
+  async function importTemplate(file: File) {
+    if (!selectedTemplateId) return;
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      const res = await api.postFormData('/signer-profiles/import', formData, {
+        templateId: selectedTemplateId,
+      });
+      if (!res.ok) {
+        let message = t('users.importFailed');
+        try {
+          const data = await res.json();
+          if (data?.message) {
+            message = Array.isArray(data.message)
+              ? data.message.join(', ')
+              : String(data.message);
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+      const result = (await res.json()) as ImportSignerProfilesResultDto;
+      setImportResult(result);
+      setProfiles(result.profiles);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.importFailed'));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function handleTemplateDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handleTemplateDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+  }
+
+  function handleTemplateDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void importTemplate(file);
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 p-6">
       <div>
@@ -368,6 +450,74 @@ export function UsersClient() {
             </option>
           ))}
         </select>
+        {selectedTemplateId && (
+          <div
+            onDragOver={handleTemplateDragOver}
+            onDragLeave={handleTemplateDragLeave}
+            onDrop={handleTemplateDrop}
+            className={`mt-3 rounded border border-dashed p-3 transition-colors ${
+              isDragOver ? 'border-blue-500 bg-blue-50' : 'border-transparent'
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={downloadTemplate}
+                disabled={downloadingTemplate}
+                className="text-xs text-blue-700 hover:underline disabled:opacity-50"
+              >
+                {downloadingTemplate ? t('common.saving') : t('users.downloadTemplate')}
+              </button>
+              <button
+                type="button"
+                onClick={() => importFileRef.current?.click()}
+                disabled={importing}
+                className="text-xs text-blue-700 hover:underline disabled:opacity-50"
+              >
+                {importing ? t('common.saving') : t('users.uploadTemplate')}
+              </button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".xlsx"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importTemplate(file);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-gray-400">
+              {t('users.dropTemplateHint')}
+            </p>
+          </div>
+        )}
+        {importResult && (
+          <div className="mt-3 rounded border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+            <p>
+              {t('users.importSummary', {
+                created: String(importResult.created),
+                updated: String(importResult.updated),
+              })}
+            </p>
+            {importResult.skipped.length > 0 && (
+              <div className="mt-2">
+                <p className="font-medium">{t('users.importSkippedHeading')}</p>
+                <ul className="mt-1 list-inside list-disc">
+                  {importResult.skipped.map((s) => (
+                    <li key={s.row}>
+                      {`Row ${s.row}: `}
+                      {s.reason === 'missing-title'
+                        ? t('users.importReasonMissingTitle')
+                        : t('users.importReasonInvalidEmail')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedTemplateId && (

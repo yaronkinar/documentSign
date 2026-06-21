@@ -4,13 +4,18 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Query,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import type { SignerProfileDto } from '@docflow/shared';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { ImportSignerProfilesResultDto, SignerProfileDto } from '@docflow/shared';
 
 import { ClerkAuthGuard } from '../auth/clerk.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/current-user.decorator';
@@ -54,6 +59,48 @@ export class SignerProfilesController {
       throw new BadRequestException('templateId query parameter is required');
     }
     return this.signerProfilesService.dedupe(user.clerkId, templateId.trim());
+  }
+
+  @Get('template.xlsx')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header('Cache-Control', 'no-store')
+  async downloadTemplate(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('templateId') templateId?: string,
+  ): Promise<StreamableFile> {
+    if (!templateId?.trim()) {
+      throw new BadRequestException('templateId query parameter is required');
+    }
+    const buffer = await this.signerProfilesService.buildTemplateWorkbook(
+      user.clerkId,
+      templateId.trim(),
+    );
+    return new StreamableFile(buffer);
+  }
+
+  @Post('import')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  importFromExcel(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('templateId') templateId: string | undefined,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+  ): Promise<ImportSignerProfilesResultDto> {
+    if (!templateId?.trim()) {
+      throw new BadRequestException('templateId query parameter is required');
+    }
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.signerProfilesService.importFromWorkbook(
+      user.clerkId,
+      templateId.trim(),
+      file.buffer,
+    );
   }
 
   @Patch(':id')

@@ -230,9 +230,16 @@ export class DocumentsService {
     clerkId: string,
   ): Promise<{ uploadUrl: string; fileKey: string }> {
     const doc = await this.findOwnedDocument(documentId, clerkId);
+    const previousKey = doc.sourceContractKey;
     const contractKey = `docs/${documentId}/source-contract/${uuidv4()}.pdf`;
     doc.sourceContractKey = contractKey;
     await doc.save();
+    if (previousKey) {
+      this.storageService.deleteObject(previousKey).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('[documents] storage delete previous source contract failed', err);
+      });
+    }
     const uploadUrl = await this.storageService.getUploadUrl(
       contractKey,
       'application/pdf',
@@ -1115,6 +1122,7 @@ export class DocumentsService {
     const id = doc._id;
     const fileKey = doc.fileKey;
     const completedFileKey = doc.completedFileKey;
+    const sourceContractKey = doc.sourceContractKey;
 
     const sigs = await this.signatureModel.find({ documentId: id }).exec();
 
@@ -1129,6 +1137,12 @@ export class DocumentsService {
       this.storageService.deleteObject(completedFileKey).catch((err) => {
         // eslint-disable-next-line no-console
         console.error('[documents] storage delete completed pdf failed', err);
+      });
+    }
+    if (sourceContractKey) {
+      this.storageService.deleteObject(sourceContractKey).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('[documents] storage delete source contract failed', err);
       });
     }
     for (const sig of sigs) {

@@ -41,6 +41,7 @@ function buildService(doc: unknown) {
     downloadObject: jest.fn().mockResolvedValue(Buffer.from('pdf bytes')),
     getUploadUrl: jest.fn().mockResolvedValue('https://upload.example/signed-url'),
     objectExists: jest.fn().mockResolvedValue(true),
+    deleteObject: jest.fn().mockResolvedValue(undefined),
   };
   const aiService = {
     extractPdfText: jest.fn().mockResolvedValue('contract text mentioning חברת דוגמה'),
@@ -227,6 +228,25 @@ describe('DocumentsService.attachSourceContract', () => {
       uploadUrl: 'https://upload.example/signed-url',
       fileKey: doc.sourceContractKey,
     });
+  });
+
+  it('deletes the previous contract object from storage when re-attaching', async () => {
+    const doc = buildDoc({ sourceContractKey: 'docs/abc/source-contract/old.pdf' });
+    const { service, storageService } = buildService(doc);
+    const previousKey = doc.sourceContractKey;
+
+    await service.attachSourceContract(doc._id.toString(), doc.ownerId);
+
+    expect(storageService.deleteObject).toHaveBeenCalledWith(previousKey);
+  });
+
+  it('does not call deleteObject when there is no previous contract', async () => {
+    const doc = buildDoc({ sourceContractKey: null });
+    const { service, storageService } = buildService(doc);
+
+    await service.attachSourceContract(doc._id.toString(), doc.ownerId);
+
+    expect(storageService.deleteObject).not.toHaveBeenCalled();
   });
 });
 

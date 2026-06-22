@@ -1538,16 +1538,17 @@ function FormFillStep({
         </aside>
       </div>
       <div className="flex justify-between pt-2">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={busy || saving}
-            className="text-sm text-gray-600 hover:underline disabled:opacity-50"
-          >
-            ← {t('common.back')}
-          </button>
-        ) : (
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={busy || saving}
+              className="text-sm text-gray-600 hover:underline disabled:opacity-50"
+            >
+              ← {t('common.back')}
+            </button>
+          )}
           <button
             type="button"
             onClick={onSkip}
@@ -1556,7 +1557,7 @@ function FormFillStep({
           >
             {t('newDocument.skipForm')}
           </button>
-        )}
+        </div>
         <button
           type="button"
           onClick={() => void handleNext()}

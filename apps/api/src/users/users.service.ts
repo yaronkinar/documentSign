@@ -199,16 +199,21 @@ export class UsersService {
   async listSavedSignatures(clerkId: string): Promise<SavedSignatureDto[]> {
     const user = await this.userModel.findOne({ clerkId }).exec();
     if (!user) return [];
-    return Promise.all(
-      user.savedSignatures.map(async (s) => ({
-        _id: s._id.toString(),
-        label: s.label,
-        imageUrl: await this.storageService.getDownloadUrl(s.imageKey),
-        type: s.type,
-        isDefault: s.isDefault,
-        createdAt: s.createdAt.toISOString(),
-      })),
+    const dtos = await Promise.all(
+      user.savedSignatures.map(async (s) => {
+        const imageUrl = await this.storageService.tryGetDownloadUrl(s.imageKey);
+        if (!imageUrl) return null;
+        return {
+          _id: s._id.toString(),
+          label: s.label,
+          imageUrl,
+          type: s.type,
+          isDefault: s.isDefault,
+          createdAt: s.createdAt.toISOString(),
+        };
+      }),
     );
+    return dtos.filter((d): d is SavedSignatureDto => d !== null);
   }
 
   async setDefaultSignature(

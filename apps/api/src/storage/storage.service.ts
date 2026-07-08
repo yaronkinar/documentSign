@@ -4,10 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LocalStorageBackend } from './local-storage.backend';
-import { SupabaseStorageBackend } from './supabase-storage.backend';
 
 /**
- * Storage facade — Supabase (production) or local filesystem (dev).
+ * Storage facade — local filesystem.
  *
  * Key naming conventions (used throughout the app - do not deviate):
  *   - PDF uploads:                docs/{documentId}/{uuid}.pdf
@@ -19,17 +18,7 @@ import { SupabaseStorageBackend } from './supabase-storage.backend';
  */
 @Injectable()
 export class StorageService {
-  private readonly backend: LocalStorageBackend | SupabaseStorageBackend;
-
-  constructor() {
-    const driver = (process.env.STORAGE_DRIVER ?? 'supabase').toLowerCase();
-    this.backend =
-      driver === 'local' ? new LocalStorageBackend() : new SupabaseStorageBackend();
-    if (driver === 'local') {
-      // eslint-disable-next-line no-console
-      console.log('[storage] using local filesystem driver');
-    }
-  }
+  private readonly backend = new LocalStorageBackend();
 
   getUploadUrl(key: string, contentType: string): Promise<string> {
     return this.backend.getUploadUrl(key, contentType);

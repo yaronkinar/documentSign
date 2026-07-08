@@ -174,7 +174,7 @@ async function uploadPng(uploadUrl, pngBuffer) {
 
 /**
  * Renders a cursive signature PNG for each signer via Playwright canvas,
- * uploads each to Supabase, and returns { email → imageKey }.
+ * uploads each to storage, and returns { email → imageKey }.
  */
 async function generateSignatureImages(signers, docId) {
   const browser = await chromium.launch({ headless: true });

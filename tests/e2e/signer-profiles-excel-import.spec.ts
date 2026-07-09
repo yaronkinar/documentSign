@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { gotoApp } from './helpers/navigation';
+import { gotoApp, saveDownload } from './helpers/navigation';
 
 const API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:3001';
 
@@ -49,11 +49,11 @@ test.describe('signer profiles Excel import', () => {
         downloadButton.click(),
       ]);
     }).toPass({ timeout: 30_000 });
-    const downloadPath = await download!.path();
-    expect(downloadPath).toBeTruthy();
+    const templatePath = path.join(os.tmpdir(), `signer-profiles-template-${Date.now()}.xlsx`);
+    await saveDownload(download!, templatePath);
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(downloadPath!);
+    await workbook.xlsx.readFile(templatePath);
     const sheet = workbook.worksheets[0];
     expect(sheet.getRow(1).getCell(1).text).toBe('Title');
     const firstRoleTitle = sheet.getRow(2).getCell(1).text;

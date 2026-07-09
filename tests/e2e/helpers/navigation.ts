@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Download, type Page } from '@playwright/test';
 
 const BYPASS_TOKEN = process.env.BYPASS_TOKEN ?? 'dev-bypass-token-local';
 
@@ -25,4 +25,18 @@ export async function gotoDevTokens(page: Page) {
     await gotoApp(page, '/dev/tokens');
     await expect(heading).toBeVisible({ timeout: 10_000 });
   }).toPass({ timeout: 45_000 });
+}
+
+/**
+ * Copy a Playwright download to `destPath`, retrying on EPERM.
+ *
+ * On Windows, Defender real-time scanning and OneDrive's file-sync watcher can
+ * briefly hold an exclusive lock on a just-written artifact, so the first
+ * `saveAs` right after a download completes can fail with EPERM even though
+ * the file is otherwise ready. The lock clears within a second or two.
+ */
+export async function saveDownload(download: Download, destPath: string) {
+  await expect(async () => {
+    await download.saveAs(destPath);
+  }).toPass({ timeout: 10_000, intervals: [250, 500, 1000] });
 }

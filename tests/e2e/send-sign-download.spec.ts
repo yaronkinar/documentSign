@@ -1,8 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
-import { gotoApp } from './helpers/navigation';
+import { gotoApp, saveDownload } from './helpers/navigation';
 
 const API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:3001';
 
@@ -29,9 +30,9 @@ async function downloadPdfBytes(page: Page): Promise<Buffer> {
     button.click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
-  const downloadPath = await download.path();
-  expect(downloadPath).toBeTruthy();
-  return fs.readFileSync(downloadPath!);
+  const downloadPath = path.join(os.tmpdir(), `send-sign-download-${Date.now()}.pdf`);
+  await saveDownload(download, downloadPath);
+  return fs.readFileSync(downloadPath);
 }
 
 /**

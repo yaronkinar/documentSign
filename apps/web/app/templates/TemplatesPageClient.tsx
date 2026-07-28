@@ -6,6 +6,7 @@ import type { PdfTemplateDto } from '@docflow/shared';
 
 import { useApiClient } from '@/lib/api-client';
 import { isPdfFile, titleFromUploadFile } from '@/lib/document-upload';
+import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { getPdfPageCount } from '@/lib/pdf-page-count';
 
 interface Props {
@@ -18,9 +19,9 @@ interface PendingTemplate {
   name: string;
 }
 
-function uniqueTemplateName(base: string, taken: Set<string>): string {
+function uniqueTemplateName(base: string, taken: Set<string>, fallback: string): string {
   const key = base.trim().toLowerCase();
-  if (!key) return uniqueTemplateName('Untitled template', taken);
+  if (!key) return uniqueTemplateName(fallback, taken, fallback);
   if (!taken.has(key)) {
     taken.add(key);
     return base.trim();
@@ -51,6 +52,7 @@ function takenTemplateNames(
 export function TemplatesPageClient({ initialTemplates }: Props) {
   const router = useRouter();
   const api = useApiClient();
+  const { t } = useTranslation();
   const [templates, setTemplates] = useState<PdfTemplateDto[]>(initialTemplates);
   const [creating, setCreating] = useState(false);
   const [pending, setPending] = useState<PendingTemplate[]>([]);
@@ -65,24 +67,25 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
     (files: FileList | File[]) => {
       const pdfs = [...files].filter(isPdfFile);
       if (pdfs.length === 0) {
-        setError('Please choose PDF files only.');
+        setError(t('templates.pdfOnly'));
         return;
       }
       setError(null);
+      const untitled = t('templates.untitled');
       setPending((prev) => {
         const taken = takenTemplateNames(templates, prev);
         const added = pdfs.map((file) => {
-          const base = titleFromUploadFile(file, 'Untitled template');
+          const base = titleFromUploadFile(file, untitled);
           return {
             id: `pending-${++nextPendingId.current}`,
             file,
-            name: uniqueTemplateName(base, taken),
+            name: uniqueTemplateName(base, taken, untitled),
           };
         });
         return [...prev, ...added];
       });
     },
-    [templates],
+    [templates, t],
   );
 
   async function uploadOneTemplate(file: File, name: string): Promise<PdfTemplateDto> {
@@ -100,7 +103,9 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
       headers: { 'Content-Type': 'application/pdf' },
     });
     if (!uploadRes.ok) {
-      throw new Error(`Upload failed for "${name}": ${uploadRes.status}`);
+      throw new Error(
+        t('templates.uploadFailedFor', { name, status: uploadRes.status }),
+      );
     }
 
     return api.post<PdfTemplateDto>(`/templates/${templateId}/confirm`, {
@@ -114,7 +119,7 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
     if (pending.length === 0) return;
     const invalid = pending.find((item) => !item.name.trim());
     if (invalid) {
-      setError('Every template needs a name.');
+      setError(t('templates.nameRequired'));
       return;
     }
 
@@ -125,12 +130,20 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
 
     for (let i = 0; i < pending.length; i += 1) {
       const item = pending[i]!;
-      setUploadProgress(`Uploading ${i + 1} of ${pending.length}: ${item.name}`);
+      setUploadProgress(
+        t('templates.uploadingProgress', {
+          current: i + 1,
+          total: pending.length,
+          name: item.name,
+        }),
+      );
       try {
         created.push(await uploadOneTemplate(item.file, item.name));
       } catch (err) {
         failures.push(
-          `${item.name}: ${err instanceof Error ? err.message : 'Upload failed'}`,
+          `${item.name}: ${
+            err instanceof Error ? err.message : t('templates.uploadFailed')
+          }`,
         );
       }
     }
@@ -159,7 +172,10 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
         prev.filter((item) => failedNames.has(item.name.trim().toLowerCase())),
       );
       setError(
-        `Created ${created.length} template(s). Failed: ${failures.join('; ')}`,
+        t('templates.createdWithFailures', {
+          count: created.length,
+          failures: failures.join('; '),
+        }),
       );
       return;
     }
@@ -187,19 +203,19 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete template "${name}"? This cannot be undone.`)) return;
+    if (!confirm(t('templates.confirmDelete', { name }))) return;
     try {
       await api.delete(`/templates/${id}`);
-      setTemplates((prev) => prev.filter((t) => t._id !== id));
+      setTemplates((prev) => prev.filter((item) => item._id !== id));
     } catch {
-      alert('Failed to delete template');
+      alert(t('templates.deleteFailed'));
     }
   }
 
   return (
     <div>
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Templates</h1>
+        <h1 className="text-2xl font-semibold">{t('templates.title')}</h1>
         <button
           type="button"
           onClick={() => {
@@ -208,20 +224,20 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
           }}
           className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
         >
-          New Templates
+          {t('templates.newTemplates')}
         </button>
       </div>
 
       {creating && (
         <div className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
-          <h2 className="mb-1 text-sm font-semibold">Upload PDF templates</h2>
+          <h2 className="mb-1 text-sm font-semibold">{t('templates.uploadTitle')}</h2>
           <p className="mb-4 text-xs text-gray-500">
-            Select or drop multiple PDFs. Each file becomes its own template.
+            {t('templates.uploadSubtitle')}
           </p>
           <form onSubmit={handleCreateBatch} className="space-y-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-700">
-                PDF files
+                {t('templates.pdfFilesLabel')}
               </label>
               <div
                 onClick={() => !uploading && fileRef.current?.click()}
@@ -245,9 +261,11 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
                 } ${uploading ? 'pointer-events-none opacity-50' : ''}`}
               >
                 <span className="text-sm text-gray-600">
-                  Click to browse or drag PDFs here
+                  {t('templates.dropzone')}
                 </span>
-                <span className="text-xs text-gray-400">Multiple files supported</span>
+                <span className="text-xs text-gray-400">
+                  {t('templates.dropzoneHint')}
+                </span>
               </div>
               <input
                 ref={fileRef}
@@ -286,7 +304,7 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
                       onClick={() => removePending(item.id)}
                       className="shrink-0 rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
                     >
-                      Remove
+                      {t('common.remove')}
                     </button>
                   </li>
                 ))}
@@ -304,10 +322,10 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
                 className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-gray-800"
               >
                 {uploading
-                  ? 'Uploading…'
+                  ? t('common.uploading')
                   : pending.length <= 1
-                    ? 'Create & place fields'
-                    : `Create ${pending.length} templates`}
+                    ? t('templates.createAndPlace')
+                    : t('templates.createMany', { count: pending.length })}
               </button>
               <button
                 type="button"
@@ -315,7 +333,7 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
                 disabled={uploading}
                 className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>
@@ -324,56 +342,60 @@ export function TemplatesPageClient({ initialTemplates }: Props) {
 
       {templates.length === 0 && !creating ? (
         <div className="rounded-lg border border-dashed border-gray-300 py-16 text-center">
-          <p className="mb-3 text-sm text-gray-500">No templates yet.</p>
+          <p className="mb-3 text-sm text-gray-500">{t('templates.emptyTitle')}</p>
           <button
             type="button"
             onClick={() => setCreating(true)}
             className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
-            Upload your first templates
+            {t('templates.uploadFirst')}
           </button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((t) => (
+          {templates.map((tpl) => (
             <div
-              key={t._id}
+              key={tpl._id}
               className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
             >
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-sm font-medium">{t.name}</span>
-                  {t.isDefault && (
+                  <span className="truncate text-sm font-medium">{tpl.name}</span>
+                  {tpl.isDefault && (
                     <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                      Default
+                      {t('templates.defaultBadge')}
                     </span>
                   )}
                 </div>
               </div>
               <div className="mb-4 space-y-0.5 text-xs text-gray-500">
-                {t.pageCount != null && (
+                {tpl.pageCount != null && (
                   <p>
-                    {t.pageCount} page{t.pageCount !== 1 ? 's' : ''}
+                    {tpl.pageCount === 1
+                      ? t('templates.pageOne')
+                      : t('templates.pageCount', { count: tpl.pageCount })}
                   </p>
                 )}
                 <p>
-                  {t.fields.length} field{t.fields.length !== 1 ? 's' : ''}
+                  {tpl.fields.length === 1
+                    ? t('templates.fieldOne')
+                    : t('templates.fieldCount', { count: tpl.fields.length })}
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => router.push(`/templates/${t._id}`)}
+                  onClick={() => router.push(`/templates/${tpl._id}`)}
                   className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
                 >
-                  Edit fields
+                  {t('templates.editFields')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDelete(t._id, t.name)}
+                  onClick={() => handleDelete(tpl._id, tpl.name)}
                   className="rounded border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
-                  Delete
+                  {t('common.delete')}
                 </button>
               </div>
             </div>

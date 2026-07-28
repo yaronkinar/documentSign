@@ -16,13 +16,132 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.135",
-    "hash": "00a0865",
-    "fullHash": "00a0865b13b903aadb0efd298e2f9547da2a6a6b",
-    "date": "2026-06-21T19:03:58+03:00",
-    "message": "Merge remote-tracking branch 'origin/main' into fix/haknasot-checkboxes-and-date-fields"
+    "version": "0.1.152",
+    "hash": "c3a23e9",
+    "fullHash": "c3a23e92e9c96e3c3ed984fe898cdf81348c991e",
+    "date": "2026-07-28T13:49:42+03:00",
+    "message": "Add implementation plan for template field reference values"
   },
   "history": [
+    {
+      "version": "0.1.152",
+      "hash": "c3a23e9",
+      "fullHash": "c3a23e92e9c96e3c3ed984fe898cdf81348c991e",
+      "date": "2026-07-28T13:49:42+03:00",
+      "message": "Add implementation plan for template field reference values"
+    },
+    {
+      "version": "0.1.151",
+      "hash": "310bdd2",
+      "fullHash": "310bdd224f8b2b8cfabb72c30d96e9a21f06e2dc",
+      "date": "2026-07-28T13:40:20+03:00",
+      "message": "Add design spec for template field reference values (copy-from-PDF)"
+    },
+    {
+      "version": "0.1.150",
+      "hash": "d59505d",
+      "fullHash": "d59505d1745c8d1ef03718b7fd8c2ae8cc6c40d2",
+      "date": "2026-07-10T16:37:11+03:00",
+      "message": "Add self-hosted Mongo backup service for Railway"
+    },
+    {
+      "version": "0.1.149",
+      "hash": "cf6546f",
+      "fullHash": "cf6546f7f7c8aed15abd8bda13e7d60f58054ef7",
+      "date": "2026-07-09T06:40:41+03:00",
+      "message": "Fix flaky e2e downloads on Windows and pin LocalStorageBackend URL behavior"
+    },
+    {
+      "version": "0.1.148",
+      "hash": "2ad22ad",
+      "fullHash": "2ad22ad51c3190038b65a0da2d63ae4559c4c98b",
+      "date": "2026-07-08T14:23:20+03:00",
+      "message": "Remove Supabase storage backend in favor of local filesystem"
+    },
+    {
+      "version": "0.1.147",
+      "hash": "5272194",
+      "fullHash": "5272194b89cc95e366dbd7b24e9ec88c3df59ca9",
+      "date": "2026-06-23T08:28:49+03:00",
+      "message": "Skip saved signatures with missing storage objects instead of 500ing"
+    },
+    {
+      "version": "0.1.146",
+      "hash": "f9d7e55",
+      "fullHash": "f9d7e55e771501da80ab8952be6ee63e045f8515",
+      "date": "2026-06-22T07:41:46+03:00",
+      "message": "Add implementation plan for contract attachment before form fill"
+    },
+    {
+      "version": "0.1.145",
+      "hash": "e4803cb",
+      "fullHash": "e4803cb2d430f653cfd0e0ab67a0bcade1e4fad0",
+      "date": "2026-06-22T07:34:02+03:00",
+      "message": "Clean up orphaned source-contract storage objects"
+    },
+    {
+      "version": "0.1.144",
+      "hash": "e5d691d",
+      "fullHash": "e5d691d5931e474fd7d2188bec473e9b2634e514",
+      "date": "2026-06-22T07:27:28+03:00",
+      "message": "Fix Skip-for-now button disappearing on the form-fill step"
+    },
+    {
+      "version": "0.1.143",
+      "hash": "3e57193",
+      "fullHash": "3e57193d7b523717639dda395a7422efb8e03888",
+      "date": "2026-06-22T07:27:23+03:00",
+      "message": "Remove stale compiled artifacts committed under packages/shared/src"
+    },
+    {
+      "version": "0.1.142",
+      "hash": "7c19a6d",
+      "fullHash": "7c19a6dcdb429bea2a96744df0e62859d23f4f04",
+      "date": "2026-06-21T21:41:07+03:00",
+      "message": "test: update e2e wizard flows for the new mandatory attach-contract step"
+    },
+    {
+      "version": "0.1.141",
+      "hash": "a6d2eb5",
+      "fullHash": "a6d2eb5f81f06e4d42ae2b984ff020e0ede56b4a",
+      "date": "2026-06-21T21:29:22+03:00",
+      "message": "feat: add mandatory attach-contract wizard step before form-fill/details"
+    },
+    {
+      "version": "0.1.140",
+      "hash": "755f820",
+      "fullHash": "755f820cb243f60ea01bf80989e4a30e2053795a",
+      "date": "2026-06-21T21:24:50+03:00",
+      "message": "feat: prefer sourceContractKey over fileKey as AI text source, resolve full Haknasot field list"
+    },
+    {
+      "version": "0.1.139",
+      "hash": "ddc2aeb",
+      "fullHash": "ddc2aeb815ba475ec6761d93442b03e55d93d8d9",
+      "date": "2026-06-21T21:22:38+03:00",
+      "message": "refactor: rename local var in attachSourceContract to avoid confusion with doc.fileKey"
+    },
+    {
+      "version": "0.1.138",
+      "hash": "2a2339e",
+      "fullHash": "2a2339ecd4cc85013c343ff21c9b5627c58d4154",
+      "date": "2026-06-21T21:19:55+03:00",
+      "message": "feat: add source-contract attach/confirm endpoints"
+    },
+    {
+      "version": "0.1.137",
+      "hash": "e2124d7",
+      "fullHash": "e2124d7ce44d37fe51ee43559bd1eab617f01bba",
+      "date": "2026-06-21T21:16:01+03:00",
+      "message": "feat: add sourceContractKey field and audit event type for contract attachments"
+    },
+    {
+      "version": "0.1.136",
+      "hash": "5668834",
+      "fullHash": "56688348f481c4f409e6ae9dfff7ad96d1166873",
+      "date": "2026-06-21T20:11:04+03:00",
+      "message": "Fix flaky signer-profiles Excel download test under warm Next dev server"
+    },
     {
       "version": "0.1.135",
       "hash": "00a0865",
@@ -183,125 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "0ae90f4b95a99896c18ddd58f8fa7aebbfc29d1d",
       "date": "2026-06-21T12:58:53+03:00",
       "message": "docs: add implementation plan for sequential signer turn order"
-    },
-    {
-      "version": "0.1.112",
-      "hash": "c21e12b",
-      "fullHash": "c21e12bd4eec0f46cd0540bc282b7cedf7527daf",
-      "date": "2026-06-21T12:58:53+03:00",
-      "message": "docs: add design spec for sequential signer ordering within a step"
-    },
-    {
-      "version": "0.1.111",
-      "hash": "03c6e6f",
-      "fullHash": "03c6e6f01c763bbc524ed4049a1c479cadc54945",
-      "date": "2026-06-21T12:53:56+03:00",
-      "message": "docs: add implementation plan for sequential signer turn order"
-    },
-    {
-      "version": "0.1.110",
-      "hash": "37ddff1",
-      "fullHash": "37ddff11ba3b2e8045c399f044ca26bc3a78434f",
-      "date": "2026-06-21T12:52:12+03:00",
-      "message": "Ignore .claude/worktrees/ directory"
-    },
-    {
-      "version": "0.1.109",
-      "hash": "f711310",
-      "fullHash": "f71131051cf313b17547e9d91c7a6f68c6384c6e",
-      "date": "2026-06-21T12:48:08+03:00",
-      "message": "docs: add design spec for sequential signer ordering within a step"
-    },
-    {
-      "version": "0.1.108",
-      "hash": "fe91610",
-      "fullHash": "fe916102e99028239643cc22a2999c05d6812782",
-      "date": "2026-06-21T12:45:08+03:00",
-      "message": "Add design spec for saved-template fillable form fields"
-    },
-    {
-      "version": "0.1.107",
-      "hash": "2d1b92e",
-      "fullHash": "2d1b92ef9e134f8d0c02c6e9714cb9eb2bb31dda",
-      "date": "2026-06-21T12:15:14+03:00",
-      "message": "feat: pre-fill form-fill step from AI-extracted contract values"
-    },
-    {
-      "version": "0.1.106",
-      "hash": "e3b3a12",
-      "fullHash": "e3b3a12a9a9722a78e0bb54325121cd4f7610662",
-      "date": "2026-06-21T12:11:32+03:00",
-      "message": "feat: add POST /documents/:id/extract-form-values endpoint"
-    },
-    {
-      "version": "0.1.105",
-      "hash": "1e7ce53",
-      "fullHash": "1e7ce530efe573abebf35ad6ac34e7b55309cb35",
-      "date": "2026-06-21T12:06:33+03:00",
-      "message": "feat: extract and merge form field values from the uploaded contract"
-    },
-    {
-      "version": "0.1.104",
-      "hash": "705fa4c",
-      "fullHash": "705fa4c88d357e0d8087b49378b458bb6db059b0",
-      "date": "2026-06-21T12:01:46+03:00",
-      "message": "feat: add AiService.extractFormFieldValues for contract data auto-fill"
-    },
-    {
-      "version": "0.1.103",
-      "hash": "23b8356",
-      "fullHash": "23b8356559a9ef0f19f842074e431bf5b09c7664",
-      "date": "2026-06-21T11:58:10+03:00",
-      "message": "feat: lengthen AI document summary to about 5 sentences"
-    },
-    {
-      "version": "0.1.102",
-      "hash": "69d5820",
-      "fullHash": "69d58203738c3614471ebfb697a0db11da326348",
-      "date": "2026-06-21T11:45:06+03:00",
-      "message": "Add design spec for mandatory contract attachment + AI summary/auto-fill"
-    },
-    {
-      "version": "0.1.101",
-      "hash": "c5d03f1",
-      "fullHash": "c5d03f151727941928753323803b1b20c8c81fe2",
-      "date": "2026-06-19T08:05:28+03:00",
-      "message": "Merge pull request #11 from yaronkinar/worktree-signer-profiles-excel-import"
-    },
-    {
-      "version": "0.1.100",
-      "hash": "5777bb4",
-      "fullHash": "5777bb4e0e4f986b195715ddb7896ecf6aeddb2e",
-      "date": "2026-06-19T08:03:36+03:00",
-      "message": "Add drag-and-drop support for uploading the signer profile Excel template"
-    },
-    {
-      "version": "0.1.99",
-      "hash": "738a763",
-      "fullHash": "738a763ae4837db7b2be7c870ae9ff39ab04a54c",
-      "date": "2026-06-18T20:59:08+03:00",
-      "message": "Merge pull request #10 from yaronkinar/worktree-signer-profiles-excel-import"
-    },
-    {
-      "version": "0.1.98",
-      "hash": "9b7bce4",
-      "fullHash": "9b7bce448363e71cee8606c157b6199e81a9f8b8",
-      "date": "2026-06-18T20:18:28+03:00",
-      "message": "Add e2e test for signer profile Excel import"
-    },
-    {
-      "version": "0.1.97",
-      "hash": "ff77f4c",
-      "fullHash": "ff77f4ccf4fb8f305989a4bfd7e7df05d3bf5bb8",
-      "date": "2026-06-18T20:09:11+03:00",
-      "message": "Add Excel template download/upload UI to signer profiles page"
-    },
-    {
-      "version": "0.1.96",
-      "hash": "da5b947",
-      "fullHash": "da5b9478fd7d17f3deb0f037f1b2fd268a74c7a5",
-      "date": "2026-06-18T20:02:50+03:00",
-      "message": "Add i18n strings for signer profile Excel import"
     }
   ]
 } as const;

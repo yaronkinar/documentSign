@@ -49,6 +49,8 @@ function buildService(doc: unknown) {
       .fn()
       .mockResolvedValue({ supplier_name: 'חברת דוגמה בע"מ' }),
     summarizeDocumentText: jest.fn().mockResolvedValue('a short summary'),
+    extractSignerRoles: jest.fn().mockResolvedValue([]),
+    extractTemplateFieldsFromPdf: jest.fn().mockResolvedValue([]),
   };
   const auditService = { log: jest.fn() };
 
@@ -156,6 +158,77 @@ describe('DocumentsService.extractFormValues', () => {
 
     expect(result).toEqual({ values: {} });
     expect(aiService.extractFormFieldValues).not.toHaveBeenCalled();
+  });
+});
+
+describe('DocumentsService.extractFormFields', () => {
+  function buildFieldsService(doc: unknown, extracted: unknown[]) {
+    const built = buildService(doc);
+    built.aiService.extractPdfText.mockResolvedValue('שם ספק: חברת דוגמה');
+    built.aiService.extractTemplateFieldsFromPdf.mockResolvedValue(extracted);
+    return built;
+  }
+
+  it('keeps an existing referenceValue when re-extraction finds no match for that field', async () => {
+    const doc = buildDoc({
+      formFields: [
+        {
+          id: 'supplier_name',
+          label: 'שם ספק',
+          type: 'text',
+          section: 'details',
+          pageNumber: 1,
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          referenceValue: '2026-0847',
+        },
+      ],
+    });
+    const { service } = buildFieldsService(doc, []);
+
+    const result = await service.extractFormFields(String(doc._id), 'owner1');
+
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0]).toMatchObject({
+      id: 'supplier_name',
+      referenceValue: '2026-0847',
+    });
+    expect((doc.formFields as Array<{ referenceValue?: string | null }>)[0].referenceValue).toBe(
+      '2026-0847',
+    );
+    expect(doc.save).toHaveBeenCalled();
+  });
+
+  it('refreshes referenceValue from a fresh extraction at the same placement', async () => {
+    const doc = buildDoc({
+      formFields: [
+        {
+          id: 'supplier_name',
+          label: 'שם ספק',
+          type: 'text',
+          section: 'details',
+          pageNumber: 1,
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          referenceValue: 'old value',
+        },
+      ],
+    });
+    const { service } = buildFieldsService(doc, [
+      { label: 'שם ספק', pageNumber: 1, x: 10, y: 10, width: 20, height: 6, value: 'חברת דוגמה' },
+    ]);
+
+    const result = await service.extractFormFields(String(doc._id), 'owner1');
+
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0]).toMatchObject({
+      id: 'supplier_name',
+      referenceValue: 'חברת דוגמה',
+    });
   });
 });
 

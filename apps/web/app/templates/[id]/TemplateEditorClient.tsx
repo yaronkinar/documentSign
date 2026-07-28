@@ -547,6 +547,11 @@ export function TemplateEditorClient({ template }: Props) {
                         >
                           <span className="font-medium">{f.label || 'Untitled'}</span>
                           <span className="ml-2 text-gray-400">p.{f.pageNumber}</span>
+                          {f.referenceValue && (
+                            <span dir="auto" className="block truncate text-fg-muted">
+                              {f.referenceValue}
+                            </span>
+                          )}
                         </button>
                         {f.id === activeFormFieldId && (
                           <div className="mt-1 space-y-2 rounded-md border border-blue-200 bg-blue-50 p-3">

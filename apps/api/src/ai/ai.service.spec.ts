@@ -1,4 +1,4 @@
-import { AiService } from './ai.service';
+import { AiService, normalizeExtractedTemplateFields } from './ai.service';
 
 jest.mock('./anthropic-llm', () => ({
   preferAnthropic: jest.fn(),
@@ -10,6 +10,36 @@ import {
   anthropicCompleteText,
   preferAnthropic,
 } from './anthropic-llm';
+
+describe('normalizeExtractedTemplateFields', () => {
+  it('carries the value field through when present', () => {
+    const fields = normalizeExtractedTemplateFields(
+      [
+        {
+          label: 'מספר בקשה',
+          pageNumber: 1,
+          x: 10,
+          y: 10,
+          width: 20,
+          height: 4,
+          value: '2026-0847',
+        },
+      ],
+      1,
+    );
+
+    expect(fields[0]!.value).toBe('2026-0847');
+  });
+
+  it('omits value when not present or not a string', () => {
+    const fields = normalizeExtractedTemplateFields(
+      [{ label: 'חתימה', pageNumber: 1, x: 10, y: 10, width: 20, height: 4, value: 42 }],
+      1,
+    );
+
+    expect(fields[0]!.value).toBeUndefined();
+  });
+});
 
 describe('AiService.summarizeDocumentText', () => {
   beforeEach(() => {

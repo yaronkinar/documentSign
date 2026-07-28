@@ -21,6 +21,7 @@ import {
   loadPdfTextLines,
   normalizeExtractedFieldCoords,
   remapExtractedPageNumbers,
+  resolveFieldReferenceValues,
   type PdfTextLine,
 } from './pdf-field-anchors';
 
@@ -55,7 +56,7 @@ function clampPercent(value: unknown, min: number, max: number): number | null {
   return Math.min(max, Math.max(min, scaled));
 }
 
-function normalizeExtractedTemplateFields(
+export function normalizeExtractedTemplateFields(
   rawFields: unknown,
   pageCount: number,
 ): ExtractedTemplateField[] {
@@ -74,6 +75,8 @@ function normalizeExtractedTemplateFields(
       const y = clampPercent(record.y, 0, 99);
       const width = clampPercent(record.width, 1, 100);
       const height = clampPercent(record.height, 1, 100);
+      const value =
+        typeof record.value === 'string' && record.value.trim() ? record.value.trim() : undefined;
 
       if (!label || !Number.isInteger(pageNumber) || pageNumber < 1) return null;
       if (pageCount > 0 && pageNumber > pageCount) return null;
@@ -86,6 +89,7 @@ function normalizeExtractedTemplateFields(
         y: Number(y.toFixed(2)),
         width: Number(width.toFixed(2)),
         height: Number(height.toFixed(2)),
+        ...(value ? { value } : {}),
       });
     })
     .filter((field): field is ExtractedTemplateField => field !== null);
@@ -139,7 +143,8 @@ function buildTemplateSignerHintsText(
 function fieldExtractionSystemPrompt(context: PdfFieldExtractionContext): string {
   const base =
     'Return ONLY a JSON object with key "fields". Each field must have: ' +
-    'label, pageNumber, x, y, width, height. Coordinates are percentages 0–100 ' +
+    'label, pageNumber, x, y, width, height, and an optional "value". ' +
+    'Coordinates are percentages 0–100 ' +
     '(not 0–1) from the top-left corner of that PDF page. Put the box over the blank ' +
     'line or dash area where the user signs, not over the printed label text. ' +
     'Typical signature box: width 15–40, height 4–8. Use the exact pageNumber given for each image. ' +
@@ -155,10 +160,15 @@ function fieldExtractionSystemPrompt(context: PdfFieldExtractionContext): string
   }
 
   return (
-    'You detect fillable or signable fields in PDF template page images. ' +
+    'You detect fillable data-entry fields in PDF template page images. ' +
     base +
     ' Include ONLY fields visible on these pages. Each label must come from text printed on the document. ' +
-    'Never invent fields or reuse names from outside this PDF.'
+    'Never invent fields or reuse names from outside this PDF. ' +
+    'If a page contains a table with repeating rows/columns (e.g. an area breakdown, a checklist, a signature-block table), ' +
+    'emit ONE field per individual data cell — never one field per row or per whole table. ' +
+    'Skip pure header/label cells (column titles, row category names are not fields). ' +
+    'Label each cell field by combining its row label and column header, e.g. "מרתף – שטח שירות (מ״ר)", so cells never collide. ' +
+    'For every field, also set "value" to the literal text visible at that location, or omit "value" if the cell is blank.'
   );
 }
 
@@ -629,6 +639,7 @@ export class AiService {
         fields = remapExtractedPageNumbers(fields, pagesToInspect);
         if (textLines.length > 0) {
           fields = anchorFieldsToPdfText(fields, textLines);
+          fields = resolveFieldReferenceValues(fields, textLines);
         }
         if (fields.length > 0) return fields;
       } catch {

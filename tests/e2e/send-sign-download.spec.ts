@@ -198,27 +198,38 @@ test.describe('Send, sign, and download a document', () => {
     // --- SIGN ---------------------------------------------------------------
     const signButton = page.getByRole('button', { name: 'Sign Document' });
     await expect(signButton).toBeVisible({ timeout: 30_000 });
-    await signButton.click();
-
-    // If the signer has no saved/profile signature, the signature pad opens and
-    // we capture one via the "Type" tab (no canvas drawing required). When a
-    // saved signature already exists, the app applies it directly and no pad
-    // appears — both paths are valid.
-    const typeTab = page.getByRole('button', { name: 'Type' });
-    const padOpened = await typeTab
-      .waitFor({ state: 'visible', timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (padOpened) {
-      await typeTab.click();
-      await page.getByPlaceholder('Type your name').fill('E2E Owner');
-      await page.getByRole('button', { name: 'Use Signature' }).click();
-    }
 
     // A single signer in a single step => the document is fully approved.
-    await expect(page.getByText('Approved', { exact: true })).toBeVisible({
-      timeout: 30_000,
-    });
+    // Retry the whole sign interaction for the same reason as the save step
+    // above: the watch-mode dev API can restart mid-run, and the sign POST
+    // then fails with a "network error" before reaching the server. The
+    // request never lands in that case, so signing again once the API is back
+    // is safe (it cannot double-sign).
+    const approved = page.getByText('Approved', { exact: true });
+    await expect(async () => {
+      if (await approved.isVisible().catch(() => false)) return;
+
+      if (await signButton.isVisible().catch(() => false)) {
+        await signButton.click();
+      }
+
+      // If the signer has no saved/profile signature, the signature pad opens
+      // and we capture one via the "Type" tab (no canvas drawing required).
+      // When a saved signature already exists, the app applies it directly and
+      // no pad appears — both paths are valid.
+      const typeTab = page.getByRole('button', { name: 'Type' });
+      const padOpened = await typeTab
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (padOpened) {
+        await typeTab.click();
+        await page.getByPlaceholder('Type your name').fill('E2E Owner');
+        await page.getByRole('button', { name: 'Use Signature' }).click();
+      }
+
+      await expect(approved).toBeVisible({ timeout: 15_000 });
+    }).toPass({ timeout: 90_000 });
 
     // --- DOWNLOAD + VERIFY SIGNATURES ---------------------------------------
     // The viewer re-renders the PDF after signing, so the download can briefly

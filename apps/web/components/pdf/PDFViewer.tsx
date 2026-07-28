@@ -919,6 +919,11 @@ function LazyPDFPage({
     const startFieldY = field.y;
     const startWidth = field.width;
     const startHeight = field.height;
+    // Where inside the box the cursor grabbed it, so the drop can reconstruct
+    // the box's top-left from the cursor even after it was clamped to a page.
+    const startRect = fieldEl.getBoundingClientRect();
+    const grabOffsetX = startMouseX - startRect.left;
+    const grabOffsetY = startMouseY - startRect.top;
 
     if (mode === 'move') {
       const startOverlay = overlayRef.current;
@@ -952,19 +957,22 @@ function LazyPDFPage({
           Math.abs(ev.clientX - startMouseX) > 3 ||
           Math.abs(ev.clientY - startMouseY) > 3;
 
-        const fieldRect = fieldEl.getBoundingClientRect();
         fieldEl.style.left = '';
         fieldEl.style.top = '';
 
         if (moved) {
+          // Resolve the drop against the page under the cursor, so a field can
+          // be dragged onto a different page. The cursor (not the box) decides
+          // the page, because the box stays visually clamped inside its
+          // current page while dragging.
           const drop =
             resolvePageDropTarget(
-              fieldRect.left,
-              fieldRect.top,
+              ev.clientX - grabOffsetX,
+              ev.clientY - grabOffsetY,
               field.width,
               field.height,
-              fieldRect.left + fieldRect.width / 2,
-              fieldRect.top + fieldRect.height / 2,
+              ev.clientX,
+              ev.clientY,
             ) ?? { pageNumber, x: currentX, y: currentY };
           justDraggedRef.current = true;
           onFormFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);

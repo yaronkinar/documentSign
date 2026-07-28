@@ -94,11 +94,14 @@ export function TemplateEditorClient({ template }: Props) {
     [fields.length],
   );
 
-  const handleFieldMove = useCallback((id: string, x: number, y: number) => {
-    setFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, x, y } : f)),
-    );
-  }, []);
+  const handleFieldMove = useCallback(
+    (id: string, pageNumber: number, x: number, y: number) => {
+      setFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, pageNumber, x, y } : f)),
+      );
+    },
+    [],
+  );
 
   const handleFieldResize = useCallback(
     (id: string, width: number, height: number) => {

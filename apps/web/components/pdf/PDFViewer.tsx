@@ -78,7 +78,12 @@ export interface PDFViewerProps {
   selectedTemplateFieldId?: string | null;
   onTemplateFieldSelect?: (id: string | null) => void;
   onTemplateFieldAdd?: (page: number, xPct: number, yPct: number) => void;
-  onTemplateFieldMove?: (id: string, x: number, y: number) => void;
+  onTemplateFieldMove?: (
+    id: string,
+    pageNumber: number,
+    x: number,
+    y: number,
+  ) => void;
   onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }
 
@@ -486,7 +491,12 @@ function LazyPDFPage({
   selectedTemplateFieldId?: string | null;
   onTemplateFieldSelect?: (id: string | null) => void;
   onTemplateFieldAdd?: (page: number, xPct: number, yPct: number) => void;
-  onTemplateFieldMove?: (id: string, x: number, y: number) => void;
+  onTemplateFieldMove?: (
+    id: string,
+    pageNumber: number,
+    x: number,
+    y: number,
+  ) => void;
   onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }) {
   const { t } = useTranslation();
@@ -689,6 +699,11 @@ function LazyPDFPage({
     const startFieldY = field.y;
     const startWidth = field.width;
     const startHeight = field.height;
+    // Where inside the box the cursor grabbed it, so the drop can reconstruct
+    // the box's top-left from the cursor even after it was clamped to a page.
+    const startRect = fieldEl.getBoundingClientRect();
+    const grabOffsetX = startMouseX - startRect.left;
+    const grabOffsetY = startMouseY - startRect.top;
 
     onTemplateFieldSelect?.(field.id);
 
@@ -725,7 +740,22 @@ function LazyPDFPage({
           if (mode === 'move') {
             const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
             const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
-            onTemplateFieldMove?.(field.id, newX, newY);
+            // Resolve the drop against the page under the cursor, so a field
+            // can be dragged onto a different page. The cursor (not the box)
+            // decides the page, because the box stays visually clamped inside
+            // its current page while dragging.
+            fieldEl.style.left = '';
+            fieldEl.style.top = '';
+            const drop =
+              resolvePageDropTarget(
+                ev.clientX - grabOffsetX,
+                ev.clientY - grabOffsetY,
+                field.width,
+                field.height,
+                ev.clientX,
+                ev.clientY,
+              ) ?? { pageNumber, x: newX, y: newY };
+            onTemplateFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);
           } else {
             const newW = Math.max(5, startWidth + dx);
             const newH = Math.max(2, startHeight + dy);

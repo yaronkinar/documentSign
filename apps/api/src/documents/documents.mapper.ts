@@ -15,6 +15,7 @@ function toFormFieldsDto(
     y: f.y,
     width: f.width,
     height: f.height,
+    referenceValue: f.referenceValue,
   }));
 }
 

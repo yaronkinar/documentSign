@@ -744,6 +744,7 @@ export class DocumentsService {
         y: f.y,
         width: f.width,
         height: f.height,
+        referenceValue: f.referenceValue,
       })),
     });
   }

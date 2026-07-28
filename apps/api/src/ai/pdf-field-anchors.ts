@@ -137,6 +137,11 @@ export function anchorFieldsToPdfText(
  * position overlaps the field's box. Vision decides what/where a field is;
  * this supplies the exact printed string, falling back to vision's own
  * reading when no text line overlaps.
+ *
+ * Known limitation: overlapping fragments are joined left-to-right by x
+ * position, which can scramble word order for multi-fragment right-to-left
+ * (Hebrew) values within a single field box. Fine for the common case of a
+ * single short value (request number, date, etc.).
  */
 export function resolveFieldReferenceValues(
   fields: ExtractedTemplateField[],

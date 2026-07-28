@@ -29,7 +29,7 @@ function buildService(template: unknown) {
   const aiService = {
     extractPdfText: jest.fn().mockResolvedValue('שם ספק: חברת דוגמה'),
     extractTemplateFieldsFromPdf: jest.fn().mockResolvedValue([
-      { label: 'שם ספק', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
+      { label: 'שם ספק', pageNumber: 1, x: 10, y: 10, width: 20, height: 6, value: 'חברת דוגמה' },
     ]),
   };
 
@@ -168,5 +168,39 @@ describe('TemplatesService.extractFormFields', () => {
 
     expect(result.fields).toHaveLength(1);
     expect(result.fields[0].id).toBe('existing');
+  });
+
+  it('carries the extracted value through as referenceValue', async () => {
+    const template = buildTemplate();
+    const { service } = buildService(template);
+
+    const result = await service.extractFormFields(String(template._id), 'owner1');
+
+    expect(result.fields[0]).toMatchObject({ label: 'שם ספק', referenceValue: 'חברת דוגמה' });
+  });
+
+  it('refreshes referenceValue on an existing field when re-extracted', async () => {
+    const template = buildTemplate({
+      formFields: [
+        {
+          id: 'existing',
+          label: 'שם ספק',
+          type: 'text',
+          section: 'page_1',
+          pageNumber: 1,
+          x: 10,
+          y: 10,
+          width: 20,
+          height: 6,
+          referenceValue: 'old value',
+        },
+      ],
+    });
+    const { service } = buildService(template);
+
+    const result = await service.extractFormFields(String(template._id), 'owner1');
+
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0]).toMatchObject({ id: 'existing', referenceValue: 'חברת דוגמה' });
   });
 });

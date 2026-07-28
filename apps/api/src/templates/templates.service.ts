@@ -115,6 +115,7 @@ export class TemplatesService {
         y: f.y,
         width: f.width,
         height: f.height,
+        referenceValue: f.referenceValue,
       })),
     };
   }
@@ -243,18 +244,26 @@ export class TemplatesService {
       fieldLabelAppearsInPdfText(field.label, pdfText),
     );
     const extractedFields = buildPdfFormFieldsFromExtracted(filtered);
+    const extractedByPlacementKey = new Map(
+      extractedFields.map((f) => [`${f.pageNumber}:${f.label.trim().toLowerCase()}`, f]),
+    );
 
-    const existing = (template.formFields ?? []).map((f) => ({
-      id: f.id,
-      label: f.label,
-      type: f.type,
-      section: f.section,
-      pageNumber: f.pageNumber,
-      x: f.x,
-      y: f.y,
-      width: f.width,
-      height: f.height,
-    }));
+    const existing = (template.formFields ?? []).map((f) => {
+      const key = `${f.pageNumber}:${f.label.trim().toLowerCase()}`;
+      const rematch = extractedByPlacementKey.get(key);
+      return {
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        referenceValue: rematch?.referenceValue ?? f.referenceValue ?? null,
+      };
+    });
     const existingIds = new Set(existing.map((f) => f.id));
     const existingPlacementKeys = new Set(
       existing.map((f) => `${f.pageNumber}:${f.label.trim().toLowerCase()}`),
@@ -428,6 +437,7 @@ export class TemplatesService {
         y: f.y,
         width: f.width,
         height: f.height,
+        referenceValue: f.referenceValue,
       })),
       createdAt: (template as any).createdAt?.toISOString() ?? new Date().toISOString(),
       updatedAt: (template as any).updatedAt?.toISOString() ?? new Date().toISOString(),

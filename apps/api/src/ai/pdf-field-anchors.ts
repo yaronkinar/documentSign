@@ -132,6 +132,44 @@ export function anchorFieldsToPdfText(
   });
 }
 
+/**
+ * Fills/overrides each field's `value` with the exact text of PDF lines whose
+ * position overlaps the field's box. Vision decides what/where a field is;
+ * this supplies the exact printed string, falling back to vision's own
+ * reading when no text line overlaps.
+ *
+ * Known limitation: overlapping fragments are joined left-to-right by x
+ * position, which can scramble word order for multi-fragment right-to-left
+ * (Hebrew) values within a single field box. Fine for the common case of a
+ * single short value (request number, date, etc.).
+ */
+export function resolveFieldReferenceValues(
+  fields: ExtractedTemplateField[],
+  lines: PdfTextLine[],
+): ExtractedTemplateField[] {
+  return fields.map((field) => {
+    const overlapping = lines
+      .filter((line) => {
+        if (line.pageNumber !== field.pageNumber) return false;
+        const lineXEnd = line.xPct + line.widthPct;
+        const fieldXEnd = field.x + field.width;
+        const xOverlap = line.xPct < fieldXEnd && lineXEnd > field.x;
+        const yOverlap =
+          line.yTopPct >= field.y - 1 && line.yTopPct <= field.y + field.height + 1;
+        return xOverlap && yOverlap;
+      })
+      .sort((a, b) => a.xPct - b.xPct);
+
+    const text = overlapping
+      .map((line) => line.str)
+      .join(' ')
+      .trim();
+
+    if (!text) return field;
+    return { ...field, value: text };
+  });
+}
+
 function extractLabelFromSignatureLine(line: PdfTextLine): string | null {
   if (/דמה לבדיקת|זיהוי חותמים/i.test(line.str)) return null;
   if (/חתימת החוזה ויוחזר|עם חתימת החוזה/i.test(line.str)) return null;

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Copy } from 'lucide-react';
+import { toast } from 'sonner';
 import type { PdfFormFieldTemplate } from '@docflow/shared';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -20,6 +22,36 @@ function sectionLabel(section: string): string {
   const pageMatch = /^page_(\d+)$/.exec(section);
   if (pageMatch) return `עמוד ${pageMatch[1]}`;
   return section;
+}
+
+function ReferenceValueHint({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      toast.error('ההעתקה נכשלה');
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      className="mt-0.5 inline-flex max-w-full min-w-0 items-center gap-1 text-xs text-fg-muted hover:text-fg"
+      title="העתק מהמסמך המקורי"
+      aria-label={`העתק מהמסמך המקורי: ${value}`}
+    >
+      <Copy className="h-3 w-3 shrink-0" />
+      <span dir="auto" className="min-w-0 truncate">
+        {copied ? 'הועתק!' : value}
+      </span>
+    </button>
+  );
 }
 
 interface Props {
@@ -100,26 +132,29 @@ export function DocumentFormFillPanel({
                   </span>
                 </label>
               ) : (
-              <label key={field.id} className="block">
-                <span className="text-xs font-medium text-gray-700">{field.label}</span>
-                {field.type === 'textarea' ? (
-                  <textarea
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                    rows={3}
-                    value={draft[field.id] ?? ''}
-                    disabled={readOnly || saving}
-                    onChange={(e) => updateField(field.id, e.target.value)}
-                  />
-                ) : (
-                  <input
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                    type={field.type === 'date' ? 'date' : 'text'}
-                    value={draft[field.id] ?? ''}
-                    disabled={readOnly || saving}
-                    onChange={(e) => updateField(field.id, e.target.value)}
-                  />
-                )}
-              </label>
+              <div key={field.id}>
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-700">{field.label}</span>
+                  {field.type === 'textarea' ? (
+                    <textarea
+                      className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      rows={3}
+                      value={draft[field.id] ?? ''}
+                      disabled={readOnly || saving}
+                      onChange={(e) => updateField(field.id, e.target.value)}
+                    />
+                  ) : (
+                    <input
+                      className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      type={field.type === 'date' ? 'date' : 'text'}
+                      value={draft[field.id] ?? ''}
+                      disabled={readOnly || saving}
+                      onChange={(e) => updateField(field.id, e.target.value)}
+                    />
+                  )}
+                </label>
+                {field.referenceValue && <ReferenceValueHint value={field.referenceValue} />}
+              </div>
               ),
             )}
           </div>

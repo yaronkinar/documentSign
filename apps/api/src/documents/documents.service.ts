@@ -357,17 +357,25 @@ export class DocumentsService {
       fieldLabelAppearsInPdfText(field.label, pdfText),
     );
     const extractedFields = buildPdfFormFieldsFromExtracted(filtered);
-    const existing = (doc.formFields ?? []).map((f) => ({
-      id: f.id,
-      label: f.label,
-      type: f.type,
-      section: f.section,
-      pageNumber: f.pageNumber,
-      x: f.x,
-      y: f.y,
-      width: f.width,
-      height: f.height,
-    }));
+    const extractedByPlacementKey = new Map(
+      extractedFields.map((f) => [`${f.pageNumber}:${f.label.trim().toLowerCase()}`, f]),
+    );
+    const existing = (doc.formFields ?? []).map((f) => {
+      const key = `${f.pageNumber}:${f.label.trim().toLowerCase()}`;
+      const rematch = extractedByPlacementKey.get(key);
+      return {
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        referenceValue: rematch?.referenceValue ?? f.referenceValue ?? null,
+      };
+    });
     const existingIds = new Set(existing.map((f) => f.id));
     const existingPlacementKeys = new Set(
       existing.map((f) => `${f.pageNumber}:${f.label.trim().toLowerCase()}`),
@@ -744,6 +752,7 @@ export class DocumentsService {
         y: f.y,
         width: f.width,
         height: f.height,
+        referenceValue: f.referenceValue,
       })),
     });
   }

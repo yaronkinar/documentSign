@@ -5,4 +5,6 @@ export interface ExtractedTemplateField {
   y: number;
   width: number;
   height: number;
+  /** Value read at this field's location — from vision, later overridden with exact PDF text where available. */
+  value?: string;
 }

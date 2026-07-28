@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildPdfFormFieldsFromExtracted,
   isEditableDocumentFormField,
   resolveDocumentFormFields,
 } from './document-form-fields.js';
@@ -104,5 +105,31 @@ describe('isEditableDocumentFormField — Haknasot', () => {
         'supplier_name',
       ),
     ).toBe(false);
+  });
+});
+
+describe('buildPdfFormFieldsFromExtracted — reference values', () => {
+  it('carries the extracted value through as referenceValue', () => {
+    const fields = buildPdfFormFieldsFromExtracted([
+      {
+        label: 'מספר בקשה',
+        pageNumber: 1,
+        x: 10,
+        y: 10,
+        width: 20,
+        height: 4,
+        value: '2026-0847',
+      },
+    ]);
+
+    expect(fields[0]!.referenceValue).toBe('2026-0847');
+  });
+
+  it('leaves referenceValue unset when no value was extracted', () => {
+    const fields = buildPdfFormFieldsFromExtracted([
+      { label: 'תאריך חתימה', pageNumber: 1, x: 10, y: 10, width: 20, height: 4 },
+    ]);
+
+    expect(fields[0]!.referenceValue).toBeUndefined();
   });
 });

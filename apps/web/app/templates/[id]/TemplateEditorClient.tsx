@@ -96,11 +96,14 @@ export function TemplateEditorClient({ template }: Props) {
     [fields.length, t],
   );
 
-  const handleFieldMove = useCallback((id: string, x: number, y: number) => {
-    setFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, x, y } : f)),
-    );
-  }, []);
+  const handleFieldMove = useCallback(
+    (id: string, pageNumber: number, x: number, y: number) => {
+      setFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, pageNumber, x, y } : f)),
+      );
+    },
+    [],
+  );
 
   const handleFieldResize = useCallback(
     (id: string, width: number, height: number) => {
@@ -596,6 +599,11 @@ export function TemplateEditorClient({ template }: Props) {
                           <span className="ms-2 text-gray-400">
                             {t('templates.editor.pageAbbrev', { page: f.pageNumber })}
                           </span>
+                          {f.referenceValue && (
+                            <span dir="auto" className="block truncate text-fg-muted">
+                              {f.referenceValue}
+                            </span>
+                          )}
                         </button>
                         {f.id === activeFormFieldId && (
                           <div className="mt-1 space-y-2 rounded-md border border-blue-200 bg-blue-50 p-3">

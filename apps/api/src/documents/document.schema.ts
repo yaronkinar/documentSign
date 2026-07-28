@@ -149,6 +149,9 @@ export class DocumentFormField {
 
   @Prop({ required: true, default: 6 })
   height!: number;
+
+  @Prop({ type: String, default: null })
+  referenceValue!: string | null;
 }
 
 export const DocumentFormFieldSchema =

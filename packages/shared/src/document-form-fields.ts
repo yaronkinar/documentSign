@@ -8,6 +8,7 @@ export interface ExtractedPdfFormFieldInput {
   y: number;
   width: number;
   height: number;
+  value?: string;
 }
 
 function inferFieldType(label: string): PdfFormFieldType {
@@ -54,6 +55,7 @@ export function buildPdfFormFieldsFromExtracted(
       y: field.y,
       width: field.width,
       height: field.height,
+      referenceValue: field.value,
     };
   });
 }

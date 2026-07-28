@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Copy } from 'lucide-react';
 import type { PdfFormFieldTemplate } from '@docflow/shared';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -20,6 +21,28 @@ function sectionLabel(section: string): string {
   const pageMatch = /^page_(\d+)$/.exec(section);
   if (pageMatch) return `עמוד ${pageMatch[1]}`;
   return section;
+}
+
+function ReferenceValueHint({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      className="mt-0.5 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+      title="העתק מהמסמך המקורי"
+    >
+      <Copy className="h-3 w-3" />
+      <span className="truncate">{copied ? 'הועתק!' : value}</span>
+    </button>
+  );
 }
 
 interface Props {
@@ -119,6 +142,7 @@ export function DocumentFormFillPanel({
                     onChange={(e) => updateField(field.id, e.target.value)}
                   />
                 )}
+                {field.referenceValue && <ReferenceValueHint value={field.referenceValue} />}
               </label>
               ),
             )}

@@ -205,24 +205,29 @@ test.describe('Send, sign, and download a document', () => {
     // then fails with a "network error" before reaching the server. The
     // request never lands in that case, so signing again once the API is back
     // is safe (it cannot double-sign).
+    // If the signer has no saved/profile signature, the signature pad opens and
+    // we capture one via the "Type" tab (no canvas drawing required). When a
+    // saved signature already exists, the app applies it directly and no pad
+    // appears — both paths are valid.
     const approved = page.getByText('Approved', { exact: true });
+    const typeTab = page.getByRole('button', { name: 'Type' });
+
     await expect(async () => {
       if (await approved.isVisible().catch(() => false)) return;
 
-      if (await signButton.isVisible().catch(() => false)) {
-        await signButton.click();
+      // Only (re)open the pad when it isn't already showing. Clicking "Sign
+      // Document" again while the pad is open would restart the flow instead
+      // of completing it, and the retry would never settle.
+      if (!(await typeTab.isVisible().catch(() => false))) {
+        if (await signButton.isVisible().catch(() => false)) {
+          await signButton.click();
+        }
+        await typeTab
+          .waitFor({ state: 'visible', timeout: 5_000 })
+          .catch(() => {});
       }
 
-      // If the signer has no saved/profile signature, the signature pad opens
-      // and we capture one via the "Type" tab (no canvas drawing required).
-      // When a saved signature already exists, the app applies it directly and
-      // no pad appears — both paths are valid.
-      const typeTab = page.getByRole('button', { name: 'Type' });
-      const padOpened = await typeTab
-        .waitFor({ state: 'visible', timeout: 5_000 })
-        .then(() => true)
-        .catch(() => false);
-      if (padOpened) {
+      if (await typeTab.isVisible().catch(() => false)) {
         await typeTab.click();
         await page.getByPlaceholder('Type your name').fill('E2E Owner');
         await page.getByRole('button', { name: 'Use Signature' }).click();

@@ -19,6 +19,7 @@ import { Document, DocumentDocument } from '../documents/document.schema';
 import { StorageService } from '../storage/storage.service';
 import { AiService, type ExtractedTemplateField } from '../ai/ai.service';
 import { fieldLabelAppearsInPdfText } from '../ai/pdf-field-label';
+import { belongsToSigningBlock, isSignaturePlaceholder } from '../ai/field-kind';
 import {
   ConfirmTemplateUploadDto,
   CreateTemplateDto,
@@ -240,8 +241,11 @@ export class TemplatesService {
       [],
       'saved_template',
     );
-    const filtered = extracted.filter((field) =>
-      fieldLabelAppearsInPdfText(field.label, pdfText),
+    const filtered = extracted.filter(
+      (field) =>
+        fieldLabelAppearsInPdfText(field.label, pdfText) &&
+        // Signature spots belong to the template's signature layer, not here.
+        !isSignaturePlaceholder(field.label),
     );
     const extractedFields = buildPdfFormFieldsFromExtracted(filtered);
     const extractedByPlacementKey = new Map(
@@ -315,7 +319,14 @@ export class TemplatesService {
     if (fields.length === 0) {
       fields = await this.aiService.deriveTemplateFieldsFromPdf(pdfBuffer);
     }
-    return { fields };
+    // Keep this lane to signing blocks so data fields don't land on the
+    // signature layer. If nothing looks like a signing block the detection was
+    // probably off-target, and dropping everything would be worse than showing
+    // the raw result for the user to correct.
+    const signingOnly = fields.filter((field) =>
+      belongsToSigningBlock(field.label),
+    );
+    return { fields: signingOnly.length > 0 ? signingOnly : fields };
   }
 
   /** Copy document PDF + placed signature fields into a reusable PDF template. */

@@ -5,6 +5,8 @@ import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PdfFormFieldTemplate } from '@docflow/shared';
 
+import { useTranslation } from '@/lib/i18n/LocaleProvider';
+
 const SECTION_LABELS: Record<string, string> = {
   header: 'כותרת',
   contract_type: 'סוג החוזה',
@@ -25,13 +27,14 @@ function sectionLabel(section: string): string {
 }
 
 function ReferenceValueHint({ value }: { value: string }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(value);
     } catch {
-      toast.error('ההעתקה נכשלה');
+      toast.error(t('document.copyFailed'));
       return;
     }
     setCopied(true);
@@ -43,12 +46,12 @@ function ReferenceValueHint({ value }: { value: string }) {
       type="button"
       onClick={() => void handleCopy()}
       className="mt-0.5 inline-flex max-w-full min-w-0 items-center gap-1 text-xs text-fg-muted hover:text-fg"
-      title="העתק מהמסמך המקורי"
-      aria-label={`העתק מהמסמך המקורי: ${value}`}
+      title={t('document.copyFromSource')}
+      aria-label={t('document.copyFromSourceValue', { value })}
     >
       <Copy className="h-3 w-3 shrink-0" />
       <span dir="auto" className="min-w-0 truncate">
-        {copied ? 'הועתק!' : value}
+        {copied ? t('document.copiedFromSource') : value}
       </span>
     </button>
   );

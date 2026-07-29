@@ -141,34 +141,38 @@ function buildTemplateSignerHintsText(
 }
 
 function fieldExtractionSystemPrompt(context: PdfFieldExtractionContext): string {
-  const base =
+  // Only the JSON shape is shared. Signature hunting and data-field mapping
+  // want opposite things — telling the model to look for blank signing lines
+  // makes it return nothing for an already filled-in form.
+  const shape =
     'Return ONLY a JSON object with key "fields". Each field must have: ' +
     'label, pageNumber, x, y, width, height, and an optional "value". ' +
-    'Coordinates are percentages 0–100 ' +
-    '(not 0–1) from the top-left corner of that PDF page. Put the box over the blank ' +
-    'line or dash area where the user signs, not over the printed label text. ' +
-    'Typical signature box: width 15–40, height 4–8. Use the exact pageNumber given for each image. ' +
+    'Coordinates are percentages 0–100 (not 0–1) from the top-left corner of ' +
+    'that PDF page. Use the exact pageNumber given for each image. ' +
     'Keep labels in the document language. Remove duplicates.';
 
   if (context === 'uploaded_document') {
     return (
       'You detect fillable or signable fields in uploaded PDF page images. ' +
-      base +
-      ' Include ONLY fields you can see on these pages. Each label must be taken from text printed on the document (e.g. next to a blank line). ' +
+      shape +
+      ' Put the box over the blank line or dash area where the user signs, not over the printed label text. ' +
+      'Typical signature box: width 15–40, height 4–8. ' +
+      'Include ONLY fields you can see on these pages. Each label must be taken from text printed on the document (e.g. next to a blank line). ' +
       'Never invent fields or reuse role names from outside this document. Do not add municipal approval rows unless they appear on these pages.'
     );
   }
 
   return (
-    'You detect fillable data-entry fields in PDF template page images. ' +
-    base +
-    ' Include ONLY fields visible on these pages. Each label must come from text printed on the document. ' +
-    'Never invent fields or reuse names from outside this PDF. ' +
+    'You map the data fields of a PDF form so they can be filled in later. ' +
+    shape +
+    ' Treat every labelled value in the document as a field, whether it is currently filled in or blank. ' +
+    'Put the box over the value itself — the cell, box or line that holds the data — not over the printed label text. ' +
     'If a page contains a table with repeating rows/columns (e.g. an area breakdown, a checklist, a signature-block table), ' +
     'emit ONE field per individual data cell — never one field per row or per whole table. ' +
     'Skip pure header/label cells (column titles, row category names are not fields). ' +
     'Label each cell field by combining its row label and column header, e.g. "מרתף – שטח שירות (מ״ר)", so cells never collide. ' +
-    'For every field, also set "value" to the literal text visible at that location, or omit "value" if the cell is blank.'
+    'For every field, also set "value" to the literal text visible at that location, or omit "value" if the cell is blank. ' +
+    'Each label must come from text printed on the document. Never invent fields.'
   );
 }
 
@@ -544,7 +548,7 @@ export class AiService {
     const userIntro =
       context === 'uploaded_document'
         ? 'Extract every visible signature, date, initials, or fill-in blank from these uploaded document pages.'
-        : 'Extract every visible signature, approval, date, initials, or fill-in field from these PDF template pages.';
+        : 'Map every data field on these form pages: header details, each labelled value, and every individual data cell of every table. Include the value currently shown in each field.';
     const systemPrompt = fieldExtractionSystemPrompt(context);
     const userPrompt = [userIntro, signerHintsText].filter(Boolean).join('\n\n');
 
@@ -638,8 +642,16 @@ export class AiService {
         let fields = normalizeExtractedTemplateFields(parsed.fields, maxPage);
         fields = remapExtractedPageNumbers(fields, pagesToInspect);
         if (textLines.length > 0) {
-          fields = anchorFieldsToPdfText(fields, textLines);
-          fields = resolveFieldReferenceValues(fields, textLines);
+          if (context === 'uploaded_document') {
+            // Signature hunting: snap the box onto the blank/dash line whose
+            // printed label matches, which is where the signature belongs.
+            fields = anchorFieldsToPdfText(fields, textLines);
+          } else {
+            // Data-field mapping: vision already points at the value. Anchoring
+            // would drag the box onto the field's *label*, and the reference
+            // value read there would be the label text instead of the value.
+            fields = resolveFieldReferenceValues(fields, textLines);
+          }
         }
         if (fields.length > 0) return fields;
       } catch {

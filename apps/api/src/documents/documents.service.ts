@@ -418,7 +418,15 @@ export class DocumentsService {
     const text = await this.aiService.extractPdfText(pdfBuffer);
     const extracted = await this.aiService.extractFormFieldValues(text, fields);
 
-    doc.formValues = { ...(doc.formValues ?? {}), ...extracted };
+    // Only fill blanks. A guessed value must never replace something the user
+    // typed: extraction can run again later (re-attaching a contract), and
+    // silently overwriting entered data is worse than leaving a field empty.
+    const merged: Record<string, string> = { ...(doc.formValues ?? {}) };
+    for (const [id, value] of Object.entries(extracted)) {
+      if (!merged[id]?.trim()) merged[id] = value;
+    }
+
+    doc.formValues = merged;
     doc.markModified('formValues');
     await doc.save();
     return { values: doc.formValues };

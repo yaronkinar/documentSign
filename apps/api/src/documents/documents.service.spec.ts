@@ -159,6 +159,26 @@ describe('DocumentsService.extractFormValues', () => {
     expect(result).toEqual({ values: {} });
     expect(aiService.extractFormFieldValues).not.toHaveBeenCalled();
   });
+
+  it('does not overwrite a value the user already entered', async () => {
+    // Extraction can run again (re-attaching a contract), and a guessed value
+    // silently replacing entered data is worse than leaving the field alone.
+    const doc = buildDoc({ formValues: { supplier_name: 'מה שהמשתמש הקליד' } });
+    const { service } = buildService(doc);
+
+    const result = await service.extractFormValues(String(doc._id), 'owner1');
+
+    expect(result.values.supplier_name).toBe('מה שהמשתמש הקליד');
+  });
+
+  it('fills a field left blank', async () => {
+    const doc = buildDoc({ formValues: { supplier_name: '   ' } });
+    const { service } = buildService(doc);
+
+    const result = await service.extractFormValues(String(doc._id), 'owner1');
+
+    expect(result.values.supplier_name).toBe('חברת דוגמה בע"מ');
+  });
 });
 
 describe('DocumentsService.extractFormFields', () => {

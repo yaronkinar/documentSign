@@ -275,14 +275,9 @@ export function NewDocumentClient() {
         setExtractingFormFields(false);
       }
 
-      if (detectedFields.length > 0) {
-        try {
-          await api.post(`/documents/${newId}/extract-form-values`);
-          latestDoc = await api.get<DocumentDto>(`/documents/${newId}`);
-        } catch {
-          // Leave form values blank — same as today when there's no AI data.
-        }
-      }
+      // Detecting fields deliberately does not fill them in: the detected
+      // values are offered as reference hints to copy from, and a guessed
+      // value sitting in the form reads as though someone entered it.
 
       setDoc(latestDoc);
       setFormValues(latestDoc.formValues ?? {});

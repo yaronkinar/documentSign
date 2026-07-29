@@ -22,6 +22,12 @@ export interface TemplateEditField {
 
 export interface PDFViewerProps {
   pdfUrl: string;
+  /**
+   * Fired when the PDF URL is rejected as expired (401/403). Signed storage
+   * links are short-lived, so an editing session can outlive the one minted
+   * at page load; the owner should supply a fresh `pdfUrl` in response.
+   */
+  onPdfUrlExpired?: () => void;
   signatures?: SignatureDto[];
   signatureFields?: SignatureFieldDto[];
   comments?: CommentDto[];
@@ -324,6 +330,13 @@ export function PDFViewer(props: PDFViewerProps) {
         setLoading(false);
       } catch (err) {
         if (!cancelled) {
+          // The PDF URL is a short-lived signed link, so a long editing
+          // session outlives it. Let the owner mint a fresh one; swapping
+          // pdfUrl re-runs this effect and clears the error.
+          const status = (err as { status?: number })?.status;
+          if (status === 401 || status === 403) {
+            props.onPdfUrlExpired?.();
+          }
           setError(
             err instanceof Error ? err.message : t('pdf.renderFailed'),
           );
@@ -336,6 +349,9 @@ export function PDFViewer(props: PDFViewerProps) {
       cancelled = true;
       loadingTask?.destroy();
     };
+    // onPdfUrlExpired is intentionally not a dependency: it only fires from
+    // this effect, and re-running on a new callback identity would refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.pdfUrl, t]);
 
   return (

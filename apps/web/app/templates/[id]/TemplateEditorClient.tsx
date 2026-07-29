@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { PdfFormFieldTemplate, PdfFormFieldType, PdfTemplateDto } from '@docflow/shared';
 
 import { PDFViewer, type TemplateEditField } from '@/components/pdf/PDFViewer';
@@ -74,6 +74,23 @@ export function TemplateEditorClient({ template }: Props) {
   const [formFieldPlacementMode, setFormFieldPlacementMode] = useState(false);
   const [formFieldBusy, setFormFieldBusy] = useState(false);
   const [formFieldError, setFormFieldError] = useState<string | null>(null);
+
+  // The URL rendered into the page is a signed link that expires well before
+  // a long editing session ends, so keep it in state and re-mint on demand.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(template.fileUrl);
+  const pdfUrlRetries = useRef(0);
+
+  const refreshPdfUrl = useCallback(async () => {
+    // Bounded: if refreshing keeps failing, stop rather than loop on the API.
+    if (pdfUrlRetries.current >= 3) return;
+    pdfUrlRetries.current += 1;
+    try {
+      const fresh = await api.get<PdfTemplateDto>(`/templates/${template._id}`);
+      if (fresh.fileUrl) setPdfUrl(fresh.fileUrl);
+    } catch {
+      // Leave the viewer's own error visible; a reload still recovers.
+    }
+  }, [api, template._id]);
 
   const selectedField = fields.find((f) => f.id === selectedId) ?? null;
 
@@ -374,9 +391,10 @@ export function TemplateEditorClient({ template }: Props) {
             </button>
           </div>
         )}
-        {template.fileUrl ? (
+        {pdfUrl ? (
           <PDFViewer
-            pdfUrl={template.fileUrl}
+            pdfUrl={pdfUrl}
+            onPdfUrlExpired={refreshPdfUrl}
             templateEditMode={mode === 'signatures'}
             templateEditFields={mode === 'signatures' ? fields : undefined}
             selectedTemplateFieldId={mode === 'signatures' ? selectedId : null}
@@ -459,7 +477,7 @@ export function TemplateEditorClient({ template }: Props) {
 
               <button
                 onClick={handleExtractFields}
-                disabled={extracting || !template.fileUrl}
+                disabled={extracting || !pdfUrl}
                 className="w-full rounded-md border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100 disabled:opacity-50"
               >
                 {extracting

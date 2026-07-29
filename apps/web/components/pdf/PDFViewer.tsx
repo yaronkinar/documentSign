@@ -216,6 +216,65 @@ function lockDragSurface() {
   };
 }
 
+/** Nearest scrollable ancestor, so a drag can scroll the page list. */
+function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+  let node = el;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (
+      /(auto|scroll|overlay)/.test(overflowY) &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+const EDGE_SCROLL_ZONE = 90;
+const EDGE_SCROLL_MAX_SPEED = 24;
+
+/**
+ * Scrolls the page list while the cursor sits near its top/bottom edge during
+ * a drag. Without this, a field can only be dropped on a page that is already
+ * on screen — and since a PDF page is usually taller than the viewport, that
+ * makes dragging a field to another page impossible at normal zoom.
+ */
+function startEdgeAutoScroll(container: HTMLElement | null) {
+  if (!container) {
+    return { update: () => {}, stop: () => {} };
+  }
+
+  let cursorY: number | null = null;
+  let frame = 0;
+
+  function tick() {
+    frame = requestAnimationFrame(tick);
+    if (cursorY == null) return;
+    const rect = container!.getBoundingClientRect();
+    const fromTop = cursorY - rect.top;
+    const fromBottom = rect.bottom - cursorY;
+
+    let delta = 0;
+    if (fromTop < EDGE_SCROLL_ZONE) {
+      delta = -EDGE_SCROLL_MAX_SPEED * (1 - Math.max(fromTop, 0) / EDGE_SCROLL_ZONE);
+    } else if (fromBottom < EDGE_SCROLL_ZONE) {
+      delta = EDGE_SCROLL_MAX_SPEED * (1 - Math.max(fromBottom, 0) / EDGE_SCROLL_ZONE);
+    }
+    if (delta !== 0) container!.scrollTop += delta;
+  }
+
+  frame = requestAnimationFrame(tick);
+
+  return {
+    update: (clientY: number) => {
+      cursorY = clientY;
+    },
+    stop: () => cancelAnimationFrame(frame),
+  };
+}
+
 /**
  * Renders a PDF using pdfjs-dist with progressive loading:
  * page 1 appears as soon as it is ready; other pages render when scrolled near.
@@ -707,6 +766,11 @@ function LazyPDFPage({
 
     onTemplateFieldSelect?.(field.id);
 
+    const autoScroll =
+      mode === 'move'
+        ? startEdgeAutoScroll(findScrollParent(fieldEl))
+        : { update: () => {}, stop: () => {} };
+
     function onMouseMove(ev: MouseEvent) {
       const overlay = overlayRef.current;
       if (!overlay) return;
@@ -715,6 +779,7 @@ function LazyPDFPage({
       const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
 
       if (mode === 'move') {
+        autoScroll.update(ev.clientY);
         const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
         const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
         fieldEl.style.left = `${newX}%`;
@@ -728,6 +793,7 @@ function LazyPDFPage({
     }
 
     function onMouseUp(ev: MouseEvent) {
+      autoScroll.stop();
       const overlay = overlayRef.current;
       if (overlay) {
         const rect = overlay.getBoundingClientRect();
@@ -929,11 +995,13 @@ function LazyPDFPage({
       const startOverlay = overlayRef.current;
       if (!startOverlay) return;
       const unlockDragSurface = lockDragSurface();
+      const autoScroll = startEdgeAutoScroll(findScrollParent(fieldEl));
       let currentX = startFieldX;
       let currentY = startFieldY;
 
       function onMouseMove(ev: MouseEvent) {
         ev.preventDefault();
+        autoScroll.update(ev.clientY);
         const overlay = overlayRef.current;
         if (!overlay) return;
         const rect = overlay.getBoundingClientRect();
@@ -953,6 +1021,7 @@ function LazyPDFPage({
 
       function onMouseUp(ev: MouseEvent) {
         unlockDragSurface();
+        autoScroll.stop();
         const moved =
           Math.abs(ev.clientX - startMouseX) > 3 ||
           Math.abs(ev.clientY - startMouseY) > 3;

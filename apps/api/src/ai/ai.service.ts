@@ -578,61 +578,85 @@ export class AiService {
         process.env.OPENAI_VISION_MODEL ??
         process.env.OPENAI_MODEL ??
         'gpt-4o-mini';
-      const pageBlocks = screenshots.flatMap((page) => {
-        const n = page.pageNumber;
-        return [
-          {
-            type: 'text' as const,
-            text:
-              `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
-              'x,y,width,height are percents (0–100) of this page, origin top-left, box on the blank/sign line.',
-          },
-          {
-            type: 'image_url' as const,
-            image_url: { url: page.dataUrl, detail: 'high' as const },
-          },
-        ];
-      });
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: userPrompt,
-                },
-                ...pageBlocks,
-              ],
-            },
-          ],
-        }),
-      });
+      const boxHint =
+        context === 'uploaded_document'
+          ? 'box on the blank/sign line'
+          : 'box over the value itself — the cell, box or line holding the data — not over its printed label';
 
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
+      // One request per page. Sending every page in a single call makes the
+      // model answer for the first page and quietly ignore the rest.
+      const perPage = await Promise.all(
+        screenshots.map(async (page) => {
+          const n = page.pageNumber;
+          const res = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              temperature: 0,
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemPrompt },
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: userPrompt },
+                    {
+                      type: 'text',
+                      text:
+                        `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
+                        `x,y,width,height are percents (0–100) of this page, origin top-left, ${boxHint}.`,
+                    },
+                    {
+                      type: 'image_url',
+                      image_url: { url: page.dataUrl, detail: 'high' },
+                    },
+                  ],
+                },
+              ],
+            }),
+          });
+
+          if (!res.ok) {
+            const errBody = await res.text().catch(() => '');
+            return {
+              fields: [] as unknown[],
+              error: `page ${n}: ${res.status} ${errBody.slice(0, 120)}`,
+            };
+          }
+
+          const data = (await res.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const pageRaw = data.choices?.[0]?.message?.content?.trim();
+          if (!pageRaw) return { fields: [] as unknown[], error: null };
+          try {
+            const parsed = JSON.parse(pageRaw) as { fields?: unknown };
+            return {
+              fields: Array.isArray(parsed.fields) ? parsed.fields : [],
+              error: null,
+            };
+          } catch {
+            return { fields: [] as unknown[], error: null };
+          }
+        }),
+      );
+
+      // One bad page shouldn't lose the whole document, but if every page
+      // failed the caller deserves the error rather than an empty result.
+      const errors = perPage
+        .map((p) => p.error)
+        .filter((e): e is string => e !== null);
+      if (errors.length === screenshots.length) {
         throw new InternalServerErrorException(
-          `AI field extraction failed (${res.status}): ${errBody.slice(0, 200)}`,
+          `AI field extraction failed (${errors[0]})`,
         );
       }
 
-      const data = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      raw = data.choices?.[0]?.message?.content?.trim();
+      raw = JSON.stringify({ fields: perPage.flatMap((p) => p.fields) });
     }
     const maxPage = pageCount ?? pagesToInspect.at(-1) ?? MAX_TEMPLATE_FIELD_PAGES;
 

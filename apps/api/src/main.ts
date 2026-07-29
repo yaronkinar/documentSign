@@ -6,43 +6,50 @@ import { AppModule } from './app.module';
 import { getWebOrigins } from './config/web-origins';
 
 const PORT_RETRY_DELAY_MS = 400;
-const PORT_RETRY_TIMEOUT_MS = 15_000;
-
-/** Resolves true when nothing is holding the port. */
-async function isPortFree(port: number): Promise<boolean> {
-  const net = await import('node:net');
-  return new Promise((resolve) => {
-    const probe = net.createServer();
-    probe.once('error', () => resolve(false));
-    probe.once('listening', () => probe.close(() => resolve(true)));
-    probe.listen(port);
-  });
-}
+const PORT_RETRY_TIMEOUT_MS = 30_000;
 
 /**
- * Waits for a previous instance to release the port before binding.
+ * Binds the port, retrying while a previous instance still holds it.
  *
- * In watch mode a rebuild starts the new process before the old one has fully
- * released the port, so listen() throws EADDRINUSE and the restart dies —
- * leaving nothing serving until someone notices and restarts by hand.
+ * In watch mode a rebuild starts the new API before the old process has
+ * released port 3001, so listen() throws EADDRINUSE and the restart dies —
+ * leaving nothing serving until someone notices the dead port.
  *
- * The wait uses a throwaway probe socket rather than retrying app.listen(),
- * because each failed listen() leaves its handlers attached to the Nest HTTP
- * server and the retries pile up listeners instead of recovering.
+ * This retries listen() itself rather than probing the port first: a probe
+ * only tells you the port was free a moment ago, and the old process can
+ * still be holding it by the time the real bind happens. Retrying the actual
+ * bind is the only check that cannot go stale.
  */
-async function waitForPort(port: number): Promise<void> {
+async function listenWithRetry(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  app: any,
+  port: number,
+): Promise<void> {
   const giveUpAt = Date.now() + PORT_RETRY_TIMEOUT_MS;
-  let announced = false;
+  let waiting = false;
 
-  while (!(await isPortFree(port))) {
-    // Out of patience: fall through and let listen() report the real error.
-    if (Date.now() >= giveUpAt) return;
-    if (!announced) {
-      announced = true;
-      // eslint-disable-next-line no-console
-      console.log(`[api] port ${port} still held, waiting for it to free…`);
+  for (;;) {
+    try {
+      await app.listen(port);
+      if (waiting) {
+        // eslint-disable-next-line no-console
+        console.log(`[api] port ${port} freed, listening`);
+      }
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'EADDRINUSE' || Date.now() >= giveUpAt) throw err;
+
+      if (!waiting) {
+        waiting = true;
+        // A failed listen() leaves its handlers on the HTTP server, so the
+        // retries would otherwise trip Node's listener-leak warning.
+        app.getHttpServer?.()?.setMaxListeners?.(0);
+        // eslint-disable-next-line no-console
+        console.log(`[api] port ${port} still held, waiting for it to free…`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, PORT_RETRY_DELAY_MS));
     }
-    await new Promise((resolve) => setTimeout(resolve, PORT_RETRY_DELAY_MS));
   }
 }
 
@@ -68,8 +75,7 @@ async function bootstrap() {
   );
 
   const port = Number(process.env.PORT ?? 3001);
-  await waitForPort(port);
-  await app.listen(port);
+  await listenWithRetry(app, port);
   // eslint-disable-next-line no-console
   console.log(`[api] listening on http://localhost:${port}`);
 }

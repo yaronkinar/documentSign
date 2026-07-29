@@ -332,11 +332,9 @@ export function NewDocumentClient() {
       } catch {
         // Description stays blank — same fallback behavior as the upload flow.
       }
-      try {
-        await api.post(`/documents/${documentId}/extract-form-values`);
-      } catch {
-        // Leave form values blank — same fallback behavior as the upload flow.
-      }
+      // The attached contract is summarised but never used to fill the form.
+      // Its values are surfaced as reference hints to copy from; writing them
+      // straight into the fields presents a guess as an entered answer.
 
       const latestDoc = await api.get<DocumentDto>(`/documents/${documentId}`);
       setDoc(latestDoc);

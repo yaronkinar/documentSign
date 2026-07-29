@@ -228,7 +228,7 @@ export const he: TranslationDict = {
     supportedFormats: 'PDF, DOC או DOCX',
     attachContractTitle: 'צרפו את החוזה',
     attachContractBody:
-      'העלו את החוזה או ההסכם החתום שעליו מבוסס המסמך. נשתמש בו כדי לכתוב תקציר ולמלא את הטופס באופן אוטומטי.',
+      'העלו את החוזה או ההסכם החתום שעליו מבוסס המסמך. נשתמש בו כדי לכתוב תקציר ולהציג לצד כל שדה את מה שכתוב במקור.',
     convertingToPdf: 'ממיר מסמך Word ל-PDF…',
     uploadingDocument: 'מעלה את המסמך…',
     processingDocument: 'מעבד את המסמך ומזהה שדות…',

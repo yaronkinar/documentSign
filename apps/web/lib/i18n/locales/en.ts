@@ -226,7 +226,7 @@ export const en = {
     supportedFormats: 'PDF, DOC, or DOCX',
     attachContractTitle: 'Attach the contract',
     attachContractBody:
-      'Upload the signed contract or agreement this document is based on. We use it to write a summary and pre-fill the form for you.',
+      'Upload the signed contract or agreement this document is based on. We use it to write a summary and to show you what the original says as you fill the form.',
     convertingToPdf: 'Converting Word document to PDF…',
     uploadingDocument: 'Uploading your document…',
     processingDocument: 'Processing document and detecting fields…',

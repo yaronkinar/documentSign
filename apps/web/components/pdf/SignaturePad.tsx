@@ -14,7 +14,10 @@ export interface SignaturePadProps {
   documentId?: string;
   /** Upload handler for registered users placing a signature on a document */
   uploadBlob?: (blob: Blob) => Promise<string>;
-  /** Available when mode === 'registered' */
+  /**
+   * The signer's saved signature library. Also passed in guest mode when a
+   * signed-in user opens their own emailed sign link.
+   */
   savedSignatures?: SavedSignatureDto[];
   /** Which tab to open first; defaults to 'draw' (or 'library' when savedSignatures exist) */
   defaultTab?: Tab;
@@ -30,8 +33,11 @@ export function SignaturePad(props: SignaturePadProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tabs: Tab[] =
-    props.mode === 'registered' ? ['draw', 'type', 'upload', 'library'] : ['draw', 'type', 'upload'];
+  const hasLibrary =
+    props.mode === 'registered' || (props.savedSignatures?.length ?? 0) > 0;
+  const tabs: Tab[] = hasLibrary
+    ? ['draw', 'type', 'upload', 'library']
+    : ['draw', 'type', 'upload'];
 
   const tabLabels: Record<Tab, string> = {
     draw: t('signaturePad.draw'),
@@ -93,7 +99,7 @@ export function SignaturePad(props: SignaturePadProps) {
             setError={setError}
           />
         )}
-        {tab === 'library' && props.mode === 'registered' && (
+        {tab === 'library' && hasLibrary && (
           <LibraryTab
             savedSignatures={props.savedSignatures ?? []}
             onComplete={props.onComplete}

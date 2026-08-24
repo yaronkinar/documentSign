@@ -60,13 +60,28 @@ function buildFinalStepDoc(
   };
 }
 
-function buildService(options: { commentCount: number; doc: unknown }) {
+function buildService(options: {
+  commentCount: number;
+  doc: unknown;
+  /** Clerk id that findClerkIdByEmail should resolve for any email. */
+  linkedClerkId?: string | null;
+}) {
   const documentModel = {
     findById: jest
       .fn()
       .mockReturnValue({ exec: jest.fn().mockResolvedValue(options.doc) }),
   };
-  const userModel = {};
+  const userModel = {
+    findOne: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(
+            options.linkedClerkId ? { clerkId: options.linkedClerkId } : null,
+          ),
+        }),
+      }),
+    }),
+  };
   const commentModel = {
     countDocuments: jest.fn().mockResolvedValue(options.commentCount),
   };
@@ -109,6 +124,70 @@ describe('WorkflowService.recordSignature - comment resolution gate', () => {
 
     expect(doc.status).toBe('approved');
     expect(doc.save).toHaveBeenCalled();
+  });
+});
+
+describe('WorkflowService.recordSignature - account linking', () => {
+  it('links the signing account when the signer authenticated', async () => {
+    const doc = buildFinalStepDoc();
+    const { service } = buildService({ commentCount: 0, doc });
+
+    await service.recordSignature(
+      String(doc._id),
+      'step1',
+      'a@test.com',
+      'user_1',
+      null,
+    );
+
+    expect(doc.workflowSteps[0].signers[0].clerkId).toBe('user_1');
+    expect(doc.participantClerkIds).toContain('user_1');
+  });
+
+  it('links a registered signer who signed the email link while logged out', async () => {
+    const doc = buildFinalStepDoc();
+    const { service } = buildService({
+      commentCount: 0,
+      doc,
+      linkedClerkId: 'user_1',
+    });
+
+    await service.recordSignature(String(doc._id), 'step1', 'a@test.com', null, null);
+
+    expect(doc.workflowSteps[0].signers[0].clerkId).toBe('user_1');
+    expect(doc.participantClerkIds).toContain('user_1');
+  });
+
+  it('leaves a signer with no account unlinked', async () => {
+    const doc = buildFinalStepDoc();
+    const { service } = buildService({ commentCount: 0, doc, linkedClerkId: null });
+
+    await service.recordSignature(String(doc._id), 'step1', 'a@test.com', null, null);
+
+    expect(doc.workflowSteps[0].signers[0].clerkId).toBeNull();
+    expect(doc.participantClerkIds).toHaveLength(0);
+  });
+
+  it('does not overwrite a clerkId that is already linked', async () => {
+    const doc = buildFinalStepDoc([
+      {
+        _id: 's1',
+        email: 'a@test.com',
+        status: 'pending',
+        clerkId: 'user_original',
+        signedAt: null,
+      },
+    ]);
+    const { service } = buildService({
+      commentCount: 0,
+      doc,
+      linkedClerkId: 'user_other',
+    });
+
+    await service.recordSignature(String(doc._id), 'step1', 'a@test.com', null, null);
+
+    expect(doc.workflowSteps[0].signers[0].clerkId).toBe('user_original');
+    expect(doc.participantClerkIds).not.toContain('user_other');
   });
 });
 

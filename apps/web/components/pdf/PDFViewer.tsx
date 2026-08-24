@@ -1403,6 +1403,7 @@ function LazyPDFPage({
             return (
               <button
                 key={field._id}
+                data-sfield={field._id}
                 type="button"
                 onClick={(e) => handleFieldClick(e, field)}
                 disabled={!clickable}

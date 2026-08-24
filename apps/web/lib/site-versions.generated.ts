@@ -16,13 +16,27 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.182",
-    "hash": "fdffe5e",
-    "fullHash": "fdffe5e94bd3374f97fb494acbf5f5d61ee90cee",
-    "date": "2026-08-24T18:37:53+03:00",
-    "message": "Let guests load the PDF worker"
+    "version": "0.1.184",
+    "hash": "fef16e6",
+    "fullHash": "fef16e62a7c92c08b1639f40af733cff60063e61",
+    "date": "2026-08-24T22:31:05+03:00",
+    "message": "Tag signer-facing fields so the sign button can find them"
   },
   "history": [
+    {
+      "version": "0.1.184",
+      "hash": "fef16e6",
+      "fullHash": "fef16e62a7c92c08b1639f40af733cff60063e61",
+      "date": "2026-08-24T22:31:05+03:00",
+      "message": "Tag signer-facing fields so the sign button can find them"
+    },
+    {
+      "version": "0.1.183",
+      "hash": "63884ee",
+      "fullHash": "63884ee4184d2aa67fda105b487c5036f8ec8e3a",
+      "date": "2026-08-24T19:05:35+03:00",
+      "message": "fix button"
+    },
     {
       "version": "0.1.182",
       "hash": "fdffe5e",
@@ -288,20 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "e4803cb2d430f653cfd0e0ab67a0bcade1e4fad0",
       "date": "2026-06-22T07:34:02+03:00",
       "message": "Clean up orphaned source-contract storage objects"
-    },
-    {
-      "version": "0.1.144",
-      "hash": "e5d691d",
-      "fullHash": "e5d691d5931e474fd7d2188bec473e9b2634e514",
-      "date": "2026-06-22T07:27:28+03:00",
-      "message": "Fix Skip-for-now button disappearing on the form-fill step"
-    },
-    {
-      "version": "0.1.143",
-      "hash": "3e57193",
-      "fullHash": "3e57193d7b523717639dda395a7422efb8e03888",
-      "date": "2026-06-22T07:27:23+03:00",
-      "message": "Remove stale compiled artifacts committed under packages/shared/src"
     }
   ]
 } as const;

@@ -1,14 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import type { GuestSigningDataDto, SignatureDto } from '@docflow/shared';
+import { useUser } from '@clerk/nextjs';
+import type {
+  GuestSigningDataDto,
+  SavedSignatureDto,
+  SignatureDto,
+} from '@docflow/shared';
 import { resolveDocumentFormFields } from '@docflow/shared';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { PDFViewer } from '@/components/pdf/PDFViewer';
 import { SignaturePad } from '@/components/pdf/SignaturePad';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, useApiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { useTemplatePdfUrl } from '@/lib/use-template-pdf-url';
 
@@ -39,6 +44,40 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
   const [signatureFields, setSignatureFields] = useState(data.signatureFields);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [savedSignatures, setSavedSignatures] = useState<SavedSignatureDto[]>([]);
+
+  /**
+   * A signer who already has an account often arrives here from the email link
+   * rather than through the dashboard. Recognising their session lets the
+   * signature be attributed to the account instead of being recorded
+   * anonymously, and gives them their saved signatures.
+   */
+  const api = useApiClient();
+  const apiRef = useRef(api);
+  apiRef.current = api;
+  const { isSignedIn, user } = useUser();
+  const isLinkedAccount =
+    isSignedIn === true &&
+    user?.primaryEmailAddress?.emailAddress?.toLowerCase() ===
+      data.signerEmail.toLowerCase();
+
+  useEffect(() => {
+    if (!isLinkedAccount) {
+      setSavedSignatures([]);
+      return;
+    }
+    let cancelled = false;
+    apiRef.current
+      .get<SavedSignatureDto[]>('/users/me/signatures')
+      .then((sigs) => {
+        if (!cancelled) setSavedSignatures(sigs);
+      })
+      // The library is a convenience - drawing still works without it.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isLinkedAccount]);
 
   const { pdfUrl: templatePdfUrl, loading: pdfLoading } = useTemplatePdfUrl(
     !data.presignedPdfUrl ? data.formTemplateId : null,
@@ -86,25 +125,33 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
     setShowSigPad(true);
   }
 
-  async function onSignatureCaptured(imageKey: string) {
+  async function onSignatureCaptured(imageKey: string, savedSignatureId?: string) {
     if (!pendingPlacement) return;
     setShowSigPad(false);
     try {
-      const newSig = await apiClient.post<SignatureDto>(
-        `/documents/${documentId}/sign`,
-        {
-          documentId,
-          stepId: data.stepId,
-          pageNumber: pendingPlacement.page,
-          x: pendingPlacement.x,
-          y: pendingPlacement.y,
-          width: pendingPlacement.width,
-          height: pendingPlacement.height,
-          imageKey,
-          signatureFieldId: pendingPlacement.signatureFieldId,
-        },
-        { query: { token: inviteToken } },
-      );
+      const body = {
+        documentId,
+        stepId: data.stepId,
+        pageNumber: pendingPlacement.page,
+        x: pendingPlacement.x,
+        y: pendingPlacement.y,
+        width: pendingPlacement.width,
+        height: pendingPlacement.height,
+        imageKey: imageKey || undefined,
+        savedSignatureId,
+        signatureFieldId: pendingPlacement.signatureFieldId,
+      };
+      // The invite token still authorises the request; the bearer token that
+      // useApiClient adds is what links the signature to the account.
+      const newSig = isLinkedAccount
+        ? await api.post<SignatureDto>(`/documents/${documentId}/sign`, body, {
+            token: inviteToken,
+          })
+        : await apiClient.post<SignatureDto>(
+            `/documents/${documentId}/sign`,
+            body,
+            { query: { token: inviteToken } },
+          );
       setSignatures((prev) => [...prev, newSig]);
       if (pendingPlacement.signatureFieldId) {
         setSignatureFields((prev) => {
@@ -144,11 +191,12 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
               title: data.documentTitle,
             })}
           </p>
+          {/* Don't push an account on someone who is already signed in. */}
           <Link
-            href="/sign-up"
+            href={isLinkedAccount ? `/documents/${documentId}` : '/sign-up'}
             className="inline-block rounded bg-black px-5 py-2 text-sm text-white"
           >
-            {t('sign.createAccount')}
+            {isLinkedAccount ? t('sign.viewDocument') : t('sign.createAccount')}
           </Link>
         </div>
       </main>
@@ -242,13 +290,17 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
           mode="guest"
           inviteToken={inviteToken}
           documentId={documentId}
+          savedSignatures={savedSignatures}
+          defaultTab={savedSignatures.length > 0 ? 'library' : 'draw'}
           onClose={() => {
             setShowSigPad(false);
             setPendingPlacement(null);
             // Clear so pressing the button again re-scrolls to the same field.
             setScrollToFieldId(null);
           }}
-          onComplete={(imageKey) => onSignatureCaptured(imageKey)}
+          onComplete={(imageKey, savedSignatureId) =>
+            onSignatureCaptured(imageKey, savedSignatureId)
+          }
         />
       )}
     </main>

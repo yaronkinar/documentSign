@@ -429,6 +429,7 @@ export const en = {
     thankYou: 'Thank you',
     signatureRecorded: '{{name}}, your signature on {{title}} has been recorded.',
     createAccount: 'Create an account to track documents',
+    viewDocument: 'View this document',
     step: 'Step',
     signer: 'Signer',
     signDocument: 'Sign Document',

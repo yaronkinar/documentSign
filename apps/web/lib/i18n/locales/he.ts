@@ -429,6 +429,7 @@ export const he: TranslationDict = {
     thankYou: 'תודה',
     signatureRecorded: '{{name}}, החתימה שלך על {{title}} נרשמה.',
     createAccount: 'צור חשבון למעקב אחר מסמכים',
+    viewDocument: 'צפה במסמך זה',
     step: 'שלב',
     signer: 'חותם',
     signDocument: 'חתום על המסמך',

@@ -127,11 +127,17 @@ export class WorkflowService {
 
     signer.status = 'signed';
     signer.signedAt = new Date();
-    // If signer was a guest who has since registered, capture clerkId
-    if (actorId && !signer.clerkId) {
-      signer.clerkId = actorId;
-      if (!doc.participantClerkIds.includes(actorId)) {
-        doc.participantClerkIds.push(actorId);
+    // If signer was a guest who has since registered, capture clerkId. Signers
+    // reach here from an emailed link without a session too, so fall back to an
+    // email lookup - otherwise the document never shows up in their own list.
+    if (!signer.clerkId) {
+      const linkedClerkId =
+        actorId ?? (await this.findClerkIdByEmail(signer.email));
+      if (linkedClerkId) {
+        signer.clerkId = linkedClerkId;
+        if (!doc.participantClerkIds.includes(linkedClerkId)) {
+          doc.participantClerkIds.push(linkedClerkId);
+        }
       }
     }
 

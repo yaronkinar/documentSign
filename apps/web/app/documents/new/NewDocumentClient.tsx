@@ -349,6 +349,14 @@ export function NewDocumentClient() {
     }
   }
 
+  function skipSourceContract() {
+    setError(null);
+    // No contract means nothing to summarise: the description stays blank for
+    // the user to write on the details step rather than being guessed from an
+    // empty template.
+    setStep(docSource === 'template' ? 'form' : 'details');
+  }
+
   function signerNamesFromTemplateFields(template: PdfTemplateDto): string[] {
     const seen = new Set<string>();
     const names: string[] = [];
@@ -779,6 +787,7 @@ export function NewDocumentClient() {
           busy={busy}
           uploadPhase={uploadPhase}
           onAttach={attachSourceContract}
+          onSkip={skipSourceContract}
           onBack={() => setStep('start')}
         />
       )}
@@ -1222,11 +1231,13 @@ function AttachContractStep({
   busy,
   uploadPhase,
   onAttach,
+  onSkip,
   onBack,
 }: {
   busy: boolean;
   uploadPhase: UploadPhase;
   onAttach: (file: File) => void;
+  onSkip: () => void;
   onBack: () => void;
 }) {
   const { t } = useTranslation();
@@ -1303,7 +1314,7 @@ function AttachContractStep({
           e.target.value = '';
         }}
       />
-      <div className="flex justify-start">
+      <div className="flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={onBack}
@@ -1311,6 +1322,14 @@ function AttachContractStep({
           className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           {t('common.back')}
+        </button>
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={busy}
+          className="text-sm text-gray-600 hover:underline disabled:opacity-50"
+        >
+          {t('newDocument.skipAttachContract')}
         </button>
       </div>
     </div>

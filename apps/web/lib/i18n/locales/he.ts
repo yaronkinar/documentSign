@@ -432,6 +432,7 @@ export const he: TranslationDict = {
     step: 'שלב',
     signer: 'חותם',
     signDocument: 'חתום על המסמך',
+    signNextField: 'חתום על השדה הבא',
     clickFieldToSign: 'לחץ על שדה החתימה המודגש שלך',
     clickFieldsToSign: 'לחץ על שדות החתימה המודגשים שלך',
     remaining: '{{count}} נותרו',

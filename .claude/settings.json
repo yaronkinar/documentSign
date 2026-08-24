@@ -1,5 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx eslint *)",
+      "Bash(pwd; grep *)",
+      "Read(//c/Users/yaron/scripts/**)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" --max-time 15 https://api.docflows.uk/health)",
+      "Bash(railway service *)",
+      "Bash(curl -sS --max-time 20 https://docflows.uk/documents/new)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -7,8 +20,8 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(git commit*)",
             "command": "node scripts/generate-site-versions.mjs",
+            "if": "Bash(git commit*)",
             "timeout": 60,
             "statusMessage": "Updating site version changelog…"
           }

@@ -16,13 +16,223 @@ export type SiteVersions = {
 
 export const siteVersions: SiteVersions = {
   "current": {
-    "version": "0.1.152",
-    "hash": "c3a23e9",
-    "fullHash": "c3a23e92e9c96e3c3ed984fe898cdf81348c991e",
-    "date": "2026-07-28T13:49:42+03:00",
-    "message": "Add implementation plan for template field reference values"
+    "version": "0.1.182",
+    "hash": "fdffe5e",
+    "fullHash": "fdffe5e94bd3374f97fb494acbf5f5d61ee90cee",
+    "date": "2026-08-24T18:37:53+03:00",
+    "message": "Let guests load the PDF worker"
   },
   "history": [
+    {
+      "version": "0.1.182",
+      "hash": "fdffe5e",
+      "fullHash": "fdffe5e94bd3374f97fb494acbf5f5d61ee90cee",
+      "date": "2026-08-24T18:37:53+03:00",
+      "message": "Let guests load the PDF worker"
+    },
+    {
+      "version": "0.1.181",
+      "hash": "521b8e8",
+      "fullHash": "521b8e8ac1831ca4d80a3e4080908ac8f7b4bcd0",
+      "date": "2026-08-24T17:47:02+03:00",
+      "message": "Merge pull request #15 from yaronkinar/feature/skip-contract-upload-for-templates"
+    },
+    {
+      "version": "0.1.180",
+      "hash": "d4a5aae",
+      "fullHash": "d4a5aae1e7af58fe5a4a30aa02e1697aa0cb3be0",
+      "date": "2026-08-24T17:45:38+03:00",
+      "message": "Let template flows past the contract upload"
+    },
+    {
+      "version": "0.1.179",
+      "hash": "c325d4f",
+      "fullHash": "c325d4f0c41b9c0484ecf58134476bf22ea03e71",
+      "date": "2026-07-29T16:43:31+03:00",
+      "message": "Never fill the form from an attached contract either"
+    },
+    {
+      "version": "0.1.178",
+      "hash": "82f9573",
+      "fullHash": "82f9573ff9b0bad6d418ea57a670c54d52fcbed2",
+      "date": "2026-07-29T16:23:09+03:00",
+      "message": "Stop AI-detected values from landing in the form"
+    },
+    {
+      "version": "0.1.177",
+      "hash": "520127a",
+      "fullHash": "520127a227dbe221a8f8205833d9d30000980dfd",
+      "date": "2026-07-29T15:31:06+03:00",
+      "message": "Re-mint the template PDF URL when its signed link expires"
+    },
+    {
+      "version": "0.1.176",
+      "hash": "4618de3",
+      "fullHash": "4618de3ca8a2005b19c9cfcb64e2a3a120037e98",
+      "date": "2026-07-29T15:14:05+03:00",
+      "message": "Translate the reference-value copy hint"
+    },
+    {
+      "version": "0.1.175",
+      "hash": "838166c",
+      "fullHash": "838166c2b4fc1d7629d377eb48cb04d42eb9adcc",
+      "date": "2026-07-29T14:56:33+03:00",
+      "message": "Add a no-watch dev mode for the API"
+    },
+    {
+      "version": "0.1.174",
+      "hash": "821683e",
+      "fullHash": "821683e4fac878bc3620fb0cdd05ee950ee6c099",
+      "date": "2026-07-29T12:44:52+03:00",
+      "message": "Retry the port bind rather than probing it first"
+    },
+    {
+      "version": "0.1.173",
+      "hash": "2265157",
+      "fullHash": "2265157eb948aeb475e809a3c2a8963e74602a51",
+      "date": "2026-07-29T11:33:51+03:00",
+      "message": "Wait for the port instead of dying when a restart races itself"
+    },
+    {
+      "version": "0.1.172",
+      "hash": "248594c",
+      "fullHash": "248594c6001f3efb1b52d153b85881d09a88ed7b",
+      "date": "2026-07-29T09:03:51+03:00",
+      "message": "Keep signature spots and data fields in their own lanes"
+    },
+    {
+      "version": "0.1.171",
+      "hash": "a7a2c2a",
+      "fullHash": "a7a2c2a0c5cce8cce943952bfcc6898ae22ac340",
+      "date": "2026-07-29T07:11:05+03:00",
+      "message": "Extract all pages, and verify reference values against the PDF text"
+    },
+    {
+      "version": "0.1.170",
+      "hash": "0d407f6",
+      "fullHash": "0d407f6960dfc8d4c492cb79d6b77dbff61a0d2d",
+      "date": "2026-07-29T06:58:18+03:00",
+      "message": "Stop steering form-field extraction toward signature fields"
+    },
+    {
+      "version": "0.1.169",
+      "hash": "a90423f",
+      "fullHash": "a90423f3c03ca36093161e09b0f01fe381900020",
+      "date": "2026-07-29T06:37:09+03:00",
+      "message": "Don't restart the sign flow when the signature pad is already open"
+    },
+    {
+      "version": "0.1.168",
+      "hash": "4874707",
+      "fullHash": "48747076d77e45e62119c41738974bda27b9d1f2",
+      "date": "2026-07-29T06:33:02+03:00",
+      "message": "Auto-scroll the page list while dragging a field"
+    },
+    {
+      "version": "0.1.167",
+      "hash": "b1a306d",
+      "fullHash": "b1a306d1f9f47eae830ce321d9f92de397972ab5",
+      "date": "2026-07-28T20:48:35+03:00",
+      "message": "Retry the sign step when the watch-mode dev API restarts"
+    },
+    {
+      "version": "0.1.166",
+      "hash": "eb8eab5",
+      "fullHash": "eb8eab5746008ef62c5f1eaf93c11ce808149202",
+      "date": "2026-07-28T20:44:54+03:00",
+      "message": "Allow dragging form fields across pages too"
+    },
+    {
+      "version": "0.1.165",
+      "hash": "533dbf9",
+      "fullHash": "533dbf949fad84eb9be4daf6da537644dcc21da5",
+      "date": "2026-07-28T18:47:06+03:00",
+      "message": "Merge branch 'worktree-template-field-reference-values'"
+    },
+    {
+      "version": "0.1.164",
+      "hash": "d2fa3bb",
+      "fullHash": "d2fa3bb4e41a1b28c722dd7eafcadc9da165c712",
+      "date": "2026-07-28T18:43:09+03:00",
+      "message": "Translate templates pages to i18n keys"
+    },
+    {
+      "version": "0.1.163",
+      "hash": "021288a",
+      "fullHash": "021288ac90f6dbbbace972704debc85c2f8b8155",
+      "date": "2026-07-28T18:35:58+03:00",
+      "message": "Allow dragging template signature fields across pages"
+    },
+    {
+      "version": "0.1.162",
+      "hash": "f57fcc0",
+      "fullHash": "f57fcc0d48f4c0ab67a3021a9af9d616d942bc18",
+      "date": "2026-07-28T14:56:47+03:00",
+      "message": "Preview extracted reference values in the template editor field list"
+    },
+    {
+      "version": "0.1.161",
+      "hash": "7e3d354",
+      "fullHash": "7e3d3545a4ad3a8d811bdb78f7f73fc7edcdbc34",
+      "date": "2026-07-28T14:54:38+03:00",
+      "message": "Fix truncation, label nesting, contrast, and clipboard errors in reference hint"
+    },
+    {
+      "version": "0.1.160",
+      "hash": "ef3a99b",
+      "fullHash": "ef3a99b614dc1d7a8fa8b79fabe36d11b6dcd5ad",
+      "date": "2026-07-28T14:46:54+03:00",
+      "message": "Show copyable reference values in the document fill panel"
+    },
+    {
+      "version": "0.1.159",
+      "hash": "38e23c7",
+      "fullHash": "38e23c7a9b32a9b7780c9a84098a7f4ce34413f3",
+      "date": "2026-07-28T14:40:46+03:00",
+      "message": "Preserve referenceValue when re-detecting document form fields"
+    },
+    {
+      "version": "0.1.158",
+      "hash": "4e387d6",
+      "fullHash": "4e387d6b04bde2a752f14ef90d2ea4b80ea77b9f",
+      "date": "2026-07-28T14:31:08+03:00",
+      "message": "Propagate referenceValue from templates onto created documents"
+    },
+    {
+      "version": "0.1.157",
+      "hash": "ed7c405",
+      "fullHash": "ed7c40504009afccb380925bb1682bc75f5e7e7e",
+      "date": "2026-07-28T14:22:19+03:00",
+      "message": "Persist and propagate referenceValue through template APIs"
+    },
+    {
+      "version": "0.1.156",
+      "hash": "5bade46",
+      "fullHash": "5bade46c335a458bcd3ca81be377df2f9d07f5d0",
+      "date": "2026-07-28T14:14:57+03:00",
+      "message": "Extract per-cell table fields with exact reference values from filled PDFs"
+    },
+    {
+      "version": "0.1.155",
+      "hash": "246d160",
+      "fullHash": "246d160a770817fe13ebc7dd9f32d5a2e5749a9c",
+      "date": "2026-07-28T14:11:31+03:00",
+      "message": "Document RTL ordering limitation in resolveFieldReferenceValues"
+    },
+    {
+      "version": "0.1.154",
+      "hash": "88ccbb9",
+      "fullHash": "88ccbb99dabaa55e550cda2c2c9a01d7a1d17f60",
+      "date": "2026-07-28T14:06:35+03:00",
+      "message": "Add resolveFieldReferenceValues for exact PDF text-layer field values"
+    },
+    {
+      "version": "0.1.153",
+      "hash": "fd97650",
+      "fullHash": "fd976502895e8ba3ef27416e6e6a91d5108df191",
+      "date": "2026-07-28T14:02:23+03:00",
+      "message": "Add referenceValue to PdfFormFieldTemplate and extraction mapping"
+    },
     {
       "version": "0.1.152",
       "hash": "c3a23e9",
@@ -92,216 +302,6 @@ export const siteVersions: SiteVersions = {
       "fullHash": "3e57193d7b523717639dda395a7422efb8e03888",
       "date": "2026-06-22T07:27:23+03:00",
       "message": "Remove stale compiled artifacts committed under packages/shared/src"
-    },
-    {
-      "version": "0.1.142",
-      "hash": "7c19a6d",
-      "fullHash": "7c19a6dcdb429bea2a96744df0e62859d23f4f04",
-      "date": "2026-06-21T21:41:07+03:00",
-      "message": "test: update e2e wizard flows for the new mandatory attach-contract step"
-    },
-    {
-      "version": "0.1.141",
-      "hash": "a6d2eb5",
-      "fullHash": "a6d2eb5f81f06e4d42ae2b984ff020e0ede56b4a",
-      "date": "2026-06-21T21:29:22+03:00",
-      "message": "feat: add mandatory attach-contract wizard step before form-fill/details"
-    },
-    {
-      "version": "0.1.140",
-      "hash": "755f820",
-      "fullHash": "755f820cb243f60ea01bf80989e4a30e2053795a",
-      "date": "2026-06-21T21:24:50+03:00",
-      "message": "feat: prefer sourceContractKey over fileKey as AI text source, resolve full Haknasot field list"
-    },
-    {
-      "version": "0.1.139",
-      "hash": "ddc2aeb",
-      "fullHash": "ddc2aeb815ba475ec6761d93442b03e55d93d8d9",
-      "date": "2026-06-21T21:22:38+03:00",
-      "message": "refactor: rename local var in attachSourceContract to avoid confusion with doc.fileKey"
-    },
-    {
-      "version": "0.1.138",
-      "hash": "2a2339e",
-      "fullHash": "2a2339ecd4cc85013c343ff21c9b5627c58d4154",
-      "date": "2026-06-21T21:19:55+03:00",
-      "message": "feat: add source-contract attach/confirm endpoints"
-    },
-    {
-      "version": "0.1.137",
-      "hash": "e2124d7",
-      "fullHash": "e2124d7ce44d37fe51ee43559bd1eab617f01bba",
-      "date": "2026-06-21T21:16:01+03:00",
-      "message": "feat: add sourceContractKey field and audit event type for contract attachments"
-    },
-    {
-      "version": "0.1.136",
-      "hash": "5668834",
-      "fullHash": "56688348f481c4f409e6ae9dfff7ad96d1166873",
-      "date": "2026-06-21T20:11:04+03:00",
-      "message": "Fix flaky signer-profiles Excel download test under warm Next dev server"
-    },
-    {
-      "version": "0.1.135",
-      "hash": "00a0865",
-      "fullHash": "00a0865b13b903aadb0efd298e2f9547da2a6a6b",
-      "date": "2026-06-21T19:03:58+03:00",
-      "message": "Merge remote-tracking branch 'origin/main' into fix/haknasot-checkboxes-and-date-fields"
-    },
-    {
-      "version": "0.1.134",
-      "hash": "4deb6ab",
-      "fullHash": "4deb6abf5ed5efd6485614967b7155a63114a0c0",
-      "date": "2026-06-21T18:51:56+03:00",
-      "message": "Sync local Claude settings/skills and dev artifacts after template-form-fields merge"
-    },
-    {
-      "version": "0.1.133",
-      "hash": "d1894de",
-      "fullHash": "d1894de4b9731d739a3ceff17f1a26a827687acd",
-      "date": "2026-06-21T18:50:26+03:00",
-      "message": "Merge remote-tracking branch 'origin/fix/haknasot-checkboxes-and-date-fields' into fix/haknasot-checkboxes-and-date-fields"
-    },
-    {
-      "version": "0.1.132",
-      "hash": "9fa4bad",
-      "fullHash": "9fa4badfaf8688046eb4ce37872e06bc79cdb404",
-      "date": "2026-06-21T18:37:46+03:00",
-      "message": "Merge pull request #13 from yaronkinar/worktree-sequential-signer-order"
-    },
-    {
-      "version": "0.1.131",
-      "hash": "2c557d9",
-      "fullHash": "2c557d9f30064972b5eecf2231c1341bc009032c",
-      "date": "2026-06-21T15:25:10Z",
-      "message": "fix: update package-lock.json to include jest dependencies"
-    },
-    {
-      "version": "0.1.130",
-      "hash": "83969aa",
-      "fullHash": "83969aaf82e866929370ff2f2caa6d000e273cc2",
-      "date": "2026-06-21T18:17:37+03:00",
-      "message": "Address review feedback for form fields editor panel"
-    },
-    {
-      "version": "0.1.129",
-      "hash": "429a97c",
-      "fullHash": "429a97c4e44bdafd4eaa871f8e378ad6f425b010",
-      "date": "2026-06-21T18:16:10+03:00",
-      "message": "fix: regenerate CI .env in cleanup step if missing"
-    },
-    {
-      "version": "0.1.128",
-      "hash": "f63e7b2",
-      "fullHash": "f63e7b2cbce120a1fed1e194324ec702f4cd4041",
-      "date": "2026-06-21T13:38:44+03:00",
-      "message": "Add form fields editor panel to TemplateEditorClient"
-    },
-    {
-      "version": "0.1.127",
-      "hash": "dbd91d5",
-      "fullHash": "dbd91d51785887fa6ba16ed5c82c977edcec5021",
-      "date": "2026-06-21T13:34:34+03:00",
-      "message": "fix: suppress waiting label when a rejection halts the sequential chain"
-    },
-    {
-      "version": "0.1.126",
-      "hash": "7cea2f6",
-      "fullHash": "7cea2f65a4b6f21e4b5bfe6900a5c5d8e6b0fee5",
-      "date": "2026-06-21T13:32:26+03:00",
-      "message": "Add template form field endpoints"
-    },
-    {
-      "version": "0.1.125",
-      "hash": "45c32f5",
-      "fullHash": "45c32f5e2143eec13ebc26cdffcbb91b8c3613ad",
-      "date": "2026-06-21T13:30:32+03:00",
-      "message": "feat: show signer turn order and gate signing UI for sequential steps"
-    },
-    {
-      "version": "0.1.124",
-      "hash": "1ba9b97",
-      "fullHash": "1ba9b976693f5caa099b16bb15b0495ef205bcde",
-      "date": "2026-06-21T13:25:21+03:00",
-      "message": "Copy template formFields onto documents created from a saved template"
-    },
-    {
-      "version": "0.1.123",
-      "hash": "32f994a",
-      "fullHash": "32f994a4a7e714a07ef7ac82b39faad844f9ac4e",
-      "date": "2026-06-21T13:24:44+03:00",
-      "message": "feat: enforce sequential signer turn order in recordSignature/recordRejection"
-    },
-    {
-      "version": "0.1.122",
-      "hash": "4e3e8f4",
-      "fullHash": "4e3e8f4cff74d7a463416d9fca6b5b725a6e6bc8",
-      "date": "2026-06-21T13:23:12+03:00",
-      "message": "feat: gate final document approval on resolved comments"
-    },
-    {
-      "version": "0.1.121",
-      "hash": "8428175",
-      "fullHash": "8428175532e25f2278fcbac291e15b60aabf1d02",
-      "date": "2026-06-21T13:20:26+03:00",
-      "message": "Add AI-driven form field extraction for saved templates"
-    },
-    {
-      "version": "0.1.120",
-      "hash": "20ed4c1",
-      "fullHash": "20ed4c18659376a1b575a4f0160697d88c529906",
-      "date": "2026-06-21T13:14:32+03:00",
-      "message": "Add TemplatesService form field CRUD methods"
-    },
-    {
-      "version": "0.1.119",
-      "hash": "5a77bbc",
-      "fullHash": "5a77bbc44d0b27c5083ac2690ae412da1921d23e",
-      "date": "2026-06-21T13:10:24+03:00",
-      "message": "feat: only invite the active signer for sequential workflow steps"
-    },
-    {
-      "version": "0.1.118",
-      "hash": "a586023",
-      "fullHash": "a5860238903eb97ba47f15ef1fe32baaf28c9de3",
-      "date": "2026-06-21T13:10:15+03:00",
-      "message": "Add CreateTemplateFormFieldDto and UpdateTemplateFormFieldDto"
-    },
-    {
-      "version": "0.1.117",
-      "hash": "179229e",
-      "fullHash": "179229e120eb2405b5deffb73e4f52d4b3c5f722",
-      "date": "2026-06-21T13:06:22+03:00",
-      "message": "Add formFields to PdfTemplateDto"
-    },
-    {
-      "version": "0.1.116",
-      "hash": "dd154f7",
-      "fullHash": "dd154f7774f5a199394a1160d141866111ab4bf3",
-      "date": "2026-06-21T13:04:36+03:00",
-      "message": "feat: add getActiveSequentialSigner shared helper for in-step signer order"
-    },
-    {
-      "version": "0.1.115",
-      "hash": "4fee68f",
-      "fullHash": "4fee68fd7445adcdf35d692cbacdc38952a762ce",
-      "date": "2026-06-21T13:03:36+03:00",
-      "message": "Add formFields array to PdfTemplate schema"
-    },
-    {
-      "version": "0.1.114",
-      "hash": "57b5d05",
-      "fullHash": "57b5d05c6ee6fbfc78cda477f37cb443636e005d",
-      "date": "2026-06-21T13:02:32+03:00",
-      "message": "Add jest test infrastructure to apps/api"
-    },
-    {
-      "version": "0.1.113",
-      "hash": "0ae90f4",
-      "fullHash": "0ae90f4b95a99896c18ddd58f8fa7aebbfc29d1d",
-      "date": "2026-06-21T12:58:53+03:00",
-      "message": "docs: add implementation plan for sequential signer turn order"
     }
   ]
 } as const;

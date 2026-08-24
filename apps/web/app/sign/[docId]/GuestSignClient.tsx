@@ -34,6 +34,7 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
     null,
   );
   const [showSigPad, setShowSigPad] = useState(false);
+  const [scrollToFieldId, setScrollToFieldId] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<SignatureDto[]>([]);
   const [signatureFields, setSignatureFields] = useState(data.signatureFields);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +59,18 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
     if (!placementMode) return;
     setPendingPlacement({ page, x, y, width: 15, height: 6 });
     setShowSigPad(true);
+  }
+
+  /**
+   * Signers arrive from an emailed link on page 1, with their field possibly
+   * pages down. Rather than making them hunt for it, jump to the next unsigned
+   * field and open the pad in one press.
+   */
+  function onSignNextField() {
+    const next = pendingFields[0];
+    if (!next) return;
+    setScrollToFieldId(next._id);
+    onFieldClick(next);
   }
 
   function onFieldClick(field: (typeof signatureFields)[number]) {
@@ -110,6 +123,7 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
       }
       setPlacementMode(false);
       setPendingPlacement(null);
+      setScrollToFieldId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('sign.recordSignatureFailed'));
     }
@@ -176,6 +190,7 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
           pdfUrl={viewerPdfUrl}
           signatures={signatures}
           signatureFields={signatureFields}
+          scrollToFieldId={scrollToFieldId}
           formFields={formFields.length > 0 ? formFields : undefined}
           formValues={data.formValues}
           placementMode={placementMode}
@@ -193,12 +208,23 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
               {t('sign.signDocument')}
             </button>
           ) : usesAssignedFields ? (
-            <div className="rounded bg-blue-50 px-4 py-2 text-sm text-blue-800 shadow">
-              {pendingFields.length > 1
-                ? t('sign.clickFieldsToSign')
-                : t('sign.clickFieldToSign')}
-              {pendingFields.length > 1 &&
-                ` (${t('sign.remaining', { count: pendingFields.length })})`}
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={onSignNextField}
+                className="rounded bg-black px-5 py-2 text-sm font-medium text-white shadow"
+              >
+                {pendingFields.length > 1
+                  ? `${t('sign.signNextField')} (${t('sign.remaining', {
+                      count: pendingFields.length,
+                    })})`
+                  : t('sign.signDocument')}
+              </button>
+              {/* The field stays clickable too; this just says so. */}
+              <span className="rounded bg-blue-50 px-3 py-1 text-xs text-blue-800">
+                {pendingFields.length > 1
+                  ? t('sign.clickFieldsToSign')
+                  : t('sign.clickFieldToSign')}
+              </span>
             </div>
           ) : (
             <button
@@ -219,6 +245,8 @@ export function GuestSignClient({ documentId, inviteToken, data }: Props) {
           onClose={() => {
             setShowSigPad(false);
             setPendingPlacement(null);
+            // Clear so pressing the button again re-scrolls to the same field.
+            setScrollToFieldId(null);
           }}
           onComplete={(imageKey) => onSignatureCaptured(imageKey)}
         />

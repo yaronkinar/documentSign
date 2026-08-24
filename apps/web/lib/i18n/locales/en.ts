@@ -432,6 +432,7 @@ export const en = {
     step: 'Step',
     signer: 'Signer',
     signDocument: 'Sign Document',
+    signNextField: 'Sign next field',
     clickFieldToSign: 'Click your highlighted signature field',
     clickFieldsToSign: 'Click your highlighted signature fields',
     remaining: '{{count}} remaining',

@@ -30,6 +30,13 @@ export interface PDFViewerProps {
   onPdfUrlExpired?: () => void;
   signatures?: SignatureDto[];
   signatureFields?: SignatureFieldDto[];
+  /**
+   * Bring this signature field into view. Signers land on page 1 with their
+   * field potentially pages away, so the sign button drives this rather than
+   * leaving them to hunt for it. Set back to null once handled so a later
+   * press can scroll to the same field again.
+   */
+  scrollToFieldId?: string | null;
   comments?: CommentDto[];
   placementMode?: boolean;
   fieldPlacementMode?: boolean;
@@ -242,6 +249,13 @@ const EDGE_SCROLL_ZONE = 90;
 const EDGE_SCROLL_MAX_SPEED = 24;
 
 /**
+ * How long to keep waiting for a target field's overlay to mount. Pages render
+ * lazily, so scrolling to a far page mounts its overlay only after the render
+ * completes — a slow page should not leave the signer stranded forever.
+ */
+const SCROLL_TO_FIELD_TIMEOUT_MS = 4000;
+
+/**
  * Scrolls the page list while the cursor sits near its top/bottom edge during
  * a drag. Without this, a field can only be dropped on a page that is already
  * on screen — and since a PDF page is usually taller than the viewport, that
@@ -353,6 +367,45 @@ export function PDFViewer(props: PDFViewerProps) {
     // this effect, and re-running on a new callback identity would refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.pdfUrl, t]);
+
+  useEffect(() => {
+    const fieldId = props.scrollToFieldId;
+    const root = containerRef.current;
+    if (!fieldId || !root) return;
+
+    const field = (props.signatureFields ?? []).find((f) => f._id === fieldId);
+    if (!field) return;
+
+    let cancelled = false;
+
+    // Stage 1: the field's overlay only exists once its page has rendered, and
+    // pages render lazily on intersection. Scrolling to the page wrapper —
+    // which is always mounted at its true height — triggers that render.
+    root
+      .querySelector(`[data-page-number="${field.pageNumber}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Stage 2: once the overlay mounts, centre the field itself.
+    const deadline = Date.now() + SCROLL_TO_FIELD_TIMEOUT_MS;
+    function centreField() {
+      if (cancelled) return;
+      const el = root!.querySelector(`[data-sfield="${fieldId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (Date.now() < deadline) requestAnimationFrame(centreField);
+    }
+    requestAnimationFrame(centreField);
+
+    return () => {
+      cancelled = true;
+    };
+    // signatureFields is read only to look up the target's page number, which
+    // never changes for a given id; re-running when a field gets signed would
+    // yank the signer back to a field they just finished.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.scrollToFieldId]);
 
   return (
     <div

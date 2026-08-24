@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: DocFlow
+        - heading "E2E send-sign-download 1787586467571" [level=1] [ref=e8]
+        - generic [ref=e9]: "Step: אישורים · Signer: אישור מנהל האגף"
+      - generic [ref=e10]:
+        - button "English" [ref=e12] [cursor=pointer]
+        - generic [ref=e13]:
+          - generic [ref=e14]: "|"
+          - button "Hebrew" [ref=e15] [cursor=pointer]
+    - generic [ref=e18]:
+      - button "Sign Document" [ref=e19] [cursor=pointer]
+      - generic [ref=e20]: Click your highlighted signature field
+  - region "Notifications alt+T"
+  - alert [ref=e21]

@@ -132,6 +132,73 @@ export function anchorFieldsToPdfText(
   });
 }
 
+function normalizeValueText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Confirms each field's vision-read value against the PDF text layer, and
+ * moves the field's box onto the text that was found.
+ *
+ * Vision models read a form's values accurately but locate them poorly — the
+ * same value comes back with wildly different coordinates from different
+ * models — so the model supplies the value and the text layer supplies the
+ * position, each doing what it is reliable at.
+ *
+ * A value the text layer cannot confirm is dropped rather than kept. These
+ * are shown to users as "what the source document says", and the model will
+ * confidently report values that never appeared in the document, so an
+ * unverifiable value is worse than none.
+ */
+export function resolveFieldReferenceValues(
+  fields: ExtractedTemplateField[],
+  lines: PdfTextLine[],
+): ExtractedTemplateField[] {
+  return fields.map((field) => {
+    const { value: visionValue, ...rest } = field;
+    const wanted = normalizeValueText(visionValue ?? '');
+    // Two-character values ("א'", "2") match far too much to be trustworthy.
+    if (wanted.length < 3) return rest;
+
+    const candidates = lines.filter((line) => {
+      if (line.pageNumber !== field.pageNumber) return false;
+      const str = normalizeValueText(line.str);
+      if (!str) return false;
+      return (
+        str === wanted ||
+        str.includes(wanted) ||
+        (str.length >= 3 && wanted.includes(str))
+      );
+    });
+    if (candidates.length === 0) return rest;
+
+    // The same text can appear several times; prefer the occurrence nearest
+    // where vision thought the field was, then the closest exact match.
+    const best = candidates.sort((a, b) => {
+      const aExact = normalizeValueText(a.str) === wanted ? 0 : 1;
+      const bExact = normalizeValueText(b.str) === wanted ? 0 : 1;
+      if (aExact !== bExact) return aExact - bExact;
+      return (
+        Math.abs(a.yTopPct - field.y) - Math.abs(b.yTopPct - field.y)
+      );
+    })[0]!;
+
+    const matched = normalizeValueText(best.str);
+    return {
+      ...rest,
+      // Snap the box onto the text we actually found. Vision reads values
+      // reliably but places them poorly, so the text layer owns the position.
+      x: Number(Math.max(0, Math.min(99, best.xPct)).toFixed(2)),
+      y: Number(Math.max(0, Math.min(99, best.yTopPct - 0.5)).toFixed(2)),
+      width: Number(
+        Math.min(Math.max(best.widthPct, 8), 100 - best.xPct).toFixed(2),
+      ),
+      height: field.height,
+      value: matched.includes(wanted) && wanted.length >= 3 ? wanted : matched,
+    };
+  });
+}
+
 function extractLabelFromSignatureLine(line: PdfTextLine): string | null {
   if (/דמה לבדיקת|זיהוי חותמים/i.test(line.str)) return null;
   if (/חתימת החוזה ויוחזר|עם חתימת החוזה/i.test(line.str)) return null;

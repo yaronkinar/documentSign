@@ -22,6 +22,12 @@ export interface TemplateEditField {
 
 export interface PDFViewerProps {
   pdfUrl: string;
+  /**
+   * Fired when the PDF URL is rejected as expired (401/403). Signed storage
+   * links are short-lived, so an editing session can outlive the one minted
+   * at page load; the owner should supply a fresh `pdfUrl` in response.
+   */
+  onPdfUrlExpired?: () => void;
   signatures?: SignatureDto[];
   signatureFields?: SignatureFieldDto[];
   comments?: CommentDto[];
@@ -78,7 +84,12 @@ export interface PDFViewerProps {
   selectedTemplateFieldId?: string | null;
   onTemplateFieldSelect?: (id: string | null) => void;
   onTemplateFieldAdd?: (page: number, xPct: number, yPct: number) => void;
-  onTemplateFieldMove?: (id: string, x: number, y: number) => void;
+  onTemplateFieldMove?: (
+    id: string,
+    pageNumber: number,
+    x: number,
+    y: number,
+  ) => void;
   onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }
 
@@ -211,6 +222,65 @@ function lockDragSurface() {
   };
 }
 
+/** Nearest scrollable ancestor, so a drag can scroll the page list. */
+function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+  let node = el;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (
+      /(auto|scroll|overlay)/.test(overflowY) &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+const EDGE_SCROLL_ZONE = 90;
+const EDGE_SCROLL_MAX_SPEED = 24;
+
+/**
+ * Scrolls the page list while the cursor sits near its top/bottom edge during
+ * a drag. Without this, a field can only be dropped on a page that is already
+ * on screen — and since a PDF page is usually taller than the viewport, that
+ * makes dragging a field to another page impossible at normal zoom.
+ */
+function startEdgeAutoScroll(container: HTMLElement | null) {
+  if (!container) {
+    return { update: () => {}, stop: () => {} };
+  }
+
+  let cursorY: number | null = null;
+  let frame = 0;
+
+  function tick() {
+    frame = requestAnimationFrame(tick);
+    if (cursorY == null) return;
+    const rect = container!.getBoundingClientRect();
+    const fromTop = cursorY - rect.top;
+    const fromBottom = rect.bottom - cursorY;
+
+    let delta = 0;
+    if (fromTop < EDGE_SCROLL_ZONE) {
+      delta = -EDGE_SCROLL_MAX_SPEED * (1 - Math.max(fromTop, 0) / EDGE_SCROLL_ZONE);
+    } else if (fromBottom < EDGE_SCROLL_ZONE) {
+      delta = EDGE_SCROLL_MAX_SPEED * (1 - Math.max(fromBottom, 0) / EDGE_SCROLL_ZONE);
+    }
+    if (delta !== 0) container!.scrollTop += delta;
+  }
+
+  frame = requestAnimationFrame(tick);
+
+  return {
+    update: (clientY: number) => {
+      cursorY = clientY;
+    },
+    stop: () => cancelAnimationFrame(frame),
+  };
+}
+
 /**
  * Renders a PDF using pdfjs-dist with progressive loading:
  * page 1 appears as soon as it is ready; other pages render when scrolled near.
@@ -260,6 +330,13 @@ export function PDFViewer(props: PDFViewerProps) {
         setLoading(false);
       } catch (err) {
         if (!cancelled) {
+          // The PDF URL is a short-lived signed link, so a long editing
+          // session outlives it. Let the owner mint a fresh one; swapping
+          // pdfUrl re-runs this effect and clears the error.
+          const status = (err as { status?: number })?.status;
+          if (status === 401 || status === 403) {
+            props.onPdfUrlExpired?.();
+          }
           setError(
             err instanceof Error ? err.message : t('pdf.renderFailed'),
           );
@@ -272,6 +349,9 @@ export function PDFViewer(props: PDFViewerProps) {
       cancelled = true;
       loadingTask?.destroy();
     };
+    // onPdfUrlExpired is intentionally not a dependency: it only fires from
+    // this effect, and re-running on a new callback identity would refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.pdfUrl, t]);
 
   return (
@@ -486,7 +566,12 @@ function LazyPDFPage({
   selectedTemplateFieldId?: string | null;
   onTemplateFieldSelect?: (id: string | null) => void;
   onTemplateFieldAdd?: (page: number, xPct: number, yPct: number) => void;
-  onTemplateFieldMove?: (id: string, x: number, y: number) => void;
+  onTemplateFieldMove?: (
+    id: string,
+    pageNumber: number,
+    x: number,
+    y: number,
+  ) => void;
   onTemplateFieldResize?: (id: string, width: number, height: number) => void;
 }) {
   const { t } = useTranslation();
@@ -689,8 +774,18 @@ function LazyPDFPage({
     const startFieldY = field.y;
     const startWidth = field.width;
     const startHeight = field.height;
+    // Where inside the box the cursor grabbed it, so the drop can reconstruct
+    // the box's top-left from the cursor even after it was clamped to a page.
+    const startRect = fieldEl.getBoundingClientRect();
+    const grabOffsetX = startMouseX - startRect.left;
+    const grabOffsetY = startMouseY - startRect.top;
 
     onTemplateFieldSelect?.(field.id);
+
+    const autoScroll =
+      mode === 'move'
+        ? startEdgeAutoScroll(findScrollParent(fieldEl))
+        : { update: () => {}, stop: () => {} };
 
     function onMouseMove(ev: MouseEvent) {
       const overlay = overlayRef.current;
@@ -700,6 +795,7 @@ function LazyPDFPage({
       const dy = ((ev.clientY - startMouseY) / rect.height) * 100;
 
       if (mode === 'move') {
+        autoScroll.update(ev.clientY);
         const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
         const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
         fieldEl.style.left = `${newX}%`;
@@ -713,6 +809,7 @@ function LazyPDFPage({
     }
 
     function onMouseUp(ev: MouseEvent) {
+      autoScroll.stop();
       const overlay = overlayRef.current;
       if (overlay) {
         const rect = overlay.getBoundingClientRect();
@@ -725,7 +822,22 @@ function LazyPDFPage({
           if (mode === 'move') {
             const newX = Math.max(0, Math.min(100 - field.width, startFieldX + dx));
             const newY = Math.max(0, Math.min(100 - field.height, startFieldY + dy));
-            onTemplateFieldMove?.(field.id, newX, newY);
+            // Resolve the drop against the page under the cursor, so a field
+            // can be dragged onto a different page. The cursor (not the box)
+            // decides the page, because the box stays visually clamped inside
+            // its current page while dragging.
+            fieldEl.style.left = '';
+            fieldEl.style.top = '';
+            const drop =
+              resolvePageDropTarget(
+                ev.clientX - grabOffsetX,
+                ev.clientY - grabOffsetY,
+                field.width,
+                field.height,
+                ev.clientX,
+                ev.clientY,
+              ) ?? { pageNumber, x: newX, y: newY };
+            onTemplateFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);
           } else {
             const newW = Math.max(5, startWidth + dx);
             const newH = Math.max(2, startHeight + dy);
@@ -889,16 +1001,23 @@ function LazyPDFPage({
     const startFieldY = field.y;
     const startWidth = field.width;
     const startHeight = field.height;
+    // Where inside the box the cursor grabbed it, so the drop can reconstruct
+    // the box's top-left from the cursor even after it was clamped to a page.
+    const startRect = fieldEl.getBoundingClientRect();
+    const grabOffsetX = startMouseX - startRect.left;
+    const grabOffsetY = startMouseY - startRect.top;
 
     if (mode === 'move') {
       const startOverlay = overlayRef.current;
       if (!startOverlay) return;
       const unlockDragSurface = lockDragSurface();
+      const autoScroll = startEdgeAutoScroll(findScrollParent(fieldEl));
       let currentX = startFieldX;
       let currentY = startFieldY;
 
       function onMouseMove(ev: MouseEvent) {
         ev.preventDefault();
+        autoScroll.update(ev.clientY);
         const overlay = overlayRef.current;
         if (!overlay) return;
         const rect = overlay.getBoundingClientRect();
@@ -918,23 +1037,27 @@ function LazyPDFPage({
 
       function onMouseUp(ev: MouseEvent) {
         unlockDragSurface();
+        autoScroll.stop();
         const moved =
           Math.abs(ev.clientX - startMouseX) > 3 ||
           Math.abs(ev.clientY - startMouseY) > 3;
 
-        const fieldRect = fieldEl.getBoundingClientRect();
         fieldEl.style.left = '';
         fieldEl.style.top = '';
 
         if (moved) {
+          // Resolve the drop against the page under the cursor, so a field can
+          // be dragged onto a different page. The cursor (not the box) decides
+          // the page, because the box stays visually clamped inside its
+          // current page while dragging.
           const drop =
             resolvePageDropTarget(
-              fieldRect.left,
-              fieldRect.top,
+              ev.clientX - grabOffsetX,
+              ev.clientY - grabOffsetY,
               field.width,
               field.height,
-              fieldRect.left + fieldRect.width / 2,
-              fieldRect.top + fieldRect.height / 2,
+              ev.clientX,
+              ev.clientY,
             ) ?? { pageNumber, x: currentX, y: currentY };
           justDraggedRef.current = true;
           onFormFieldMove?.(field.id, drop.pageNumber, drop.x, drop.y);

@@ -49,6 +49,8 @@ function buildService(doc: unknown) {
       .fn()
       .mockResolvedValue({ supplier_name: 'חברת דוגמה בע"מ' }),
     summarizeDocumentText: jest.fn().mockResolvedValue('a short summary'),
+    extractSignerRoles: jest.fn().mockResolvedValue([]),
+    extractTemplateFieldsFromPdf: jest.fn().mockResolvedValue([]),
   };
   const auditService = { log: jest.fn() };
 
@@ -157,6 +159,97 @@ describe('DocumentsService.extractFormValues', () => {
     expect(result).toEqual({ values: {} });
     expect(aiService.extractFormFieldValues).not.toHaveBeenCalled();
   });
+
+  it('does not overwrite a value the user already entered', async () => {
+    // Extraction can run again (re-attaching a contract), and a guessed value
+    // silently replacing entered data is worse than leaving the field alone.
+    const doc = buildDoc({ formValues: { supplier_name: 'מה שהמשתמש הקליד' } });
+    const { service } = buildService(doc);
+
+    const result = await service.extractFormValues(String(doc._id), 'owner1');
+
+    expect(result.values.supplier_name).toBe('מה שהמשתמש הקליד');
+  });
+
+  it('fills a field left blank', async () => {
+    const doc = buildDoc({ formValues: { supplier_name: '   ' } });
+    const { service } = buildService(doc);
+
+    const result = await service.extractFormValues(String(doc._id), 'owner1');
+
+    expect(result.values.supplier_name).toBe('חברת דוגמה בע"מ');
+  });
+});
+
+describe('DocumentsService.extractFormFields', () => {
+  function buildFieldsService(doc: unknown, extracted: unknown[]) {
+    const built = buildService(doc);
+    built.aiService.extractPdfText.mockResolvedValue('שם ספק: חברת דוגמה');
+    built.aiService.extractTemplateFieldsFromPdf.mockResolvedValue(extracted);
+    return built;
+  }
+
+  it('keeps an existing referenceValue when re-extraction finds no match for that field', async () => {
+    const doc = buildDoc({
+      formFields: [
+        {
+          id: 'supplier_name',
+          label: 'שם ספק',
+          type: 'text',
+          section: 'details',
+          pageNumber: 1,
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          referenceValue: '2026-0847',
+        },
+      ],
+    });
+    const { service } = buildFieldsService(doc, []);
+
+    const result = await service.extractFormFields(String(doc._id), 'owner1');
+
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0]).toMatchObject({
+      id: 'supplier_name',
+      referenceValue: '2026-0847',
+    });
+    expect((doc.formFields as Array<{ referenceValue?: string | null }>)[0].referenceValue).toBe(
+      '2026-0847',
+    );
+    expect(doc.save).toHaveBeenCalled();
+  });
+
+  it('refreshes referenceValue from a fresh extraction at the same placement', async () => {
+    const doc = buildDoc({
+      formFields: [
+        {
+          id: 'supplier_name',
+          label: 'שם ספק',
+          type: 'text',
+          section: 'details',
+          pageNumber: 1,
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          referenceValue: 'old value',
+        },
+      ],
+    });
+    const { service } = buildFieldsService(doc, [
+      { label: 'שם ספק', pageNumber: 1, x: 10, y: 10, width: 20, height: 6, value: 'חברת דוגמה' },
+    ]);
+
+    const result = await service.extractFormFields(String(doc._id), 'owner1');
+
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0]).toMatchObject({
+      id: 'supplier_name',
+      referenceValue: 'חברת דוגמה',
+    });
+  });
 });
 
 describe('DocumentsService.createFromPdfTemplate', () => {
@@ -206,6 +299,63 @@ describe('DocumentsService.createFromPdfTemplate', () => {
     expect(result.formFields).toEqual([
       { id: 'supplier_name', label: 'שם ספק', type: 'text', section: 'general', pageNumber: 1, x: 10, y: 10, width: 20, height: 6 },
     ]);
+  });
+
+  it('carries referenceValue from the template formFields onto the new document', async () => {
+    const documentModel = jest.fn().mockImplementation((data: Record<string, unknown>) => ({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      workflowSteps: [],
+      save: jest.fn().mockResolvedValue(undefined),
+    }));
+    const storageService = {
+      uploadBuffer: jest.fn().mockResolvedValue(undefined),
+      getDownloadUrl: jest.fn().mockResolvedValue('https://example.com/doc.pdf'),
+    };
+    const auditService = { log: jest.fn() };
+    const templatesService = {
+      readTemplatePdf: jest.fn().mockResolvedValue({
+        buffer: Buffer.from('pdf bytes'),
+        fileSize: 100,
+        pageCount: 2,
+        name: 'My template',
+        formFields: [
+          {
+            id: 'supplier_name',
+            label: 'שם ספק',
+            type: 'text',
+            section: 'general',
+            pageNumber: 1,
+            x: 10,
+            y: 10,
+            width: 20,
+            height: 6,
+            referenceValue: '2026-0847',
+          },
+        ],
+      }),
+    };
+
+    const service = new DocumentsService(
+      documentModel as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      storageService as never,
+      auditService as never,
+      {} as never,
+      {} as never,
+      templatesService as never,
+    );
+
+    const result = await service.createFromPdfTemplate('owner1', 'owner1@example.com', {
+      title: 'New doc',
+      pdfTemplateId: 'template-1',
+    } as never);
+
+    expect(result.formFields?.[0]?.referenceValue).toBe('2026-0847');
   });
 });
 

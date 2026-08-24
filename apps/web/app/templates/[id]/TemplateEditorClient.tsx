@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { PdfFormFieldTemplate, PdfFormFieldType, PdfTemplateDto } from '@docflow/shared';
 
 import { PDFViewer, type TemplateEditField } from '@/components/pdf/PDFViewer';
 import { useApiClient } from '@/lib/api-client';
+import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { ensureSignerProfilesForRoles } from '@/lib/signer-profile-workflow';
 
 interface Props {
@@ -52,6 +53,7 @@ function toEditFields(template: PdfTemplateDto): TemplateEditField[] {
 export function TemplateEditorClient({ template }: Props) {
   const router = useRouter();
   const api = useApiClient();
+  const { t } = useTranslation();
 
   const [name, setName] = useState(template.name);
   const [isDefault, setIsDefault] = useState(template.isDefault);
@@ -73,6 +75,23 @@ export function TemplateEditorClient({ template }: Props) {
   const [formFieldBusy, setFormFieldBusy] = useState(false);
   const [formFieldError, setFormFieldError] = useState<string | null>(null);
 
+  // The URL rendered into the page is a signed link that expires well before
+  // a long editing session ends, so keep it in state and re-mint on demand.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(template.fileUrl);
+  const pdfUrlRetries = useRef(0);
+
+  const refreshPdfUrl = useCallback(async () => {
+    // Bounded: if refreshing keeps failing, stop rather than loop on the API.
+    if (pdfUrlRetries.current >= 3) return;
+    pdfUrlRetries.current += 1;
+    try {
+      const fresh = await api.get<PdfTemplateDto>(`/templates/${template._id}`);
+      if (fresh.fileUrl) setPdfUrl(fresh.fileUrl);
+    } catch {
+      // Leave the viewer's own error visible; a reload still recovers.
+    }
+  }, [api, template._id]);
+
   const selectedField = fields.find((f) => f.id === selectedId) ?? null;
 
   const handleFieldAdd = useCallback(
@@ -80,7 +99,7 @@ export function TemplateEditorClient({ template }: Props) {
       const id = `new-${++localFieldCounter}`;
       const newField: TemplateEditField = {
         id,
-        label: `Field ${fields.length + 1}`,
+        label: t('templates.editor.fieldDefaultLabel', { n: fields.length + 1 }),
         pageNumber: page,
         x,
         y,
@@ -91,14 +110,17 @@ export function TemplateEditorClient({ template }: Props) {
       setSelectedId(id);
       setAddMode(false);
     },
-    [fields.length],
+    [fields.length, t],
   );
 
-  const handleFieldMove = useCallback((id: string, x: number, y: number) => {
-    setFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, x, y } : f)),
-    );
-  }, []);
+  const handleFieldMove = useCallback(
+    (id: string, pageNumber: number, x: number, y: number) => {
+      setFields((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, pageNumber, x, y } : f)),
+      );
+    },
+    [],
+  );
 
   const handleFieldResize = useCallback(
     (id: string, width: number, height: number) => {
@@ -124,9 +146,7 @@ export function TemplateEditorClient({ template }: Props) {
 
   async function handleExtractFields() {
     if (fields.length > 0) {
-      const shouldReplace = confirm(
-        'Replace the current draft fields with AI-detected fields?',
-      );
+      const shouldReplace = confirm(t('templates.editor.replaceConfirm'));
       if (!shouldReplace) return;
     }
 
@@ -151,11 +171,11 @@ export function TemplateEditorClient({ template }: Props) {
           uniqueFieldLabels(nextFields),
         );
       } else {
-        setExtractError('AI did not find any fields in this PDF.');
+        setExtractError(t('templates.editor.aiNoFields'));
       }
     } catch (err) {
       setExtractError(
-        err instanceof Error ? err.message : 'Failed to extract fields',
+        err instanceof Error ? err.message : t('templates.editor.extractFailed'),
       );
     } finally {
       setExtracting(false);
@@ -169,7 +189,9 @@ export function TemplateEditorClient({ template }: Props) {
         const res = await api.post<{ formFields: PdfFormFieldTemplate[] }>(
           `/templates/${template._id}/form-fields`,
           {
-            label: `Field ${formFields.length + 1}`,
+            label: t('templates.editor.fieldDefaultLabel', {
+              n: formFields.length + 1,
+            }),
             pageNumber: page,
             x: Number(x.toFixed(2)),
             y: Number(y.toFixed(2)),
@@ -179,10 +201,12 @@ export function TemplateEditorClient({ template }: Props) {
         setActiveFormFieldId(res.formFields.at(-1)?.id ?? null);
         setFormFieldPlacementMode(false);
       } catch (err) {
-        setFormFieldError(err instanceof Error ? err.message : 'Failed to add field');
+        setFormFieldError(
+          err instanceof Error ? err.message : t('templates.editor.addFieldFailed'),
+        );
       }
     },
-    [formFieldPlacementMode, formFields.length, api, template._id],
+    [formFieldPlacementMode, formFields.length, api, template._id, t],
   );
 
   const onFormFieldMove = useCallback(
@@ -195,10 +219,12 @@ export function TemplateEditorClient({ template }: Props) {
         );
         setFormFields(res.formFields);
       } catch (err) {
-        setFormFieldError(err instanceof Error ? err.message : 'Failed to move field');
+        setFormFieldError(
+          err instanceof Error ? err.message : t('templates.editor.moveFieldFailed'),
+        );
       }
     },
-    [api, template._id],
+    [api, template._id, t],
   );
 
   const onFormFieldResize = useCallback(
@@ -211,10 +237,12 @@ export function TemplateEditorClient({ template }: Props) {
         );
         setFormFields(res.formFields);
       } catch (err) {
-        setFormFieldError(err instanceof Error ? err.message : 'Failed to resize field');
+        setFormFieldError(
+          err instanceof Error ? err.message : t('templates.editor.resizeFieldFailed'),
+        );
       }
     },
-    [api, template._id],
+    [api, template._id, t],
   );
 
   async function updateFormFieldLabel(fieldId: string, label: string) {
@@ -227,7 +255,9 @@ export function TemplateEditorClient({ template }: Props) {
       );
       setFormFields(res.formFields);
     } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to update field');
+      setFormFieldError(
+        err instanceof Error ? err.message : t('templates.editor.updateFieldFailed'),
+      );
     } finally {
       setFormFieldBusy(false);
     }
@@ -243,7 +273,9 @@ export function TemplateEditorClient({ template }: Props) {
       );
       setFormFields(res.formFields);
     } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to update field');
+      setFormFieldError(
+        err instanceof Error ? err.message : t('templates.editor.updateFieldFailed'),
+      );
     } finally {
       setFormFieldBusy(false);
     }
@@ -259,7 +291,9 @@ export function TemplateEditorClient({ template }: Props) {
       setFormFields(res.formFields);
       setActiveFormFieldId(null);
     } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to delete field');
+      setFormFieldError(
+        err instanceof Error ? err.message : t('templates.editor.deleteFieldFailed'),
+      );
     } finally {
       setFormFieldBusy(false);
     }
@@ -274,7 +308,11 @@ export function TemplateEditorClient({ template }: Props) {
       );
       setFormFields(res.fields);
     } catch (err) {
-      setFormFieldError(err instanceof Error ? err.message : 'Failed to extract form fields');
+      setFormFieldError(
+        err instanceof Error
+          ? err.message
+          : t('templates.editor.extractFormFieldsFailed'),
+      );
     } finally {
       setFormFieldBusy(false);
     }
@@ -305,7 +343,9 @@ export function TemplateEditorClient({ template }: Props) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save');
+      setSaveError(
+        err instanceof Error ? err.message : t('templates.editor.saveFailed'),
+      );
     } finally {
       setSaving(false);
     }
@@ -324,7 +364,7 @@ export function TemplateEditorClient({ template }: Props) {
                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
             }`}
           >
-            Signature fields
+            {t('templates.editor.signatureFields')}
           </button>
           <button
             onClick={() => setMode('form-fields')}
@@ -334,7 +374,7 @@ export function TemplateEditorClient({ template }: Props) {
                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
             }`}
           >
-            Form fields
+            {t('templates.editor.formFields')}
           </button>
         </div>
         {addMode && (
@@ -342,18 +382,19 @@ export function TemplateEditorClient({ template }: Props) {
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Click anywhere on the PDF to place a field
+            {t('templates.editor.placeHint')}
             <button
               onClick={() => setAddMode(false)}
-              className="ml-auto text-xs underline"
+              className="ms-auto text-xs underline"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         )}
-        {template.fileUrl ? (
+        {pdfUrl ? (
           <PDFViewer
-            pdfUrl={template.fileUrl}
+            pdfUrl={pdfUrl}
+            onPdfUrlExpired={refreshPdfUrl}
             templateEditMode={mode === 'signatures'}
             templateEditFields={mode === 'signatures' ? fields : undefined}
             selectedTemplateFieldId={mode === 'signatures' ? selectedId : null}
@@ -373,13 +414,13 @@ export function TemplateEditorClient({ template }: Props) {
           />
         ) : (
           <div className="flex items-center justify-center py-32 text-sm text-gray-400">
-            No PDF uploaded for this template.
+            {t('templates.editor.noPdf')}
           </div>
         )}
       </div>
 
       {/* Right panel */}
-      <div className="w-72 shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
+      <div className="w-72 shrink-0 overflow-y-auto border-s border-gray-200 bg-white">
         <div className="flex flex-col h-full p-4 gap-5">
           {/* Back */}
           <button
@@ -389,13 +430,13 @@ export function TemplateEditorClient({ template }: Props) {
             <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to templates
+            {t('templates.editor.backToTemplates')}
           </button>
 
           {/* Name */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Template name
+              {t('templates.editor.nameLabel')}
             </label>
             <input
               type="text"
@@ -413,7 +454,7 @@ export function TemplateEditorClient({ template }: Props) {
               onChange={(e) => setIsDefault(e.target.checked)}
               className="rounded"
             />
-            <span className="text-sm text-gray-700">Set as default template</span>
+            <span className="text-sm text-gray-700">{t('templates.editor.setDefault')}</span>
           </label>
 
           <hr className="border-gray-200" />
@@ -429,15 +470,19 @@ export function TemplateEditorClient({ template }: Props) {
                     : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                {addMode ? 'Click on PDF to place…' : '+ Add field'}
+                {addMode
+                  ? t('templates.editor.clickOnPdf')
+                  : t('templates.editor.addField')}
               </button>
 
               <button
                 onClick={handleExtractFields}
-                disabled={extracting || !template.fileUrl}
+                disabled={extracting || !pdfUrl}
                 className="w-full rounded-md border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100 disabled:opacity-50"
               >
-                {extracting ? 'AI is extracting…' : 'AI extract fields'}
+                {extracting
+                  ? t('templates.editor.aiExtracting')
+                  : t('templates.editor.aiExtractFields')}
               </button>
               {extractError && (
                 <p className="text-xs text-red-600">{extractError}</p>
@@ -446,9 +491,13 @@ export function TemplateEditorClient({ template }: Props) {
               {/* Selected field properties */}
               {selectedField && (
                 <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-blue-700">Selected field</p>
+                  <p className="text-xs font-semibold text-blue-700">
+                    {t('templates.editor.selectedField')}
+                  </p>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Label</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      {t('templates.editor.labelLabel')}
+                    </label>
                     <input
                       type="text"
                       value={selectedField.label}
@@ -457,16 +506,23 @@ export function TemplateEditorClient({ template }: Props) {
                     />
                   </div>
                   <div className="text-xs text-gray-500">
-                    Page {selectedField.pageNumber} · ({selectedField.x.toFixed(1)}%, {selectedField.y.toFixed(1)}%)
+                    {t('templates.editor.position', {
+                      page: selectedField.pageNumber,
+                      x: selectedField.x.toFixed(1),
+                      y: selectedField.y.toFixed(1),
+                    })}
                   </div>
                   <div className="text-xs text-gray-500">
-                    Size: {selectedField.width.toFixed(1)}% × {selectedField.height.toFixed(1)}%
+                    {t('templates.editor.size', {
+                      width: selectedField.width.toFixed(1),
+                      height: selectedField.height.toFixed(1),
+                    })}
                   </div>
                   <button
                     onClick={deleteSelected}
                     className="w-full rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                   >
-                    Remove field
+                    {t('templates.editor.removeField')}
                   </button>
                 </div>
               )}
@@ -474,11 +530,11 @@ export function TemplateEditorClient({ template }: Props) {
               {/* Fields list */}
               <div className="flex-1">
                 <p className="mb-2 text-xs font-medium text-gray-700">
-                  Fields ({fields.length})
+                  {t('templates.editor.fieldsCount', { count: fields.length })}
                 </p>
                 {fields.length === 0 ? (
                   <p className="text-xs text-gray-400">
-                    No fields yet. Click &ldquo;+ Add field&rdquo; then click on the PDF.
+                    {t('templates.editor.noFieldsYet')}
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -492,8 +548,12 @@ export function TemplateEditorClient({ template }: Props) {
                             : 'border-gray-200 hover:bg-gray-50'
                         }`}
                       >
-                        <span className="font-medium">{f.label || 'Untitled'}</span>
-                        <span className="ml-2 text-gray-400">p.{f.pageNumber}</span>
+                        <span className="font-medium">
+                            {f.label || t('templates.editor.untitledField')}
+                          </span>
+                        <span className="ms-2 text-gray-400">
+                            {t('templates.editor.pageAbbrev', { page: f.pageNumber })}
+                          </span>
                       </button>
                     ))}
                   </div>
@@ -513,7 +573,9 @@ export function TemplateEditorClient({ template }: Props) {
                     : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                {formFieldPlacementMode ? 'Click on PDF to place…' : '+ Add form field'}
+                {formFieldPlacementMode
+                  ? t('templates.editor.clickOnPdf')
+                  : t('templates.editor.addFormField')}
               </button>
 
               <button
@@ -521,17 +583,21 @@ export function TemplateEditorClient({ template }: Props) {
                 disabled={formFieldBusy}
                 className="w-full rounded-md border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100 disabled:opacity-50"
               >
-                {formFieldBusy ? 'AI is extracting…' : 'AI extract form fields'}
+                {formFieldBusy
+                  ? t('templates.editor.aiExtracting')
+                  : t('templates.editor.aiExtractFormFields')}
               </button>
               {formFieldError && <p className="text-xs text-red-600">{formFieldError}</p>}
 
               <div className="flex-1">
                 <p className="mb-2 text-xs font-medium text-gray-700">
-                  Form fields ({formFields.length})
+                  {t('templates.editor.formFieldsCount', {
+                    count: formFields.length,
+                  })}
                 </p>
                 {formFields.length === 0 ? (
                   <p className="text-xs text-gray-400">
-                    No form fields yet. Click &ldquo;+ Add form field&rdquo; then click on the PDF.
+                    {t('templates.editor.noFormFieldsYet')}
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -545,8 +611,17 @@ export function TemplateEditorClient({ template }: Props) {
                               : 'border-gray-200 hover:bg-gray-50'
                           }`}
                         >
-                          <span className="font-medium">{f.label || 'Untitled'}</span>
-                          <span className="ml-2 text-gray-400">p.{f.pageNumber}</span>
+                          <span className="font-medium">
+                            {f.label || t('templates.editor.untitledField')}
+                          </span>
+                          <span className="ms-2 text-gray-400">
+                            {t('templates.editor.pageAbbrev', { page: f.pageNumber })}
+                          </span>
+                          {f.referenceValue && (
+                            <span dir="auto" className="block truncate text-fg-muted">
+                              {f.referenceValue}
+                            </span>
+                          )}
                         </button>
                         {f.id === activeFormFieldId && (
                           <div className="mt-1 space-y-2 rounded-md border border-blue-200 bg-blue-50 p-3">
@@ -566,16 +641,16 @@ export function TemplateEditorClient({ template }: Props) {
                               onChange={(e) => void updateFormFieldType(f.id, e.target.value as PdfFormFieldType)}
                               className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                             >
-                              <option value="text">Text</option>
-                              <option value="textarea">Long text</option>
-                              <option value="date">Date</option>
+                              <option value="text">{t('templates.editor.typeText')}</option>
+                              <option value="textarea">{t('templates.editor.typeLongText')}</option>
+                              <option value="date">{t('templates.editor.typeDate')}</option>
                             </select>
                             <button
                               onClick={() => void deleteFormField(f.id)}
                               disabled={formFieldBusy}
                               className="w-full rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                             >
-                              Remove field
+                              {t('templates.editor.removeField')}
                             </button>
                           </div>
                         )}
@@ -593,14 +668,14 @@ export function TemplateEditorClient({ template }: Props) {
               <p className="text-xs text-red-600">{saveError}</p>
             )}
             {saved && (
-              <p className="text-xs text-green-600">Saved!</p>
+              <p className="text-xs text-green-600">{t('templates.editor.saved')}</p>
             )}
             <button
               onClick={handleSave}
               disabled={saving}
               className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-gray-800"
             >
-              {saving ? 'Saving…' : 'Save template'}
+              {saving ? t('common.saving') : t('templates.editor.saveTemplate')}
             </button>
           </div>
         </div>

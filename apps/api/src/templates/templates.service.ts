@@ -19,6 +19,7 @@ import { Document, DocumentDocument } from '../documents/document.schema';
 import { StorageService } from '../storage/storage.service';
 import { AiService, type ExtractedTemplateField } from '../ai/ai.service';
 import { fieldLabelAppearsInPdfText } from '../ai/pdf-field-label';
+import { belongsToSigningBlock, isSignaturePlaceholder } from '../ai/field-kind';
 import {
   ConfirmTemplateUploadDto,
   CreateTemplateDto,
@@ -115,6 +116,7 @@ export class TemplatesService {
         y: f.y,
         width: f.width,
         height: f.height,
+        referenceValue: f.referenceValue,
       })),
     };
   }
@@ -239,22 +241,33 @@ export class TemplatesService {
       [],
       'saved_template',
     );
-    const filtered = extracted.filter((field) =>
-      fieldLabelAppearsInPdfText(field.label, pdfText),
+    const filtered = extracted.filter(
+      (field) =>
+        fieldLabelAppearsInPdfText(field.label, pdfText) &&
+        // Signature spots belong to the template's signature layer, not here.
+        !isSignaturePlaceholder(field.label),
     );
     const extractedFields = buildPdfFormFieldsFromExtracted(filtered);
+    const extractedByPlacementKey = new Map(
+      extractedFields.map((f) => [`${f.pageNumber}:${f.label.trim().toLowerCase()}`, f]),
+    );
 
-    const existing = (template.formFields ?? []).map((f) => ({
-      id: f.id,
-      label: f.label,
-      type: f.type,
-      section: f.section,
-      pageNumber: f.pageNumber,
-      x: f.x,
-      y: f.y,
-      width: f.width,
-      height: f.height,
-    }));
+    const existing = (template.formFields ?? []).map((f) => {
+      const key = `${f.pageNumber}:${f.label.trim().toLowerCase()}`;
+      const rematch = extractedByPlacementKey.get(key);
+      return {
+        id: f.id,
+        label: f.label,
+        type: f.type,
+        section: f.section,
+        pageNumber: f.pageNumber,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        referenceValue: rematch?.referenceValue ?? f.referenceValue ?? null,
+      };
+    });
     const existingIds = new Set(existing.map((f) => f.id));
     const existingPlacementKeys = new Set(
       existing.map((f) => `${f.pageNumber}:${f.label.trim().toLowerCase()}`),
@@ -306,7 +319,14 @@ export class TemplatesService {
     if (fields.length === 0) {
       fields = await this.aiService.deriveTemplateFieldsFromPdf(pdfBuffer);
     }
-    return { fields };
+    // Keep this lane to signing blocks so data fields don't land on the
+    // signature layer. If nothing looks like a signing block the detection was
+    // probably off-target, and dropping everything would be worse than showing
+    // the raw result for the user to correct.
+    const signingOnly = fields.filter((field) =>
+      belongsToSigningBlock(field.label),
+    );
+    return { fields: signingOnly.length > 0 ? signingOnly : fields };
   }
 
   /** Copy document PDF + placed signature fields into a reusable PDF template. */
@@ -428,6 +448,7 @@ export class TemplatesService {
         y: f.y,
         width: f.width,
         height: f.height,
+        referenceValue: f.referenceValue,
       })),
       createdAt: (template as any).createdAt?.toISOString() ?? new Date().toISOString(),
       updatedAt: (template as any).updatedAt?.toISOString() ?? new Date().toISOString(),

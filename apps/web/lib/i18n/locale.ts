@@ -9,7 +9,7 @@ export function parseLocale(value: string | null | undefined): Locale | null {
 }
 
 export function localeFromAcceptLanguage(header: string | null | undefined): Locale {
-  if (!header) return 'en';
+  if (!header) return 'he';
   const languages = header
     .split(',')
     .map((part) => part.split(';')[0]?.trim().toLowerCase())
@@ -20,7 +20,7 @@ export function localeFromAcceptLanguage(header: string | null | undefined): Loc
     if (language.startsWith('en')) return 'en';
   }
 
-  return 'en';
+  return 'he';
 }
 
 export function localeDirection(locale: Locale): 'ltr' | 'rtl' {

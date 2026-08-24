@@ -402,6 +402,44 @@ test('creates a Haknasot document through the mocked wizard flow', async ({
   ).toBe(true);
 });
 
+test('template flow can continue without attaching a contract', async ({
+  page,
+}) => {
+  const apiCalls: ApiCall[] = [];
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('docflow-locale', 'en');
+  });
+  await installPdfMock(page);
+  await installApiMocks(page, apiCalls);
+
+  await gotoApp(page, '/documents/new');
+
+  await expect(page.getByRole('button', { name: 'Start form' })).toBeEnabled();
+  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Start form' }).click({ force: true });
+
+  await expect(
+    page.getByRole('heading', { name: 'Attach the contract' }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  await page
+    .getByRole('button', { name: 'Continue without a contract' })
+    .click();
+
+  // The form step is reached without uploading anything.
+  await expect(
+    page.getByRole('button', { name: 'Fill automatically' }),
+  ).toBeVisible({ timeout: 20_000 });
+
+  expect(
+    apiCalls.some((call) => call.pathname.includes('/source-contract')),
+  ).toBe(false);
+  expect(
+    apiCalls.some((call) => call.pathname.endsWith('/summarize')),
+  ).toBe(false);
+});
+
 test('Haknasot form step exposes checkbox fields and saves them', async ({
   page,
 }) => {

@@ -21,6 +21,7 @@ import {
   loadPdfTextLines,
   normalizeExtractedFieldCoords,
   remapExtractedPageNumbers,
+  resolveFieldReferenceValues,
   type PdfTextLine,
 } from './pdf-field-anchors';
 
@@ -55,7 +56,7 @@ function clampPercent(value: unknown, min: number, max: number): number | null {
   return Math.min(max, Math.max(min, scaled));
 }
 
-function normalizeExtractedTemplateFields(
+export function normalizeExtractedTemplateFields(
   rawFields: unknown,
   pageCount: number,
 ): ExtractedTemplateField[] {
@@ -74,6 +75,8 @@ function normalizeExtractedTemplateFields(
       const y = clampPercent(record.y, 0, 99);
       const width = clampPercent(record.width, 1, 100);
       const height = clampPercent(record.height, 1, 100);
+      const value =
+        typeof record.value === 'string' && record.value.trim() ? record.value.trim() : undefined;
 
       if (!label || !Number.isInteger(pageNumber) || pageNumber < 1) return null;
       if (pageCount > 0 && pageNumber > pageCount) return null;
@@ -86,6 +89,7 @@ function normalizeExtractedTemplateFields(
         y: Number(y.toFixed(2)),
         width: Number(width.toFixed(2)),
         height: Number(height.toFixed(2)),
+        ...(value ? { value } : {}),
       });
     })
     .filter((field): field is ExtractedTemplateField => field !== null);
@@ -137,28 +141,38 @@ function buildTemplateSignerHintsText(
 }
 
 function fieldExtractionSystemPrompt(context: PdfFieldExtractionContext): string {
-  const base =
+  // Only the JSON shape is shared. Signature hunting and data-field mapping
+  // want opposite things — telling the model to look for blank signing lines
+  // makes it return nothing for an already filled-in form.
+  const shape =
     'Return ONLY a JSON object with key "fields". Each field must have: ' +
-    'label, pageNumber, x, y, width, height. Coordinates are percentages 0–100 ' +
-    '(not 0–1) from the top-left corner of that PDF page. Put the box over the blank ' +
-    'line or dash area where the user signs, not over the printed label text. ' +
-    'Typical signature box: width 15–40, height 4–8. Use the exact pageNumber given for each image. ' +
+    'label, pageNumber, x, y, width, height, and an optional "value". ' +
+    'Coordinates are percentages 0–100 (not 0–1) from the top-left corner of ' +
+    'that PDF page. Use the exact pageNumber given for each image. ' +
     'Keep labels in the document language. Remove duplicates.';
 
   if (context === 'uploaded_document') {
     return (
       'You detect fillable or signable fields in uploaded PDF page images. ' +
-      base +
-      ' Include ONLY fields you can see on these pages. Each label must be taken from text printed on the document (e.g. next to a blank line). ' +
+      shape +
+      ' Put the box over the blank line or dash area where the user signs, not over the printed label text. ' +
+      'Typical signature box: width 15–40, height 4–8. ' +
+      'Include ONLY fields you can see on these pages. Each label must be taken from text printed on the document (e.g. next to a blank line). ' +
       'Never invent fields or reuse role names from outside this document. Do not add municipal approval rows unless they appear on these pages.'
     );
   }
 
   return (
-    'You detect fillable or signable fields in PDF template page images. ' +
-    base +
-    ' Include ONLY fields visible on these pages. Each label must come from text printed on the document. ' +
-    'Never invent fields or reuse names from outside this PDF.'
+    'You map the data fields of a PDF form so they can be filled in later. ' +
+    shape +
+    ' Treat every labelled value in the document as a field, whether it is currently filled in or blank. ' +
+    'Put the box over the value itself — the cell, box or line that holds the data — not over the printed label text. ' +
+    'If a page contains a table with repeating rows/columns (e.g. an area breakdown, a checklist, a signature-block table), ' +
+    'emit ONE field per individual data cell — never one field per row or per whole table. ' +
+    'Skip pure header/label cells (column titles, row category names are not fields). ' +
+    'Label each cell field by combining its row label and column header, e.g. "מרתף – שטח שירות (מ״ר)", so cells never collide. ' +
+    'For every field, also set "value" to the literal text visible at that location, or omit "value" if the cell is blank. ' +
+    'Each label must come from text printed on the document. Never invent fields.'
   );
 }
 
@@ -534,7 +548,7 @@ export class AiService {
     const userIntro =
       context === 'uploaded_document'
         ? 'Extract every visible signature, date, initials, or fill-in blank from these uploaded document pages.'
-        : 'Extract every visible signature, approval, date, initials, or fill-in field from these PDF template pages.';
+        : 'Map every data field on these form pages: header details, each labelled value, and every individual data cell of every table. Include the value currently shown in each field.';
     const systemPrompt = fieldExtractionSystemPrompt(context);
     const userPrompt = [userIntro, signerHintsText].filter(Boolean).join('\n\n');
 
@@ -564,61 +578,85 @@ export class AiService {
         process.env.OPENAI_VISION_MODEL ??
         process.env.OPENAI_MODEL ??
         'gpt-4o-mini';
-      const pageBlocks = screenshots.flatMap((page) => {
-        const n = page.pageNumber;
-        return [
-          {
-            type: 'text' as const,
-            text:
-              `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
-              'x,y,width,height are percents (0–100) of this page, origin top-left, box on the blank/sign line.',
-          },
-          {
-            type: 'image_url' as const,
-            image_url: { url: page.dataUrl, detail: 'high' as const },
-          },
-        ];
-      });
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: userPrompt,
-                },
-                ...pageBlocks,
-              ],
-            },
-          ],
-        }),
-      });
+      const boxHint =
+        context === 'uploaded_document'
+          ? 'box on the blank/sign line'
+          : 'box over the value itself — the cell, box or line holding the data — not over its printed label';
 
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
+      // One request per page. Sending every page in a single call makes the
+      // model answer for the first page and quietly ignore the rest.
+      const perPage = await Promise.all(
+        screenshots.map(async (page) => {
+          const n = page.pageNumber;
+          const res = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              temperature: 0,
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: systemPrompt },
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: userPrompt },
+                    {
+                      type: 'text',
+                      text:
+                        `PDF page ${n} of ${totalPages}. Return only fields on this page with pageNumber=${n}. ` +
+                        `x,y,width,height are percents (0–100) of this page, origin top-left, ${boxHint}.`,
+                    },
+                    {
+                      type: 'image_url',
+                      image_url: { url: page.dataUrl, detail: 'high' },
+                    },
+                  ],
+                },
+              ],
+            }),
+          });
+
+          if (!res.ok) {
+            const errBody = await res.text().catch(() => '');
+            return {
+              fields: [] as unknown[],
+              error: `page ${n}: ${res.status} ${errBody.slice(0, 120)}`,
+            };
+          }
+
+          const data = (await res.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const pageRaw = data.choices?.[0]?.message?.content?.trim();
+          if (!pageRaw) return { fields: [] as unknown[], error: null };
+          try {
+            const parsed = JSON.parse(pageRaw) as { fields?: unknown };
+            return {
+              fields: Array.isArray(parsed.fields) ? parsed.fields : [],
+              error: null,
+            };
+          } catch {
+            return { fields: [] as unknown[], error: null };
+          }
+        }),
+      );
+
+      // One bad page shouldn't lose the whole document, but if every page
+      // failed the caller deserves the error rather than an empty result.
+      const errors = perPage
+        .map((p) => p.error)
+        .filter((e): e is string => e !== null);
+      if (errors.length === screenshots.length) {
         throw new InternalServerErrorException(
-          `AI field extraction failed (${res.status}): ${errBody.slice(0, 200)}`,
+          `AI field extraction failed (${errors[0]})`,
         );
       }
 
-      const data = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      raw = data.choices?.[0]?.message?.content?.trim();
+      raw = JSON.stringify({ fields: perPage.flatMap((p) => p.fields) });
     }
     const maxPage = pageCount ?? pagesToInspect.at(-1) ?? MAX_TEMPLATE_FIELD_PAGES;
 
@@ -628,7 +666,16 @@ export class AiService {
         let fields = normalizeExtractedTemplateFields(parsed.fields, maxPage);
         fields = remapExtractedPageNumbers(fields, pagesToInspect);
         if (textLines.length > 0) {
-          fields = anchorFieldsToPdfText(fields, textLines);
+          if (context === 'uploaded_document') {
+            // Signature hunting: snap the box onto the blank/dash line whose
+            // printed label matches, which is where the signature belongs.
+            fields = anchorFieldsToPdfText(fields, textLines);
+          } else {
+            // Data-field mapping: vision already points at the value. Anchoring
+            // would drag the box onto the field's *label*, and the reference
+            // value read there would be the label text instead of the value.
+            fields = resolveFieldReferenceValues(fields, textLines);
+          }
         }
         if (fields.length > 0) return fields;
       } catch {

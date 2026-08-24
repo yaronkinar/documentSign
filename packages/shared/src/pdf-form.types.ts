@@ -11,4 +11,6 @@ export interface PdfFormFieldTemplate {
   y: number;
   width: number;
   height: number;
+  /** Exact value found at this field's location in the source PDF, if any — shown as copyable reference text when filling a new document. */
+  referenceValue?: string | null;
 }

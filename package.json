@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "npm run copy-pdf-worker -w web && npx concurrently -n api,web -c blue,green -k \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run start:dev -w api",
+    "dev:api:nowatch": "npm run build:shared && npm run build:api && node --enable-source-maps apps/api/dist/main",
+    "dev:nowatch": "npm run copy-pdf-worker -w web && npx concurrently -n api,web -c blue,green -k \"npm run dev:api:nowatch\" \"npm run dev:web\"",
     "dev:web": "npm run dev -w web",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --config=playwright.ci.config.ts",
